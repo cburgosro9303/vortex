@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vortex-core",
+    "crates/vortex-server",
+    "crates/vortex-sources",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["IUMotion Labs Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/iumotion/vortex-config"
+rust-version = "1.92.0"
+
+[workspace.dependencies]
+thiserror = "2.0.17"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+
+# Crates internos
+vortex-core = { path = "crates/vortex-core" }
