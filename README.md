@@ -240,6 +240,9 @@ vortex-config/
 │   │   ├── middleware/     # RequestId, Logging
 │   │   └── response/       # Response formatters
 │   └── vortex-sources/     # Configuration backends registry
+├── deployment/             # Docker and deployment configs
+│   ├── Dockerfile          # Multi-stage production build
+│   └── docker-compose.yml  # Local deployment
 ├── .github/workflows/      # CI pipeline
 ├── docs/                   # Documentation and planning
 └── Cargo.toml              # Workspace manifest
@@ -282,6 +285,166 @@ cargo clippy --workspace --all-targets -- -D warnings
 # Security audit
 cargo audit
 ```
+
+## Deployment
+
+### Docker
+
+The project includes a multi-stage Dockerfile optimized for production deployments.
+
+#### Build the Image
+
+```bash
+# From the project root
+docker build -f deployment/Dockerfile -t vortex-config:latest .
+
+# With version tag
+docker build -f deployment/Dockerfile -t vortex-config:0.1.0 .
+```
+
+#### Run the Container
+
+```bash
+# Basic run
+docker run -d -p 8888:8888 --name vortex-config vortex-config:latest
+
+# With environment variables
+docker run -d -p 8888:8888 \
+  -e VORTEX_PORT=8888 \
+  -e RUST_LOG=info \
+  -v vortex-repos:/var/lib/vortex/repos \
+  --name vortex-config \
+  vortex-config:latest
+```
+
+#### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VORTEX_HOST` | `0.0.0.0` | Host address to bind |
+| `VORTEX_PORT` | `8888` | Port to listen on |
+| `RUST_LOG` | `info` | Log level (`error`, `warn`, `info`, `debug`, `trace`) |
+
+### Docker Compose
+
+For local development or simple deployments:
+
+```bash
+cd deployment
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+The `docker-compose.yml` includes:
+- Persistent volume for cloned repositories
+- Health check configuration
+- Automatic restart policy
+
+### Production Deployment
+
+#### Kubernetes
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vortex-config
+  labels:
+    app: vortex-config
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vortex-config
+  template:
+    metadata:
+      labels:
+        app: vortex-config
+    spec:
+      containers:
+      - name: vortex-config
+        image: vortex-config:latest
+        ports:
+        - containerPort: 8888
+        env:
+        - name: VORTEX_PORT
+          value: "8888"
+        - name: RUST_LOG
+          value: "info"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8888
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8888
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        volumeMounts:
+        - name: repos
+          mountPath: /var/lib/vortex/repos
+      volumes:
+      - name: repos
+        persistentVolumeClaim:
+          claimName: vortex-repos-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vortex-config
+spec:
+  selector:
+    app: vortex-config
+  ports:
+  - port: 8888
+    targetPort: 8888
+  type: ClusterIP
+```
+
+#### Production Considerations
+
+1. **High Availability**: Run multiple replicas behind a load balancer
+2. **Persistent Storage**: Use a persistent volume for cloned Git repositories to avoid re-cloning on pod restarts
+3. **Git Credentials**: Use Kubernetes secrets for Git authentication
+   ```yaml
+   env:
+   - name: GIT_USERNAME
+     valueFrom:
+       secretKeyRef:
+         name: git-credentials
+         key: username
+   - name: GIT_PASSWORD
+     valueFrom:
+       secretKeyRef:
+         name: git-credentials
+         key: password
+   ```
+4. **Resource Limits**: Adjust based on repository size and request volume
+5. **Logging**: Configure log aggregation (e.g., Fluentd, Loki)
+6. **Monitoring**: Expose metrics for Prometheus (planned feature)
+
+#### Security Best Practices
+
+- The container runs as non-root user `vortex` (UID 1000)
+- Use read-only root filesystem where possible
+- Mount secrets as read-only volumes
+- Use network policies to restrict traffic
+- Enable TLS termination at the ingress/load balancer level
 
 ## Architecture
 

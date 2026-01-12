@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  vortex-server:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    image: vortex-config:latest
+    container_name: vortex-config
+    ports:
+      - "8888:8888"
+    environment:
+      - VORTEX_HOST=0.0.0.0
+      - VORTEX_PORT=8888
+      - RUST_LOG=info
+    volumes:
+      # Persistent storage for cloned repositories
+      - vortex-repos:/var/lib/vortex/repos
+      # Optional: mount configuration file
+      # - ./config.yml:/etc/vortex/config.yml:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  vortex-repos:
+    driver: local
