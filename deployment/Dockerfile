@@ -34,7 +34,7 @@ FROM alpine:3.21 AS runtime
 
 # Install only essential runtime dependencies
 # - ca-certificates: for HTTPS Git clones
-# - git: required for repository operations
+# - git: REQUIRED - Vortex uses system git CLI for all repository operations
 # - libgcc: required for Rust panic unwinding
 RUN apk add --no-cache \
     ca-certificates \
