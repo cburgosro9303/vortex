@@ -61,10 +61,10 @@
 - ✅ Cold start < 500ms
 
 ### Epic 4: Git Backend (100% ✅)
-**Entregado:** Backend Git con gix, refresh automático, resolución Spring-compatible
+**Entregado:** Backend Git con Git CLI, refresh automático, resolución Spring-compatible
 
 **Funcionalidades:**
-- ✅ Clone/pull de repositorios Git (usando gix - pure Rust)
+- ✅ Clone/pull de repositorios Git (usando Git CLI del sistema)
 - ✅ Checkout de branches, tags, commits
 - ✅ URL encoding support (`feature%2Fmy-branch`)
 - ✅ Autenticación básica (usuario/contraseña)
@@ -227,7 +227,7 @@ curl http://localhost:8888/metrics
 | **Lenguaje** | Rust | 1.92+ (edition 2024) |
 | **Runtime Async** | Tokio | 1.x |
 | **HTTP Framework** | Axum | 0.8.8 |
-| **Git** | gix | 0.66 (pure Rust) |
+| **Git** | Git CLI (system) | 2.x+ required |
 | **Cache** | Moka | 0.12.12 |
 | **Serialización** | serde, serde_json, serde_yaml | 1.x |
 | **Logging** | tracing | 0.1 |
@@ -294,9 +294,9 @@ curl http://localhost:8888/metrics
 **Decisión:** Usar Axum para el servidor HTTP
 **Razón:** Ergonómico, type-safe, integración Tower, async nativo
 
-### ADR-003: gix como Librería Git
-**Decisión:** Usar gix (gitoxide) en lugar de git2
-**Razón:** Pure Rust, mejor performance, API idiomática, no requiere libgit2/C
+### ADR-003: Git CLI como Implementación Git
+**Decisión:** Usar Git CLI del sistema en lugar de librerías Rust (gix/git2)
+**Razón:** Máxima compatibilidad, simplicidad, madurez del CLI git, fácil debugging, sin dependencias C. Operaciones se ejecutan en `spawn_blocking` para no bloquear el runtime async. Ver ADR-004 en docs/planning/04-git-backend/index.md para detalles completos.
 
 ### ADR-004: Moka como Cache
 **Decisión:** Usar Moka para cache en memoria

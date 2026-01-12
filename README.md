@@ -60,6 +60,10 @@ curl http://localhost:8888/foo/dev | jq
 
 ### From Source
 
+**Prerequisites:**
+- Rust 1.92+ (edition 2024)
+- Git 2.x+ installed on system
+
 ```bash
 # Clone and build
 git clone https://github.com/cburgosro9303/vortex-config.git

@@ -7,7 +7,7 @@
 //!
 //! ## Features
 //!
-//! - Pure Rust Git implementation via `gix`
+//! - Git operations via system `git` CLI for maximum compatibility
 //! - Async trait-based configuration source abstraction
 //! - Support for branches, tags, and commit references
 //! - Background refresh with configurable intervals
