@@ -1,37 +1,42 @@
+# syntax=docker/dockerfile:1.6
 # =============================================================================
 # Vortex Config Server - Optimized Multi-stage Dockerfile
 # =============================================================================
 # Final image: ~39MB (Alpine + git + binary)
 # Security: Non-root user, minimal attack surface, no unnecessary packages
+# Note: Distroless not viable - requires git command for repository operations
 
 # -----------------------------------------------------------------------------
-# Stage 1: Build with musl for static linking
+# Stage 1: Build with musl for Alpine compatibility
 # -----------------------------------------------------------------------------
 FROM rustlang/rust:nightly-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies (minimal)
+# Install minimal build dependencies
 RUN apk add --no-cache musl-dev
 
 # Copy workspace files
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 
-# Build the application in release mode
-RUN cargo build --release --package vortex-server
+# Build with cache mounts for faster rebuilds
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/target \
+    cargo build --release --locked --package vortex-server \
+    && cp /app/target/release/vortex-server /app/vortex-server
 
-# Strip the binary for smaller size
-RUN strip /app/target/release/vortex-server
+# Strip binary for smaller size
+RUN strip /app/vortex-server
 
 # -----------------------------------------------------------------------------
-# Stage 2: Minimal runtime
+# Stage 2: Minimal Alpine runtime
 # -----------------------------------------------------------------------------
 FROM alpine:3.21 AS runtime
 
 # Install only essential runtime dependencies
 # - ca-certificates: for HTTPS Git clones
-# - git: for repository operations (required by vortex-git)
+# - git: required for repository operations (vortex-git uses system git)
 # - libgcc: required for Rust panic unwinding
 RUN apk add --no-cache \
     ca-certificates \
@@ -48,7 +53,7 @@ RUN mkdir -p /var/lib/vortex/repos /etc/vortex \
     && chown -R vortex:vortex /var/lib/vortex /etc/vortex
 
 # Copy the binary from builder
-COPY --from=builder /app/target/release/vortex-server /usr/local/bin/vortex-server
+COPY --from=builder /app/vortex-server /usr/local/bin/vortex-server
 
 # Switch to non-root user
 USER vortex
@@ -56,14 +61,14 @@ USER vortex
 WORKDIR /home/vortex
 
 # Environment variables
-ENV VORTEX_HOST=0.0.0.0
-ENV VORTEX_PORT=8888
-ENV RUST_LOG=info
+ENV VORTEX_HOST=0.0.0.0 \
+    VORTEX_PORT=8888 \
+    RUST_LOG=info
 
 # Expose the default port
 EXPOSE 8888
 
-# Health check using wget (smaller than curl)
+# Health check using wget (included in busybox)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget -q --spider http://localhost:8888/health || exit 1
 
