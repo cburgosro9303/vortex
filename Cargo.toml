@@ -7,6 +7,16 @@ members = [
     "crates/vortex-sources",
 ]
 
+[package]
+name = "vortex-config"
+version = "1.0.0"
+edition = "2024"
+authors = ["IUMotion Labs Team"]
+license = "Polyform-Noncommercial-1.0.0"
+repository = "https://github.com/cburgosro9303/vortex-config"
+rust-version = "1.92.0"
+description = "Cloud-native configuration server compatible with Spring Cloud Config"
+
 [workspace.package]
 version = "1.0.0"
 edition = "2024"
