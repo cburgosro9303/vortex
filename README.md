@@ -36,9 +36,17 @@ A high-performance, cloud-native configuration server written in Rust. Designed 
   - YAML serialization/deserialization
   - Java `.properties` format support
 
+- **Git Backend**
+  - Clone and fetch Git repositories
+  - Branch, tag, and commit checkout support
+  - Spring Cloud Config file conventions (`{app}.yml`, `{app}-{profile}.yml`)
+  - Background refresh with configurable intervals
+  - Exponential backoff on failures
+  - Async operations with `tokio`
+
 ### Planned
 
-- Multiple backends (Git, S3, PostgreSQL)
+- Additional backends (S3, PostgreSQL)
 - Property-level access control (PLAC)
 - Real-time updates via WebSocket
 - Feature flags support
@@ -50,6 +58,7 @@ A high-performance, cloud-native configuration server written in Rust. Designed 
 
 - Rust 1.92+ (edition 2024)
 - Cargo
+- Git (for Git backend)
 
 ### Installation
 
@@ -76,6 +85,57 @@ async fn main() {
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
     run_server(addr).await.unwrap();
 }
+```
+
+### Using the Git Backend
+
+```rust
+use vortex_git::{GitBackend, GitBackendConfig, ConfigSource, ConfigQuery};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Configure the Git backend
+    let config = GitBackendConfig::builder()
+        .uri("https://github.com/your-org/config-repo.git")
+        .local_path("/tmp/config-repo")
+        .default_label("main")
+        .search_paths(vec!["config"])
+        .build()?;
+
+    // Create the backend (clones repository if needed)
+    let backend = GitBackend::new(config).await?;
+
+    // Fetch configuration
+    let query = ConfigQuery::new("myapp", vec!["dev", "local"]);
+    let result = backend.fetch(&query).await?;
+
+    println!("Config for {}: {} property sources",
+        result.name(),
+        result.property_sources().len()
+    );
+
+    Ok(())
+}
+```
+
+### Git Backend with Auto-Refresh
+
+```rust
+use vortex_git::{GitBackend, GitBackendConfig, RefreshConfig};
+use std::time::Duration;
+
+// Configure refresh settings
+let refresh_config = RefreshConfig {
+    interval: Duration::from_secs(30),
+    max_failures: 3,
+    backoff_multiplier: 2.0,
+    max_backoff: Duration::from_secs(300),
+};
+
+// Create backend with auto-refresh enabled
+let backend = GitBackend::with_auto_refresh(git_config, refresh_config).await?;
+
+// Backend will automatically fetch updates every 30 seconds
 ```
 
 ### API Usage Examples
@@ -106,15 +166,28 @@ curl http://localhost:8080/myapp/dev/feature%2Fmy-feature
   "name": "myapp",
   "profiles": ["dev"],
   "label": "main",
-  "version": null,
+  "version": "abc123def456",
   "state": null,
   "propertySources": [
     {
-      "name": "git:main:config/myapp.yml",
+      "name": "git:main:myapp-dev.yml",
+      "source": {
+        "server.port": 8081,
+        "logging.level": "DEBUG"
+      }
+    },
+    {
+      "name": "git:main:myapp.yml",
       "source": {
         "server.port": 8080,
-        "spring.application.name": "myapp",
-        "database.url": "jdbc:postgresql://localhost/mydb"
+        "spring.application.name": "myapp"
+      }
+    },
+    {
+      "name": "git:main:application.yml",
+      "source": {
+        "server.port": 8080,
+        "management.endpoints.enabled": true
       }
     }
   ]
@@ -151,16 +224,22 @@ let json = serde_json::to_string_pretty(&config)?;
 vortex-config/
 ├── crates/
 │   ├── vortex-core/        # Core domain types and traits
-│   │   ├── config/         # ConfigMap, ConfigValue
+│   │   ├── config/         # ConfigMap, ConfigValue, PropertySource
 │   │   ├── format/         # JSON, YAML, Properties serialization
 │   │   ├── merge/          # Deep merge strategies
 │   │   └── error.rs        # Error types
+│   ├── vortex-git/         # Git backend implementation
+│   │   ├── backend.rs      # GitBackend (implements ConfigSource)
+│   │   ├── repository/     # Git operations (clone, fetch, checkout)
+│   │   ├── reader/         # Config file parsing and resolution
+│   │   ├── source/         # ConfigSource trait, ConfigQuery, ConfigResult
+│   │   └── sync/           # Background refresh scheduler
 │   ├── vortex-server/      # HTTP server (Axum-based)
 │   │   ├── handlers/       # HTTP request handlers
 │   │   ├── extractors/     # Path, query, accept extractors
 │   │   ├── middleware/     # RequestId, Logging
 │   │   └── response/       # Response formatters
-│   └── vortex-sources/     # Configuration backends (WIP)
+│   └── vortex-sources/     # Configuration backends registry
 ├── .github/workflows/      # CI pipeline
 ├── docs/                   # Documentation and planning
 └── Cargo.toml              # Workspace manifest
@@ -185,7 +264,7 @@ cargo release # Build release version
 cargo test --workspace
 
 # Specific crate
-cargo test -p vortex-server
+cargo test -p vortex-git
 
 # With output
 cargo test --workspace -- --nocapture
@@ -233,10 +312,40 @@ cargo audit
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
+│                  ConfigSource Trait                      │
+│              (Abstraction for backends)                  │
+└─────────────────────────┬───────────────────────────────┘
+                          │
+          ┌───────────────┼───────────────┐
+          │               │               │
+          ▼               ▼               ▼
+┌─────────────────┐ ┌───────────┐ ┌───────────────┐
+│   GitBackend    │ │ S3Backend │ │ DBBackend     │
+│   (vortex-git)  │ │  (future) │ │   (future)    │
+└─────────────────┘ └───────────┘ └───────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────┐
 │                   Content Negotiation                    │
 │         (JSON / YAML / Properties based on Accept)       │
 └─────────────────────────────────────────────────────────┘
 ```
+
+## Git Backend Configuration
+
+The Git backend supports the following configuration options:
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `uri` | Git repository URL (HTTPS or SSH) | Required |
+| `local_path` | Local path for cloned repository | Required |
+| `default_label` | Default branch/tag when not specified | `main` |
+| `search_paths` | Directories to search for config files | Root |
+| `clone_timeout` | Timeout for clone operations | 120s |
+| `fetch_timeout` | Timeout for fetch operations | 30s |
+| `force_pull` | Force pull on existing repository | `false` |
+| `username` | Username for HTTPS auth | None |
+| `password` | Password/token for HTTPS auth | None |
 
 ## Spring Cloud Config Compatibility
 
@@ -253,6 +362,15 @@ spring:
       profile: dev
       label: main
 ```
+
+### File Resolution Order
+
+The Git backend resolves configuration files in the following order (highest priority first):
+
+1. `{application}-{profile}.yml` - App + profile specific
+2. `{application}.yml` - App specific
+3. `application-{profile}.yml` - Profile specific base
+4. `application.yml` - Base configuration
 
 ## Contributing
 

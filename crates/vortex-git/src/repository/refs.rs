@@ -117,7 +117,15 @@ impl GitRef {
 
         // Check for invalid characters
         for c in name.chars() {
-            if c.is_control() || c == ' ' || c == '~' || c == '^' || c == ':' || c == '?' || c == '*' || c == '[' {
+            if c.is_control()
+                || c == ' '
+                || c == '~'
+                || c == '^'
+                || c == ':'
+                || c == '?'
+                || c == '*'
+                || c == '['
+            {
                 return Err("reference name contains invalid characters");
             }
         }
@@ -196,10 +204,7 @@ mod tests {
     fn test_display() {
         assert_eq!(GitRef::branch("main").to_string(), "main");
         assert_eq!(GitRef::tag("v1.0.0").to_string(), "tags/v1.0.0");
-        assert_eq!(
-            GitRef::commit("a1b2c3d4e5f6").to_string(),
-            "a1b2c3d4"
-        );
+        assert_eq!(GitRef::commit("a1b2c3d4e5f6").to_string(), "a1b2c3d4");
     }
 
     #[test]

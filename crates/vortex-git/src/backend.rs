@@ -44,10 +44,8 @@ impl GitBackend {
         let commit = repository.checkout(&default_ref).await?;
         state.record_success(&commit);
 
-        let resolver = ConfigFileResolver::new(
-            config.local_path().clone(),
-            config.search_paths().to_vec(),
-        );
+        let resolver =
+            ConfigFileResolver::new(config.local_path().clone(), config.search_paths().to_vec());
 
         info!(
             "Git backend initialized: {} at commit {}",
@@ -121,19 +119,11 @@ impl ConfigSource for GitBackend {
         let sources = self.resolver.resolve(query, label)?;
 
         // Build result
-        let mut result = ConfigResult::new(
-            query.application(),
-            query.profiles().to_vec(),
-            label,
-        );
+        let mut result = ConfigResult::new(query.application(), query.profiles().to_vec(), label);
         result.set_version(&commit);
         result.add_property_sources(sources);
 
-        debug!(
-            "Resolved {} property sources for {}",
-            result.len(),
-            query
-        );
+        debug!("Resolved {} property sources for {}", result.len(), query);
 
         Ok(result)
     }

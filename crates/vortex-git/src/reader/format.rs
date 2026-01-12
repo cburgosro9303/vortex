@@ -106,8 +106,14 @@ mod tests {
 
     #[test]
     fn test_from_extension() {
-        assert_eq!(ConfigFormat::from_extension("yml"), Some(ConfigFormat::Yaml));
-        assert_eq!(ConfigFormat::from_extension("YML"), Some(ConfigFormat::Yaml));
+        assert_eq!(
+            ConfigFormat::from_extension("yml"),
+            Some(ConfigFormat::Yaml)
+        );
+        assert_eq!(
+            ConfigFormat::from_extension("YML"),
+            Some(ConfigFormat::Yaml)
+        );
         assert_eq!(
             ConfigFormat::from_extension("json"),
             Some(ConfigFormat::Json)

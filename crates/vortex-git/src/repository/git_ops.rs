@@ -78,7 +78,7 @@ impl GitRepository {
             RepoState::Ready => {
                 debug!("Repository already cloned at {:?}", self.local_path());
                 Ok(())
-            }
+            },
             RepoState::NotCloned => self.clone_repo().await,
             RepoState::Cloning | RepoState::Updating => Err(ConfigSourceError::Refreshing),
             RepoState::Error(msg) => Err(ConfigSourceError::unavailable(msg)),
@@ -98,11 +98,9 @@ impl GitRepository {
 
         info!("Cloning repository from {} to {:?}", uri, local_path);
 
-        let result = tokio::task::spawn_blocking(move || {
-            Self::clone_blocking(&uri, &local_path)
-        })
-        .await
-        .map_err(|e| ConfigSourceError::git(format!("Clone task failed: {}", e)))?;
+        let result = tokio::task::spawn_blocking(move || Self::clone_blocking(&uri, &local_path))
+            .await
+            .map_err(|e| ConfigSourceError::git(format!("Clone task failed: {}", e)))?;
 
         match result {
             Ok(()) => {
@@ -110,12 +108,12 @@ impl GitRepository {
                 *state = RepoState::Ready;
                 info!("Repository cloned successfully");
                 Ok(())
-            }
+            },
             Err(e) => {
                 let mut state = state.write();
                 *state = RepoState::Error(e.to_string());
                 Err(e)
-            }
+            },
         }
     }
 
@@ -157,11 +155,9 @@ impl GitRepository {
 
         info!("Fetching updates for repository at {:?}", local_path);
 
-        let result = tokio::task::spawn_blocking(move || {
-            Self::fetch_blocking(&local_path)
-        })
-        .await
-        .map_err(|e| ConfigSourceError::git(format!("Fetch task failed: {}", e)))?;
+        let result = tokio::task::spawn_blocking(move || Self::fetch_blocking(&local_path))
+            .await
+            .map_err(|e| ConfigSourceError::git(format!("Fetch task failed: {}", e)))?;
 
         match result {
             Ok(()) => {
@@ -169,13 +165,13 @@ impl GitRepository {
                 *state = RepoState::Ready;
                 info!("Repository fetched successfully");
                 Ok(())
-            }
+            },
             Err(e) => {
                 let mut state = state.write();
                 *state = RepoState::Ready;
                 warn!("Fetch failed: {}", e);
                 Err(e)
-            }
+            },
         }
     }
 
@@ -247,7 +243,7 @@ impl GitRepository {
                         return Err(ConfigSourceError::LabelNotFound(name.clone()));
                     }
                 }
-            }
+            },
             GitRef::Tag(name) => {
                 let tag_ref = format!("tags/{}", name);
                 let output = Command::new("git")
@@ -259,7 +255,7 @@ impl GitRepository {
                 if !output.status.success() {
                     return Err(ConfigSourceError::LabelNotFound(name.clone()));
                 }
-            }
+            },
             GitRef::Commit(sha) => {
                 let output = Command::new("git")
                     .args(["checkout", sha])
@@ -270,7 +266,7 @@ impl GitRepository {
                 if !output.status.success() {
                     return Err(ConfigSourceError::LabelNotFound(sha.clone()));
                 }
-            }
+            },
         }
 
         // Get the current commit SHA
@@ -287,7 +283,10 @@ impl GitRepository {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(ConfigSourceError::git(format!("Failed to get HEAD: {}", stderr)));
+            return Err(ConfigSourceError::git(format!(
+                "Failed to get HEAD: {}",
+                stderr
+            )));
         }
 
         let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();

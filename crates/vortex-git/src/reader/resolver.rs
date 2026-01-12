@@ -39,7 +39,11 @@ impl ConfigFileResolver {
     /// 2. {app}.yml
     /// 3. application-{profile}.yml
     /// 4. application.yml
-    pub fn resolve(&self, query: &ConfigQuery, label: &str) -> Result<Vec<PropertySource>, ConfigSourceError> {
+    pub fn resolve(
+        &self,
+        query: &ConfigQuery,
+        label: &str,
+    ) -> Result<Vec<PropertySource>, ConfigSourceError> {
         let mut sources = Vec::new();
 
         let effective_search_paths = if self.search_paths.is_empty() {
@@ -62,7 +66,9 @@ impl ConfigFileResolver {
 
             // 2. application-{profile}.yml
             for profile in query.profiles() {
-                if let Some(source) = self.try_read_config(&base, "application", Some(profile), label)? {
+                if let Some(source) =
+                    self.try_read_config(&base, "application", Some(profile), label)?
+                {
                     sources.push(source);
                 }
             }
@@ -74,7 +80,9 @@ impl ConfigFileResolver {
 
             // 4. {app}-{profile}.yml (highest priority)
             for profile in query.profiles() {
-                if let Some(source) = self.try_read_config(&base, query.application(), Some(profile), label)? {
+                if let Some(source) =
+                    self.try_read_config(&base, query.application(), Some(profile), label)?
+                {
                     sources.push(source);
                 }
             }
@@ -83,11 +91,7 @@ impl ConfigFileResolver {
         // Reverse so highest priority is first (Spring Cloud Config convention)
         sources.reverse();
 
-        debug!(
-            "Resolved {} property sources for {}",
-            sources.len(),
-            query
-        );
+        debug!("Resolved {} property sources for {}", sources.len(), query);
 
         Ok(sources)
     }
@@ -162,7 +166,11 @@ impl ConfigFileResolver {
     }
 
     /// Recursively finds configuration files.
-    fn find_config_files(&self, dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), ConfigSourceError> {
+    fn find_config_files(
+        &self,
+        dir: &Path,
+        files: &mut Vec<PathBuf>,
+    ) -> Result<(), ConfigSourceError> {
         if !dir.is_dir() {
             return Ok(());
         }
@@ -218,18 +226,10 @@ mod tests {
         .unwrap();
 
         // Create myapp.yml
-        fs::write(
-            dir.path().join("myapp.yml"),
-            "app:\n  name: myapp\n",
-        )
-        .unwrap();
+        fs::write(dir.path().join("myapp.yml"), "app:\n  name: myapp\n").unwrap();
 
         // Create myapp-dev.yml
-        fs::write(
-            dir.path().join("myapp-dev.yml"),
-            "app:\n  debug: true\n",
-        )
-        .unwrap();
+        fs::write(dir.path().join("myapp-dev.yml"), "app:\n  debug: true\n").unwrap();
 
         dir
     }

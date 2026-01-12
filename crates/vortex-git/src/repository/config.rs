@@ -323,9 +323,7 @@ mod tests {
 
     #[test]
     fn test_builder_missing_uri() {
-        let result = GitBackendConfig::builder()
-            .local_path("/tmp/repo")
-            .build();
+        let result = GitBackendConfig::builder().local_path("/tmp/repo").build();
 
         assert!(result.is_err());
     }

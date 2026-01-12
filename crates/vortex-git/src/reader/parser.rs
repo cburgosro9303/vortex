@@ -2,9 +2,9 @@
 
 use std::path::Path;
 
-use vortex_core::format::properties::PropertiesFormat;
-use vortex_core::format::FormatParser;
 use vortex_core::ConfigMap;
+use vortex_core::format::FormatParser;
+use vortex_core::format::properties::PropertiesFormat;
 
 use super::ConfigFormat;
 use crate::error::ConfigSourceError;
@@ -35,23 +35,19 @@ impl ConfigParser {
 
         let content = std::fs::read_to_string(path)?;
         Self::parse(&content, format).map_err(|e| match e {
-            ConfigSourceError::Parse { reason, .. } => {
-                ConfigSourceError::parse(path, reason)
-            }
+            ConfigSourceError::Parse { reason, .. } => ConfigSourceError::parse(path, reason),
             other => other,
         })
     }
 
     /// Parses YAML content.
     fn parse_yaml(content: &str) -> Result<ConfigMap, ConfigSourceError> {
-        ConfigMap::from_yaml(content)
-            .map_err(|e| ConfigSourceError::parse("", e.to_string()))
+        ConfigMap::from_yaml(content).map_err(|e| ConfigSourceError::parse("", e.to_string()))
     }
 
     /// Parses JSON content.
     fn parse_json(content: &str) -> Result<ConfigMap, ConfigSourceError> {
-        ConfigMap::from_json(content)
-            .map_err(|e| ConfigSourceError::parse("", e.to_string()))
+        ConfigMap::from_json(content).map_err(|e| ConfigSourceError::parse("", e.to_string()))
     }
 
     /// Parses Java Properties content.
@@ -80,10 +76,7 @@ app:
 "#;
 
         let map = ConfigParser::parse(yaml, ConfigFormat::Yaml).unwrap();
-        assert_eq!(
-            map.get("server.port"),
-            Some(&ConfigValue::Integer(8080))
-        );
+        assert_eq!(map.get("server.port"), Some(&ConfigValue::Integer(8080)));
         assert_eq!(
             map.get("server.host"),
             Some(&ConfigValue::String("localhost".to_string()))
@@ -108,10 +101,7 @@ app:
         }"#;
 
         let map = ConfigParser::parse(json, ConfigFormat::Json).unwrap();
-        assert_eq!(
-            map.get("server.port"),
-            Some(&ConfigValue::Integer(8080))
-        );
+        assert_eq!(map.get("server.port"), Some(&ConfigValue::Integer(8080)));
         assert_eq!(
             map.get("server.host"),
             Some(&ConfigValue::String("localhost".to_string()))

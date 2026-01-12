@@ -139,8 +139,8 @@ mod tests {
 
     #[test]
     fn test_with_version() {
-        let result = ConfigResult::new("myapp", vec!["dev".to_string()], "main")
-            .with_version("abc123");
+        let result =
+            ConfigResult::new("myapp", vec!["dev".to_string()], "main").with_version("abc123");
         assert_eq!(result.version(), Some("abc123"));
     }
 
@@ -157,8 +157,8 @@ mod tests {
 
     #[test]
     fn test_serialization() {
-        let result = ConfigResult::new("myapp", vec!["dev".to_string()], "main")
-            .with_version("abc123");
+        let result =
+            ConfigResult::new("myapp", vec!["dev".to_string()], "main").with_version("abc123");
 
         let json = serde_json::to_string(&result).unwrap();
         assert!(json.contains("\"name\":\"myapp\""));

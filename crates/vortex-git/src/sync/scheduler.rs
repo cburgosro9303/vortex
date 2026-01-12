@@ -47,7 +47,6 @@ impl RefreshHandle {
     pub fn stop(&self) {
         let _ = self.shutdown_tx.send(true);
     }
-
 }
 
 impl Drop for RefreshHandle {
@@ -140,12 +139,12 @@ impl RefreshScheduler {
                 self.state.record_success(&commit);
                 self.reset_backoff();
                 debug!("Refresh successful, commit: {}", commit);
-            }
+            },
             Err(e) => {
                 self.state.record_failure(e.to_string());
                 self.increase_backoff();
                 warn!("Refresh failed: {}", e);
-            }
+            },
         }
     }
 
@@ -170,9 +169,8 @@ impl RefreshScheduler {
         let failure_count = self.state.failure_count();
 
         if failure_count >= self.config.max_failures {
-            let new_backoff = Duration::from_secs_f64(
-                backoff.as_secs_f64() * self.config.backoff_multiplier,
-            );
+            let new_backoff =
+                Duration::from_secs_f64(backoff.as_secs_f64() * self.config.backoff_multiplier);
             *backoff = new_backoff.min(self.config.max_backoff);
 
             debug!(
@@ -191,10 +189,10 @@ impl RefreshScheduler {
             Ok(commit) => {
                 self.state.record_success(commit);
                 self.reset_backoff();
-            }
+            },
             Err(e) => {
                 self.state.record_failure(e.to_string());
-            }
+            },
         }
 
         result
