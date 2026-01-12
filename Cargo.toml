@@ -10,7 +10,7 @@ members = [
 version = "0.1.0"
 edition = "2024"
 authors = ["IUMotion Labs Team"]
-license = "MIT OR Apache-2.0"
+license = "Polyform-Noncommercial-1.0.0"
 repository = "https://github.com/cburgosro9303/vortex-config"
 rust-version = "1.92.0"  # Minimo requerido para edition 2024
 

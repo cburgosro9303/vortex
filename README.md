@@ -1,8 +1,8 @@
 # Vortex Config
 
 [![CI](https://github.com/cburgosro9303/vortex-config/actions/workflows/ci.yml/badge.svg)](https://github.com/cburgosro9303/vortex-config/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
+[![License](https://img.shields.io/badge/license-Polyform%20NC%201.0-green.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.92%2B-orange.svg)](https://www.rust-lang.org/)
 
 A high-performance, cloud-native configuration server written in Rust. Designed as a drop-in replacement for Spring Cloud Config Server.
 
@@ -267,9 +267,12 @@ spring:
 
 ## License
 
-Licensed under either of:
+This project is licensed under the [Polyform Noncommercial License 1.0.0](LICENSE).
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+### What this means
 
-at your option.
+- **Allowed**: Personal use, research, education, non-profit use, modification, and non-commercial distribution
+- **Not allowed**: Commercial use or distribution without explicit permission from the author
+- **No liability**: The author is not responsible for any damages arising from the use of this software
+
+For commercial licensing inquiries, please contact the author ([@cburgosro9303](https://github.com/cburgosro9303)).
