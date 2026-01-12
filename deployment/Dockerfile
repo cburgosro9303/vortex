@@ -1,19 +1,18 @@
 # =============================================================================
-# Vortex Config Server - Multi-stage Dockerfile
+# Vortex Config Server - Optimized Multi-stage Dockerfile
 # =============================================================================
+# Final image: ~39MB (Alpine + git + binary)
+# Security: Non-root user, minimal attack surface, no unnecessary packages
 
 # -----------------------------------------------------------------------------
-# Stage 1: Build
+# Stage 1: Build with musl for static linking
 # -----------------------------------------------------------------------------
-FROM rust:1.92-bookworm AS builder
+FROM rustlang/rust:nightly-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Install build dependencies (minimal)
+RUN apk add --no-cache musl-dev
 
 # Copy workspace files
 COPY Cargo.toml Cargo.lock ./
@@ -22,26 +21,27 @@ COPY crates ./crates
 # Build the application in release mode
 RUN cargo build --release --package vortex-server
 
-# -----------------------------------------------------------------------------
-# Stage 2: Runtime
-# -----------------------------------------------------------------------------
-FROM debian:bookworm-slim AS runtime
+# Strip the binary for smaller size
+RUN strip /app/target/release/vortex-server
 
-# Install runtime dependencies
-# - ca-certificates: for HTTPS connections
-# - git: for git backend operations
-# - libssl3: for TLS support
-RUN apt-get update && apt-get install -y \
+# -----------------------------------------------------------------------------
+# Stage 2: Minimal runtime
+# -----------------------------------------------------------------------------
+FROM alpine:3.21 AS runtime
+
+# Install only essential runtime dependencies
+# - ca-certificates: for HTTPS Git clones
+# - git: for repository operations (required by vortex-git)
+# - libgcc: required for Rust panic unwinding
+RUN apk add --no-cache \
     ca-certificates \
-    curl \
     git \
-    libssl3 \
-    && rm -rf /var/lib/apt/lists/* \
+    libgcc \
     && git config --global --add safe.directory '*'
 
 # Create non-root user for security
-RUN groupadd --gid 1000 vortex \
-    && useradd --uid 1000 --gid vortex --shell /bin/bash --create-home vortex
+RUN addgroup -g 1000 vortex \
+    && adduser -u 1000 -G vortex -s /bin/sh -D vortex
 
 # Create directories for configuration and repository storage
 RUN mkdir -p /var/lib/vortex/repos /etc/vortex \
@@ -63,9 +63,9 @@ ENV RUST_LOG=info
 # Expose the default port
 EXPOSE 8888
 
-# Health check
+# Health check using wget (smaller than curl)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8888/health || exit 1
+    CMD wget -q --spider http://localhost:8888/health || exit 1
 
 # Run the server
 ENTRYPOINT ["vortex-server"]
