@@ -46,7 +46,7 @@ pub async fn invalidate_all(State(state): State<AppState>) -> Result<Response, A
                 }),
             )
                 .into_response())
-        }
+        },
         None => Err(AppError::Internal("Cache is not enabled".to_string())),
     }
 }
@@ -72,11 +72,14 @@ pub async fn invalidate_by_app(
                 StatusCode::OK,
                 Json(InvalidateResponse {
                     invalidated: result.count,
-                    message: format!("Invalidated {} cache entries for app '{}'", result.count, path.app),
+                    message: format!(
+                        "Invalidated {} cache entries for app '{}'",
+                        result.count, path.app
+                    ),
                 }),
             )
                 .into_response())
-        }
+        },
         None => Err(AppError::Internal("Cache is not enabled".to_string())),
     }
 }
@@ -90,7 +93,9 @@ pub async fn invalidate_by_app_profile(
 ) -> Result<Response, AppError> {
     match state.cache() {
         Some(cache) => {
-            let result = cache.invalidate_by_app_profile(&path.app, &path.profile).await;
+            let result = cache
+                .invalidate_by_app_profile(&path.app, &path.profile)
+                .await;
 
             tracing::info!(
                 app = %path.app,
@@ -110,7 +115,7 @@ pub async fn invalidate_by_app_profile(
                 }),
             )
                 .into_response())
-        }
+        },
         None => Err(AppError::Internal("Cache is not enabled".to_string())),
     }
 }
@@ -150,7 +155,7 @@ pub async fn invalidate_by_app_profile_label(
                 }),
             )
                 .into_response())
-        }
+        },
         None => Err(AppError::Internal("Cache is not enabled".to_string())),
     }
 }

@@ -53,12 +53,12 @@ pub async fn get_config(
                 })
                 .await
                 .map_err(|e: CacheError| AppError::Internal(e.to_string()))?
-        }
+        },
         None => {
             // No cache, fetch directly
             let response = fetch_config(state.config_source(), &path.app, profiles, &label).await?;
             Arc::new(response)
-        }
+        },
     };
 
     to_format(response.as_ref(), format).map_err(|e| AppError::Internal(format!("{:?}", e)))
@@ -90,68 +90,74 @@ pub async fn get_config_with_label(
     validate_label(&label)?;
 
     // Get configuration (with cache if enabled)
-    let response = match state.cache() {
-        Some(cache) => {
-            // Create cache key
-            let cache_key = CacheKey::new(&path.app, &profiles.join(","), &label);
+    let response =
+        match state.cache() {
+            Some(cache) => {
+                // Create cache key
+                let cache_key = CacheKey::new(&path.app, &profiles.join(","), &label);
 
-            // Try to get from cache or fetch from backend
-            match cache
-                .get_or_insert_with(cache_key.clone(), || {
-                    let config_source = state.config_source();
-                    let app = path.app.clone();
-                    let profiles = profiles.clone();
-                    let label = label.clone();
-                    async move { fetch_config(config_source, &app, profiles, &label).await }
-                })
-                .await
-            {
-                Ok(response) => response,
-                Err(_) if query.use_default_label => {
-                    // Fallback to default label
-                    let default_label = state.config_source().default_label().to_string();
-                    tracing::info!(
-                        original_label = %label,
-                        default_label = %default_label,
-                        "Label not found, falling back to default"
-                    );
+                // Try to get from cache or fetch from backend
+                match cache
+                    .get_or_insert_with(cache_key.clone(), || {
+                        let config_source = state.config_source();
+                        let app = path.app.clone();
+                        let profiles = profiles.clone();
+                        let label = label.clone();
+                        async move { fetch_config(config_source, &app, profiles, &label).await }
+                    })
+                    .await
+                {
+                    Ok(response) => response,
+                    Err(_) if query.use_default_label => {
+                        // Fallback to default label
+                        let default_label = state.config_source().default_label().to_string();
+                        tracing::info!(
+                            original_label = %label,
+                            default_label = %default_label,
+                            "Label not found, falling back to default"
+                        );
 
-                    let fallback_key = CacheKey::new(&path.app, &profiles.join(","), &default_label);
-                    cache
-                        .get_or_insert_with(fallback_key, || {
-                            let config_source = state.config_source();
-                            let app = path.app.clone();
-                            let profiles = profiles.clone();
-                            async move {
-                                fetch_config(config_source, &app, profiles, &default_label).await
-                            }
-                        })
-                        .await
-                        .map_err(|e: CacheError| AppError::Internal(e.to_string()))?
+                        let fallback_key =
+                            CacheKey::new(&path.app, &profiles.join(","), &default_label);
+                        cache
+                            .get_or_insert_with(fallback_key, || {
+                                let config_source = state.config_source();
+                                let app = path.app.clone();
+                                let profiles = profiles.clone();
+                                async move {
+                                    fetch_config(config_source, &app, profiles, &default_label)
+                                        .await
+                                }
+                            })
+                            .await
+                            .map_err(|e: CacheError| AppError::Internal(e.to_string()))?
+                    },
+                    Err(e) => return Err(AppError::Internal(e.to_string())),
                 }
-                Err(e) => return Err(AppError::Internal(e.to_string())),
-            }
-        }
-        None => {
-            // No cache, fetch directly with fallback logic
-            let response = match fetch_config(state.config_source(), &path.app, profiles.clone(), &label).await {
-                Ok(response) => response,
-                Err(_) if query.use_default_label => {
-                    let default_label = state.config_source().default_label();
-                    tracing::info!(
-                        original_label = %label,
-                        default_label = %default_label,
-                        "Label not found, falling back to default"
-                    );
-                    fetch_config(state.config_source(), &path.app, profiles, default_label)
+            },
+            None => {
+                // No cache, fetch directly with fallback logic
+                let response =
+                    match fetch_config(state.config_source(), &path.app, profiles.clone(), &label)
                         .await
-                        .map_err(|e| AppError::Internal(e.to_string()))?
-                }
-                Err(e) => return Err(AppError::Internal(e.to_string())),
-            };
-            Arc::new(response)
-        }
-    };
+                    {
+                        Ok(response) => response,
+                        Err(_) if query.use_default_label => {
+                            let default_label = state.config_source().default_label();
+                            tracing::info!(
+                                original_label = %label,
+                                default_label = %default_label,
+                                "Label not found, falling back to default"
+                            );
+                            fetch_config(state.config_source(), &path.app, profiles, default_label)
+                                .await
+                                .map_err(|e| AppError::Internal(e.to_string()))?
+                        },
+                        Err(e) => return Err(AppError::Internal(e.to_string())),
+                    };
+                Arc::new(response)
+            },
+        };
 
     to_format(response.as_ref(), format).map_err(|e| AppError::Internal(format!("{:?}", e)))
 }

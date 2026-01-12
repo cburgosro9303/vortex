@@ -118,7 +118,8 @@ impl ConfigCache {
             self.metrics.record_miss();
         }
 
-        self.metrics.record_operation_duration("get", start.elapsed());
+        self.metrics
+            .record_operation_duration("get", start.elapsed());
         self.update_entry_gauge();
 
         result
@@ -322,7 +323,10 @@ mod tests {
         let key = CacheKey::new("myapp", "prod", "main");
 
         cache
-            .insert(key.clone(), ConfigResponse::empty("myapp", vec!["prod".to_string()]))
+            .insert(
+                key.clone(),
+                ConfigResponse::empty("myapp", vec!["prod".to_string()]),
+            )
             .await;
         assert!(cache.get(&key).await.is_some());
 
@@ -342,7 +346,10 @@ mod tests {
         for i in 0..10 {
             let key = CacheKey::new(&format!("app{}", i), "prod", "main");
             cache
-                .insert(key.clone(), ConfigResponse::empty("test", vec!["prod".to_string()]))
+                .insert(
+                    key.clone(),
+                    ConfigResponse::empty("test", vec!["prod".to_string()]),
+                )
                 .await;
             // Verify each entry was inserted
             assert!(cache.get(&key).await.is_some());

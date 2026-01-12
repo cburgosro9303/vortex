@@ -1,6 +1,9 @@
 use std::net::SocketAddr;
 
-use axum::{middleware, Router, routing::{delete, get}};
+use axum::{
+    Router, middleware,
+    routing::{delete, get},
+};
 use metrics_exporter_prometheus::PrometheusHandle;
 use tower::ServiceBuilder;
 

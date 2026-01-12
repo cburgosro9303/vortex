@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 use vortex_server::cache::{CacheConfig, CacheKey, ConfigCache};
@@ -43,7 +43,7 @@ fn bench_cache_get_hit(c: &mut Criterion) {
     c.bench_function("cache_get_hit", |b| {
         b.to_async(&rt).iter(|| async {
             let result = cache.get(&key).await;
-           std::hint::black_box(result)
+            std::hint::black_box(result)
         });
     });
 }
@@ -57,7 +57,7 @@ fn bench_cache_get_miss(c: &mut Criterion) {
         b.to_async(&rt).iter(|| async {
             let key = CacheKey::new("nonexistent", "app", "main");
             let result = cache.get(&key).await;
-           std::hint::black_box(result)
+            std::hint::black_box(result)
         });
     });
 }

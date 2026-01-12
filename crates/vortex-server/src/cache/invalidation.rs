@@ -115,7 +115,7 @@ impl ConfigCache {
                     count: 0,
                     patterns: vec![pattern_str.to_string()],
                 };
-            }
+            },
         };
 
         let mut invalidated_keys = Vec::new();
@@ -192,7 +192,10 @@ mod tests {
             for label in ["main", "feature"] {
                 let key = CacheKey::new("myapp", profile, label);
                 cache
-                    .insert(key.clone(), ConfigResponse::empty("myapp", vec![profile.to_string()]))
+                    .insert(
+                        key.clone(),
+                        ConfigResponse::empty("myapp", vec![profile.to_string()]),
+                    )
                     .await;
                 // Verificar que se insertó correctamente
                 assert!(cache.get(&key).await.is_some());
@@ -222,7 +225,10 @@ mod tests {
             for label in ["main", "feature"] {
                 let key = CacheKey::new("myapp", profile, label);
                 cache
-                    .insert(key.clone(), ConfigResponse::empty("myapp", vec![profile.to_string()]))
+                    .insert(
+                        key.clone(),
+                        ConfigResponse::empty("myapp", vec![profile.to_string()]),
+                    )
                     .await;
                 assert!(cache.get(&key).await.is_some());
             }
@@ -235,12 +241,22 @@ mod tests {
 
         // Verificar que las prod entries fueron invalidadas
         for label in ["main", "feature"] {
-            assert!(cache.get(&CacheKey::new("myapp", "prod", label)).await.is_none());
+            assert!(
+                cache
+                    .get(&CacheKey::new("myapp", "prod", label))
+                    .await
+                    .is_none()
+            );
         }
 
         // Verificar que las dev entries siguen presentes
         for label in ["main", "feature"] {
-            assert!(cache.get(&CacheKey::new("myapp", "dev", label)).await.is_some());
+            assert!(
+                cache
+                    .get(&CacheKey::new("myapp", "dev", label))
+                    .await
+                    .is_some()
+            );
         }
     }
 
@@ -253,7 +269,10 @@ mod tests {
             for profile in ["dev", "prod"] {
                 let key = CacheKey::new(app, profile, "main");
                 cache
-                    .insert(key.clone(), ConfigResponse::empty(app, vec![profile.to_string()]))
+                    .insert(
+                        key.clone(),
+                        ConfigResponse::empty(app, vec![profile.to_string()]),
+                    )
                     .await;
                 assert!(cache.get(&key).await.is_some());
             }
@@ -265,12 +284,32 @@ mod tests {
         assert_eq!(result.count, 2);
 
         // Verificar que las prod entries fueron invalidadas
-        assert!(cache.get(&CacheKey::new("myapp", "prod", "main")).await.is_none());
-        assert!(cache.get(&CacheKey::new("otherapp", "prod", "main")).await.is_none());
+        assert!(
+            cache
+                .get(&CacheKey::new("myapp", "prod", "main"))
+                .await
+                .is_none()
+        );
+        assert!(
+            cache
+                .get(&CacheKey::new("otherapp", "prod", "main"))
+                .await
+                .is_none()
+        );
 
         // Verificar que las dev entries siguen presentes
-        assert!(cache.get(&CacheKey::new("myapp", "dev", "main")).await.is_some());
-        assert!(cache.get(&CacheKey::new("otherapp", "dev", "main")).await.is_some());
+        assert!(
+            cache
+                .get(&CacheKey::new("myapp", "dev", "main"))
+                .await
+                .is_some()
+        );
+        assert!(
+            cache
+                .get(&CacheKey::new("otherapp", "dev", "main"))
+                .await
+                .is_some()
+        );
     }
 
     #[tokio::test]
@@ -282,7 +321,10 @@ mod tests {
             for profile in ["dev", "prod"] {
                 let key = CacheKey::new(app, profile, "main");
                 cache
-                    .insert(key.clone(), ConfigResponse::empty(app, vec![profile.to_string()]))
+                    .insert(
+                        key.clone(),
+                        ConfigResponse::empty(app, vec![profile.to_string()]),
+                    )
                     .await;
                 assert!(cache.get(&key).await.is_some());
             }
@@ -296,11 +338,31 @@ mod tests {
         assert_eq!(result.count, 3);
 
         // Verificar que las entries correctas fueron invalidadas
-        assert!(cache.get(&CacheKey::new("myapp", "dev", "main")).await.is_none());
-        assert!(cache.get(&CacheKey::new("myapp", "prod", "main")).await.is_none());
-        assert!(cache.get(&CacheKey::new("otherapp", "prod", "main")).await.is_none());
+        assert!(
+            cache
+                .get(&CacheKey::new("myapp", "dev", "main"))
+                .await
+                .is_none()
+        );
+        assert!(
+            cache
+                .get(&CacheKey::new("myapp", "prod", "main"))
+                .await
+                .is_none()
+        );
+        assert!(
+            cache
+                .get(&CacheKey::new("otherapp", "prod", "main"))
+                .await
+                .is_none()
+        );
 
         // Verificar que otherapp:dev sigue presente
-        assert!(cache.get(&CacheKey::new("otherapp", "dev", "main")).await.is_some());
+        assert!(
+            cache
+                .get(&CacheKey::new("otherapp", "dev", "main"))
+                .await
+                .is_some()
+        );
     }
 }

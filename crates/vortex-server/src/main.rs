@@ -5,8 +5,8 @@ use std::path::PathBuf;
 
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 use vortex_git::{GitBackend, GitBackendConfig};
-use vortex_server::{AppState, CacheConfig, ConfigCache, run_server_with_state};
 use vortex_server::metrics::{cache, http, init_metrics};
+use vortex_server::{AppState, CacheConfig, ConfigCache, run_server_with_state};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -24,7 +24,11 @@ impl CacheKey {
     /// assert_eq!(key.profile(), "prod");
     /// assert_eq!(key.label(), "main");
     /// ```
-    pub fn new(app: impl Into<String>, profile: impl Into<String>, label: impl Into<String>) -> Self {
+    pub fn new(
+        app: impl Into<String>,
+        profile: impl Into<String>,
+        label: impl Into<String>,
+    ) -> Self {
         Self {
             app: app.into().to_lowercase(),
             profile: profile.into().to_lowercase(),

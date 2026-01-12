@@ -1,12 +1,6 @@
 //! HTTP metrics middleware.
 
-use axum::{
-    body::Body,
-    extract::MatchedPath,
-    http::Request,
-    middleware::Next,
-    response::Response,
-};
+use axum::{body::Body, extract::MatchedPath, http::Request, middleware::Next, response::Response};
 use metrics::{counter, histogram};
 use std::time::Instant;
 

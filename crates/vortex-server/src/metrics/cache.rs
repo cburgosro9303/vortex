@@ -1,30 +1,21 @@
 //! Cache metrics recording.
 
 use metrics::{counter, gauge, histogram};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 /// Registra las metricas de cache.
 /// Llamar una vez al inicio para registrar las metricas.
 pub fn register_cache_metrics() {
     // Describir metricas
-    metrics::describe_counter!(
-        "vortex_cache_hits_total",
-        "Total number of cache hits"
-    );
-    metrics::describe_counter!(
-        "vortex_cache_misses_total",
-        "Total number of cache misses"
-    );
+    metrics::describe_counter!("vortex_cache_hits_total", "Total number of cache hits");
+    metrics::describe_counter!("vortex_cache_misses_total", "Total number of cache misses");
     metrics::describe_counter!(
         "vortex_cache_evictions_total",
         "Total number of cache evictions"
     );
-    metrics::describe_gauge!(
-        "vortex_cache_entries",
-        "Current number of entries in cache"
-    );
+    metrics::describe_gauge!("vortex_cache_entries", "Current number of entries in cache");
     metrics::describe_histogram!(
         "vortex_cache_operation_seconds",
         "Time spent on cache operations"
@@ -61,8 +52,7 @@ impl CacheMetrics {
 
     /// Registra una eviction
     pub fn record_eviction(&self, reason: &str) {
-        counter!("vortex_cache_evictions_total", "reason" => reason.to_string())
-            .increment(1);
+        counter!("vortex_cache_evictions_total", "reason" => reason.to_string()).increment(1);
     }
 
     /// Actualiza el gauge de entries
@@ -92,11 +82,7 @@ impl CacheMetrics {
         let hits = self.hits.load(Ordering::Relaxed) as f64;
         let misses = self.misses.load(Ordering::Relaxed) as f64;
         let total = hits + misses;
-        if total == 0.0 {
-            0.0
-        } else {
-            hits / total
-        }
+        if total == 0.0 { 0.0 } else { hits / total }
     }
 
     /// Retorna el numero de hits
