@@ -33,6 +33,13 @@ java-properties = "2.0"
 # Logging
 tracing = "0.1"
 
+# Pure Rust Git implementation (no system git required)
+gix = { version = "0.72", default-features = false, features = [
+    "blocking-network-client",
+    "blocking-http-transport-reqwest-rust-tls",
+    "worktree-mutation",
+] }
+
 [dev-dependencies]
 tokio = { version = "1.49.0", features = ["full", "test-util"] }
 tempfile = "3.24.0"

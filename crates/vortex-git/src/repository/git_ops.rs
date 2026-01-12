@@ -1,9 +1,10 @@
-//! Git repository operations.
+//! Git repository operations using gix (pure Rust).
 
 use std::path::Path;
-use std::process::Command;
 use std::sync::Arc;
 
+use gix::bstr::ByteSlice;
+use gix::remote::fetch::Shallow;
 use parking_lot::RwLock;
 use tracing::{debug, info, warn};
 
@@ -27,7 +28,7 @@ pub enum RepoState {
 
 /// A Git repository wrapper for configuration management.
 ///
-/// Uses the system's `git` command for operations to ensure maximum compatibility.
+/// Uses gix (pure Rust) for all Git operations - no system git required.
 pub struct GitRepository {
     config: GitBackendConfig,
     state: Arc<RwLock<RepoState>>,
@@ -117,23 +118,35 @@ impl GitRepository {
         }
     }
 
-    /// Blocking clone operation using git command.
+    /// Blocking clone operation using gix.
     fn clone_blocking(uri: &str, local_path: &Path) -> Result<(), ConfigSourceError> {
         // Create parent directories if needed
         if let Some(parent) = local_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
 
-        let output = Command::new("git")
-            .args(["clone", "--depth", "1", uri])
-            .arg(local_path)
-            .output()
-            .map_err(|e| ConfigSourceError::git(format!("Failed to execute git clone: {}", e)))?;
+        // Parse the URL
+        let url = gix::url::parse(uri.into())
+            .map_err(|e| ConfigSourceError::git(format!("Invalid URL: {}", e)))?;
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(ConfigSourceError::git(format!("Clone failed: {}", stderr)));
-        }
+        // Prepare the clone with shallow depth
+        let mut prepare = gix::prepare_clone(url, local_path)
+            .map_err(|e| ConfigSourceError::git(format!("Failed to prepare clone: {}", e)))?;
+
+        // Configure shallow clone (depth 1)
+        prepare = prepare.with_shallow(Shallow::DepthAtRemote(
+            std::num::NonZeroU32::new(1).unwrap(),
+        ));
+
+        // Perform the fetch and checkout in one step
+        let (mut checkout, _outcome) = prepare
+            .fetch_then_checkout(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)
+            .map_err(|e| ConfigSourceError::git(format!("Clone failed: {}", e)))?;
+
+        // Perform the worktree checkout
+        let (_repo, _outcome) = checkout
+            .main_worktree(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)
+            .map_err(|e| ConfigSourceError::git(format!("Checkout failed: {}", e)))?;
 
         Ok(())
     }
@@ -175,18 +188,23 @@ impl GitRepository {
         }
     }
 
-    /// Blocking fetch operation.
+    /// Blocking fetch operation using gix.
     fn fetch_blocking(local_path: &Path) -> Result<(), ConfigSourceError> {
-        let output = Command::new("git")
-            .args(["fetch", "--all", "--prune"])
-            .current_dir(local_path)
-            .output()
-            .map_err(|e| ConfigSourceError::git(format!("Failed to execute git fetch: {}", e)))?;
+        let repo = gix::open(local_path)
+            .map_err(|e| ConfigSourceError::git(format!("Failed to open repo: {}", e)))?;
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(ConfigSourceError::git(format!("Fetch failed: {}", stderr)));
-        }
+        let remote = repo
+            .find_default_remote(gix::remote::Direction::Fetch)
+            .ok_or_else(|| ConfigSourceError::git("No default remote found"))?
+            .map_err(|e| ConfigSourceError::git(format!("Failed to find remote: {}", e)))?;
+
+        remote
+            .connect(gix::remote::Direction::Fetch)
+            .map_err(|e| ConfigSourceError::git(format!("Failed to connect: {}", e)))?
+            .prepare_fetch(gix::progress::Discard, Default::default())
+            .map_err(|e| ConfigSourceError::git(format!("Failed to prepare fetch: {}", e)))?
+            .receive(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)
+            .map_err(|e| ConfigSourceError::git(format!("Fetch failed: {}", e)))?;
 
         Ok(())
     }
@@ -219,78 +237,64 @@ impl GitRepository {
         Ok(commit_id)
     }
 
-    /// Blocking checkout operation.
+    /// Blocking checkout operation using gix.
+    /// Note: For config reading, we only resolve the reference to get the commit ID.
+    /// The actual worktree is already populated from clone, so we just track the reference.
     fn checkout_blocking(local_path: &Path, git_ref: &GitRef) -> Result<String, ConfigSourceError> {
-        match git_ref {
+        let repo = gix::open(local_path)
+            .map_err(|e| ConfigSourceError::git(format!("Failed to open repo: {}", e)))?;
+
+        // Resolve the reference to a commit ID
+        let commit_id = match git_ref {
             GitRef::Branch(name) => {
-                // Try to checkout the branch, falling back to origin/branch
-                let output = Command::new("git")
-                    .args(["checkout", name])
-                    .current_dir(local_path)
-                    .output()
-                    .map_err(|e| ConfigSourceError::git(format!("Checkout failed: {}", e)))?;
+                // Try local branch first, then remote
+                let reference = repo
+                    .find_reference(&format!("refs/heads/{}", name))
+                    .or_else(|_| repo.find_reference(&format!("refs/remotes/origin/{}", name)))
+                    .map_err(|_| ConfigSourceError::LabelNotFound(name.clone()))?;
 
-                if !output.status.success() {
-                    // Try origin/branch
-                    let origin_ref = format!("origin/{}", name);
-                    let output = Command::new("git")
-                        .args(["checkout", "-B", name, &origin_ref])
-                        .current_dir(local_path)
-                        .output()
-                        .map_err(|e| ConfigSourceError::git(format!("Checkout failed: {}", e)))?;
-
-                    if !output.status.success() {
-                        return Err(ConfigSourceError::LabelNotFound(name.clone()));
-                    }
-                }
+                reference
+                    .into_fully_peeled_id()
+                    .map_err(|e| ConfigSourceError::git(format!("Failed to peel reference: {}", e)))?
             },
             GitRef::Tag(name) => {
-                let tag_ref = format!("tags/{}", name);
-                let output = Command::new("git")
-                    .args(["checkout", &tag_ref])
-                    .current_dir(local_path)
-                    .output()
-                    .map_err(|e| ConfigSourceError::git(format!("Checkout failed: {}", e)))?;
+                let reference = repo
+                    .find_reference(&format!("refs/tags/{}", name))
+                    .map_err(|_| ConfigSourceError::LabelNotFound(name.clone()))?;
 
-                if !output.status.success() {
-                    return Err(ConfigSourceError::LabelNotFound(name.clone()));
-                }
+                reference
+                    .into_fully_peeled_id()
+                    .map_err(|e| ConfigSourceError::git(format!("Failed to peel reference: {}", e)))?
             },
             GitRef::Commit(sha) => {
-                let output = Command::new("git")
-                    .args(["checkout", sha])
-                    .current_dir(local_path)
-                    .output()
-                    .map_err(|e| ConfigSourceError::git(format!("Checkout failed: {}", e)))?;
+                let oid = gix::ObjectId::from_hex(sha.as_bytes())
+                    .map_err(|_| ConfigSourceError::LabelNotFound(sha.clone()))?;
 
-                if !output.status.success() {
-                    return Err(ConfigSourceError::LabelNotFound(sha.clone()));
-                }
+                // Verify the commit exists
+                repo.find_object(oid)
+                    .map_err(|_| ConfigSourceError::LabelNotFound(sha.clone()))?;
+
+                return Ok(sha.clone());
             },
-        }
+        };
 
-        // Get the current commit SHA
-        Self::get_head_commit(local_path)
+        Ok(commit_id.to_string())
     }
 
     /// Gets the HEAD commit SHA.
     fn get_head_commit(local_path: &Path) -> Result<String, ConfigSourceError> {
-        let output = Command::new("git")
-            .args(["rev-parse", "HEAD"])
-            .current_dir(local_path)
-            .output()
+        let repo = gix::open(local_path)
+            .map_err(|e| ConfigSourceError::git(format!("Failed to open repo: {}", e)))?;
+
+        let mut head = repo
+            .head()
             .map_err(|e| ConfigSourceError::git(format!("Failed to get HEAD: {}", e)))?;
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(ConfigSourceError::git(format!(
-                "Failed to get HEAD: {}",
-                stderr
-            )));
-        }
+        let commit = head
+            .peel_to_commit_in_place()
+            .map_err(|e| ConfigSourceError::git(format!("Failed to peel HEAD: {}", e)))?;
 
-        let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        Ok(sha)
+        Ok(commit.id.to_string())
     }
 
     /// Returns the current HEAD commit ID.
@@ -315,22 +319,35 @@ impl GitRepository {
 
         let local_path = self.config.local_path().to_path_buf();
 
-        tokio::task::spawn_blocking(move || {
-            let output = Command::new("git")
-                .args(["branch", "-a", "--format=%(refname:short)"])
-                .current_dir(&local_path)
-                .output()
-                .map_err(|e| ConfigSourceError::git(format!("Failed to list branches: {}", e)))?;
+        tokio::task::spawn_blocking(move || -> Result<Vec<String>, ConfigSourceError> {
+            let repo = gix::open(&local_path)
+                .map_err(|e| ConfigSourceError::git(format!("Failed to open repo: {}", e)))?;
 
-            if !output.status.success() {
-                return Err(ConfigSourceError::git("Failed to list branches"));
+            let mut branches = Vec::new();
+
+            if let Ok(refs) = repo.references() {
+                // List local branches
+                if let Ok(local) = refs.local_branches() {
+                    for branch in local.flatten() {
+                        if let Ok(name) = branch.name().as_bstr().to_str() {
+                            if let Some(short) = name.strip_prefix("refs/heads/") {
+                                branches.push(short.to_string());
+                            }
+                        }
+                    }
+                }
+
+                // List remote branches
+                if let Ok(remote) = refs.remote_branches() {
+                    for branch in remote.flatten() {
+                        if let Ok(name) = branch.name().as_bstr().to_str() {
+                            if let Some(short) = name.strip_prefix("refs/remotes/") {
+                                branches.push(short.to_string());
+                            }
+                        }
+                    }
+                }
             }
-
-            let branches: Vec<String> = String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect();
 
             Ok(branches)
         })
@@ -344,22 +361,23 @@ impl GitRepository {
 
         let local_path = self.config.local_path().to_path_buf();
 
-        tokio::task::spawn_blocking(move || {
-            let output = Command::new("git")
-                .args(["tag", "-l"])
-                .current_dir(&local_path)
-                .output()
-                .map_err(|e| ConfigSourceError::git(format!("Failed to list tags: {}", e)))?;
+        tokio::task::spawn_blocking(move || -> Result<Vec<String>, ConfigSourceError> {
+            let repo = gix::open(&local_path)
+                .map_err(|e| ConfigSourceError::git(format!("Failed to open repo: {}", e)))?;
 
-            if !output.status.success() {
-                return Err(ConfigSourceError::git("Failed to list tags"));
+            let mut tags = Vec::new();
+
+            if let Ok(refs) = repo.references() {
+                if let Ok(tag_refs) = refs.tags() {
+                    for tag in tag_refs.flatten() {
+                        if let Ok(name) = tag.name().as_bstr().to_str() {
+                            if let Some(short) = name.strip_prefix("refs/tags/") {
+                                tags.push(short.to_string());
+                            }
+                        }
+                    }
+                }
             }
-
-            let tags: Vec<String> = String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect();
 
             Ok(tags)
         })
