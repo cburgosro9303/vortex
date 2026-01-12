@@ -1,12 +1,15 @@
 //! Configuration endpoint handlers.
 
+use std::sync::Arc;
+
 use axum::{
     extract::{Path, Query, State},
     response::Response,
 };
 use tracing::instrument;
-use vortex_git::{ConfigQuery as GitConfigQuery, ConfigSourceError};
+use vortex_git::ConfigQuery as GitConfigQuery;
 
+use crate::cache::{CacheError, CacheKey};
 use crate::error::AppError;
 use crate::extractors::{
     accept::AcceptFormat,
@@ -31,39 +34,34 @@ pub async fn get_config(
 
     tracing::info!("Fetching config for {}/{:?}", path.app, profiles);
 
-    // Create query for the config source
-    let git_query = GitConfigQuery::new(&path.app, profiles.clone());
+    // Use default label for this endpoint
+    let label = state.config_source().default_label().to_string();
 
-    // Fetch from the config source
-    let result = state
-        .config_source()
-        .fetch(&git_query)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    // Get configuration (with cache if enabled)
+    let response = match state.cache() {
+        Some(cache) => {
+            // Create cache key
+            let cache_key = CacheKey::new(&path.app, &profiles.join(","), &label);
 
-    // Convert to response format
-    let response = ConfigResponse {
-        name: result.name().to_string(),
-        profiles: result.profiles().to_vec(),
-        label: Some(result.label().to_string()),
-        version: result.version().map(String::from),
-        state: result.state().map(String::from),
-        property_sources: result
-            .property_sources()
-            .iter()
-            .map(|ps| PropertySourceResponse {
-                name: ps.name.clone(),
-                source: ps
-                    .config
-                    .as_inner()
-                    .iter()
-                    .map(|(k, v)| (k.clone(), config_value_to_json(v)))
-                    .collect(),
-            })
-            .collect(),
+            // Try to get from cache or fetch from backend
+            cache
+                .get_or_insert_with(cache_key, || {
+                    let config_source = state.config_source();
+                    let app = path.app.clone();
+                    let profiles = profiles.clone();
+                    async move { fetch_config(config_source, &app, profiles, &label).await }
+                })
+                .await
+                .map_err(|e: CacheError| AppError::Internal(e.to_string()))?
+        }
+        None => {
+            // No cache, fetch directly
+            let response = fetch_config(state.config_source(), &path.app, profiles, &label).await?;
+            Arc::new(response)
+        }
     };
 
-    to_format(&response, format).map_err(|e| AppError::Internal(format!("{:?}", e)))
+    to_format(response.as_ref(), format).map_err(|e| AppError::Internal(format!("{:?}", e)))
 }
 
 /// Handler for GET /{app}/{profile}/{label} with state.
@@ -91,59 +89,71 @@ pub async fn get_config_with_label(
     // Validate dangerous characters in label
     validate_label(&label)?;
 
-    // Create query for the config source with label
-    let git_query = GitConfigQuery::new(&path.app, profiles.clone()).with_label_set(&label);
+    // Get configuration (with cache if enabled)
+    let response = match state.cache() {
+        Some(cache) => {
+            // Create cache key
+            let cache_key = CacheKey::new(&path.app, &profiles.join(","), &label);
 
-    // Fetch from the config source, with fallback to default label if enabled
-    let result = match state.config_source().fetch(&git_query).await {
-        Ok(result) => result,
-        Err(e) => {
-            // If label not found and useDefaultLabel is true, retry with default label
-            if query.use_default_label && is_label_not_found(&e) {
-                let default_label = state.config_source().default_label();
-                tracing::info!(
-                    original_label = %label,
-                    default_label = %default_label,
-                    "Label not found, falling back to default"
-                );
+            // Try to get from cache or fetch from backend
+            match cache
+                .get_or_insert_with(cache_key.clone(), || {
+                    let config_source = state.config_source();
+                    let app = path.app.clone();
+                    let profiles = profiles.clone();
+                    let label = label.clone();
+                    async move { fetch_config(config_source, &app, profiles, &label).await }
+                })
+                .await
+            {
+                Ok(response) => response,
+                Err(_) if query.use_default_label => {
+                    // Fallback to default label
+                    let default_label = state.config_source().default_label().to_string();
+                    tracing::info!(
+                        original_label = %label,
+                        default_label = %default_label,
+                        "Label not found, falling back to default"
+                    );
 
-                let fallback_query =
-                    GitConfigQuery::new(&path.app, profiles.clone()).with_label_set(default_label);
-
-                state
-                    .config_source()
-                    .fetch(&fallback_query)
-                    .await
-                    .map_err(|e| AppError::Internal(e.to_string()))?
-            } else {
-                return Err(AppError::Internal(e.to_string()));
+                    let fallback_key = CacheKey::new(&path.app, &profiles.join(","), &default_label);
+                    cache
+                        .get_or_insert_with(fallback_key, || {
+                            let config_source = state.config_source();
+                            let app = path.app.clone();
+                            let profiles = profiles.clone();
+                            async move {
+                                fetch_config(config_source, &app, profiles, &default_label).await
+                            }
+                        })
+                        .await
+                        .map_err(|e: CacheError| AppError::Internal(e.to_string()))?
+                }
+                Err(e) => return Err(AppError::Internal(e.to_string())),
             }
-        },
+        }
+        None => {
+            // No cache, fetch directly with fallback logic
+            let response = match fetch_config(state.config_source(), &path.app, profiles.clone(), &label).await {
+                Ok(response) => response,
+                Err(_) if query.use_default_label => {
+                    let default_label = state.config_source().default_label();
+                    tracing::info!(
+                        original_label = %label,
+                        default_label = %default_label,
+                        "Label not found, falling back to default"
+                    );
+                    fetch_config(state.config_source(), &path.app, profiles, default_label)
+                        .await
+                        .map_err(|e| AppError::Internal(e.to_string()))?
+                }
+                Err(e) => return Err(AppError::Internal(e.to_string())),
+            };
+            Arc::new(response)
+        }
     };
 
-    // Convert to response format
-    let response = ConfigResponse {
-        name: result.name().to_string(),
-        profiles: result.profiles().to_vec(),
-        label: Some(result.label().to_string()),
-        version: result.version().map(String::from),
-        state: result.state().map(String::from),
-        property_sources: result
-            .property_sources()
-            .iter()
-            .map(|ps| PropertySourceResponse {
-                name: ps.name.clone(),
-                source: ps
-                    .config
-                    .as_inner()
-                    .iter()
-                    .map(|(k, v)| (k.clone(), config_value_to_json(v)))
-                    .collect(),
-            })
-            .collect(),
-    };
-
-    to_format(&response, format).map_err(|e| AppError::Internal(format!("{:?}", e)))
+    to_format(response.as_ref(), format).map_err(|e| AppError::Internal(format!("{:?}", e)))
 }
 
 /// Converts a ConfigValue to serde_json::Value.
@@ -188,7 +198,41 @@ fn validate_label(label: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Checks if the error is a LabelNotFound error.
-fn is_label_not_found(error: &ConfigSourceError) -> bool {
-    matches!(error, ConfigSourceError::LabelNotFound(_))
+/// Fetches configuration from the backend and converts it to ConfigResponse.
+async fn fetch_config(
+    config_source: &dyn vortex_git::ConfigSource,
+    app: &str,
+    profiles: Vec<String>,
+    label: &str,
+) -> Result<ConfigResponse, CacheError> {
+    // Create query for the config source
+    let git_query = GitConfigQuery::new(app, profiles.clone()).with_label_set(label);
+
+    // Fetch from the config source
+    let result = config_source
+        .fetch(&git_query)
+        .await
+        .map_err(|e| CacheError::FetchError(e.to_string()))?;
+
+    // Convert to response format
+    Ok(ConfigResponse {
+        name: result.name().to_string(),
+        profiles: result.profiles().to_vec(),
+        label: Some(result.label().to_string()),
+        version: result.version().map(String::from),
+        state: result.state().map(String::from),
+        property_sources: result
+            .property_sources()
+            .iter()
+            .map(|ps| PropertySourceResponse {
+                name: ps.name.clone(),
+                source: ps
+                    .config
+                    .as_inner()
+                    .iter()
+                    .map(|(k, v)| (k.clone(), config_value_to_json(v)))
+                    .collect(),
+            })
+            .collect(),
+    })
 }

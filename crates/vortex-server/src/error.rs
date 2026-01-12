@@ -5,6 +5,8 @@ use axum::{
 };
 use serde::Serialize;
 
+use crate::cache::CacheError;
+
 #[derive(Debug)]
 pub enum AppError {
     /// Configuracion no encontrada
@@ -45,5 +47,11 @@ impl IntoResponse for AppError {
         });
 
         (status, body).into_response()
+    }
+}
+
+impl From<CacheError> for AppError {
+    fn from(err: CacheError) -> Self {
+        AppError::Internal(err.to_string())
     }
 }

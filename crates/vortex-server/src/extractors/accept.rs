@@ -1,5 +1,4 @@
 use axum::{
-    async_trait,
     extract::FromRequestParts,
     http::{header, request::Parts},
 };
@@ -49,7 +48,6 @@ impl OutputFormat {
 /// Extractor que parsea el header Accept.
 pub struct AcceptFormat(pub OutputFormat);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for AcceptFormat
 where
     S: Send + Sync,
