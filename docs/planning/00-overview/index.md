@@ -45,7 +45,7 @@
 │  │              SOURCE LAYER (Backends)          │                   │
 │  │  ┌────────┐  ┌────────┐  ┌────────┐          │                   │
 │  │  │  Git   │  │   S3   │  │  SQL   │          │                   │
-│  │  │ (gix)  │  │(aws-sdk│  │(SQLx)  │          │                   │
+│  │  │(Git CLI│  │(aws-sdk│  │(SQLx)  │          │                   │
 │  │  └────────┘  └────────┘  └────────┘          │                   │
 │  └──────────────────────────────────────────────┘                   │
 └─────────────────────────────────────────────────────────────────────┘
@@ -96,7 +96,7 @@ vortex-config/
 | 01 | Foundation | Workspace, toolchain, CI básico |
 | 02 | Core Types | ConfigMap, PropertySource, serialización |
 | 03 | HTTP Server | API REST compatible Spring Cloud Config |
-| 04 | Git Backend | Backend Git con gix |
+| 04 | Git Backend | Backend Git con Git CLI |
 
 **Criterios de éxito Fase 1**:
 
@@ -381,7 +381,7 @@ pub async fn fetch_config(&self, app: &str, profile: &str) -> Result<ConfigMap> 
 | HTTP | axum | 0.7 | API REST |
 | Async Runtime | tokio | 1.x | Runtime async |
 | Serialization | serde | 1.x | JSON/YAML/Properties |
-| Git | gix | 0.58 | Operaciones Git |
+| Git | Git CLI (system) | 2.x+ | Operaciones Git |
 | Cache | moka | 0.12 | Cache async |
 | Database | sqlx | 0.7 | SQL async |
 | Tracing | tracing | 0.1 | Observabilidad |
