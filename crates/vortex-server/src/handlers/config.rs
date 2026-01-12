@@ -1,8 +1,11 @@
+//! Configuration endpoint handlers.
+
 use axum::{
-    extract::{Path, Query},
+    extract::{Path, Query, State},
     response::Response,
 };
 use tracing::instrument;
+use vortex_git::ConfigQuery as GitConfigQuery;
 
 use crate::error::AppError;
 use crate::extractors::{
@@ -12,35 +15,65 @@ use crate::extractors::{
 };
 use crate::handlers::response::{ConfigResponse, PropertySourceResponse};
 use crate::response::to_format;
+use crate::state::AppState;
 
-/// Handler para GET /{app}/{profile}
+/// Handler for GET /{app}/{profile} with state.
 #[instrument(skip_all, fields(app = %path.app, profile = %path.profile))]
 pub async fn get_config(
+    State(state): State<AppState>,
     Path(path): Path<AppProfilePath>,
     Query(_query): Query<ConfigQuery>,
     AcceptFormat(format): AcceptFormat,
 ) -> Result<Response, AppError> {
-    // Validar parametros
     path.validate().map_err(AppError::BadRequest)?;
 
     let profiles = path.profiles();
 
     tracing::info!("Fetching config for {}/{:?}", path.app, profiles);
 
-    // TODO: Integrar con ConfigSource real
-    // Por ahora retornamos datos mock
-    let response = create_mock_response(&path.app, profiles, None);
+    // Create query for the config source
+    let git_query = GitConfigQuery::new(&path.app, profiles.clone());
+
+    // Fetch from the config source
+    let result = state
+        .config_source()
+        .fetch(&git_query)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    // Convert to response format
+    let response = ConfigResponse {
+        name: result.name().to_string(),
+        profiles: result.profiles().to_vec(),
+        label: Some(result.label().to_string()),
+        version: result.version().map(String::from),
+        state: result.state().map(String::from),
+        property_sources: result
+            .property_sources()
+            .iter()
+            .map(|ps| PropertySourceResponse {
+                name: ps.name.clone(),
+                source: ps
+                    .config
+                    .as_inner()
+                    .iter()
+                    .map(|(k, v)| (k.clone(), config_value_to_json(v)))
+                    .collect(),
+            })
+            .collect(),
+    };
 
     to_format(&response, format).map_err(|e| AppError::Internal(format!("{:?}", e)))
 }
 
-/// Handler para GET /{app}/{profile}/{label}
+/// Handler for GET /{app}/{profile}/{label} with state.
 #[instrument(skip_all, fields(
     app = %path.app,
     profile = %path.profile,
     label = %path.label
 ))]
 pub async fn get_config_with_label(
+    State(state): State<AppState>,
     Path(path): Path<AppProfileLabelPath>,
     Query(query): Query<ConfigQuery>,
     AcceptFormat(format): AcceptFormat,
@@ -55,23 +88,77 @@ pub async fn get_config_with_label(
         "Fetching config with label"
     );
 
-    // Validar caracteres peligrosos en label
+    // Validate dangerous characters in label
     validate_label(&label)?;
 
-    let response = create_mock_response(&path.app, profiles, Some(label));
+    // Create query for the config source with label
+    let git_query = GitConfigQuery::new(&path.app, profiles.clone()).with_label_set(&label);
+
+    // Fetch from the config source
+    let result = state
+        .config_source()
+        .fetch(&git_query)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    // Convert to response format
+    let response = ConfigResponse {
+        name: result.name().to_string(),
+        profiles: result.profiles().to_vec(),
+        label: Some(result.label().to_string()),
+        version: result.version().map(String::from),
+        state: result.state().map(String::from),
+        property_sources: result
+            .property_sources()
+            .iter()
+            .map(|ps| PropertySourceResponse {
+                name: ps.name.clone(),
+                source: ps
+                    .config
+                    .as_inner()
+                    .iter()
+                    .map(|(k, v)| (k.clone(), config_value_to_json(v)))
+                    .collect(),
+            })
+            .collect(),
+    };
+
     to_format(&response, format).map_err(|e| AppError::Internal(format!("{:?}", e)))
 }
 
-/// Valida que el label no contenga caracteres peligrosos.
+/// Converts a ConfigValue to serde_json::Value.
+fn config_value_to_json(value: &vortex_git::vortex_core::ConfigValue) -> serde_json::Value {
+    use vortex_git::vortex_core::ConfigValue;
+
+    match value {
+        ConfigValue::Null => serde_json::Value::Null,
+        ConfigValue::Bool(b) => serde_json::Value::Bool(*b),
+        ConfigValue::Integer(i) => serde_json::Value::Number((*i).into()),
+        ConfigValue::Float(f) => serde_json::Number::from_f64(f.into_inner())
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null),
+        ConfigValue::String(s) => serde_json::Value::String(s.clone()),
+        ConfigValue::Array(arr) => {
+            serde_json::Value::Array(arr.iter().map(config_value_to_json).collect())
+        },
+        ConfigValue::Object(obj) => serde_json::Value::Object(
+            obj.iter()
+                .map(|(k, v)| (k.clone(), config_value_to_json(v)))
+                .collect(),
+        ),
+    }
+}
+
+/// Validates that the label does not contain dangerous characters.
 fn validate_label(label: &str) -> Result<(), AppError> {
-    // Prevenir path traversal
+    // Prevent path traversal
     if label.contains("..") {
         return Err(AppError::BadRequest(
             "Label cannot contain '..'".to_string(),
         ));
     }
 
-    // Prevenir caracteres de control
+    // Prevent control characters
     if label.chars().any(|c| c.is_control()) {
         return Err(AppError::BadRequest(
             "Label cannot contain control characters".to_string(),
@@ -79,42 +166,4 @@ fn validate_label(label: &str) -> Result<(), AppError> {
     }
 
     Ok(())
-}
-
-fn create_mock_response(app: &str, profiles: Vec<String>, label: Option<String>) -> ConfigResponse {
-    use std::collections::HashMap;
-
-    let mut source = HashMap::new();
-    source.insert(
-        "server.port".to_string(),
-        serde_json::Value::Number(8080.into()),
-    );
-    source.insert(
-        "spring.application.name".to_string(),
-        serde_json::Value::String(app.to_string()),
-    );
-
-    if let Some(l) = &label {
-        source.insert(
-            "label".to_string(),
-            serde_json::Value::String(l.to_string()),
-        );
-    }
-
-    let source_name = match &label {
-        Some(l) => format!("git:{}:config/{}.yml", l, app),
-        None => format!("file:config/{}.yml", app),
-    };
-
-    ConfigResponse {
-        name: app.to_string(),
-        profiles: profiles.clone(),
-        label,
-        version: None,
-        state: None,
-        property_sources: vec![PropertySourceResponse {
-            name: source_name,
-            source,
-        }],
-    }
 }
