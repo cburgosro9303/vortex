@@ -5,7 +5,8 @@ use std::path::PathBuf;
 
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 use vortex_git::{GitBackend, GitBackendConfig};
-use vortex_server::{AppState, run_server_with_state};
+use vortex_server::{AppState, CacheConfig, ConfigCache, run_server_with_state};
+use vortex_server::metrics::{cache, http, init_metrics};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -75,11 +76,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("Git backend initialized successfully");
 
+    // Initialize metrics system
+    tracing::info!("Initializing metrics system...");
+    let prometheus_handle = init_metrics();
+    cache::register_cache_metrics();
+    http::register_http_metrics();
+    tracing::info!("Metrics system initialized");
+
+    // Configure cache
+    let cache_enabled = std::env::var("VORTEX_CACHE_ENABLED")
+        .unwrap_or_else(|_| "true".to_string())
+        .parse::<bool>()
+        .unwrap_or(true);
+
+    let cache = if cache_enabled {
+        let ttl_seconds = std::env::var("VORTEX_CACHE_TTL_SECONDS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(300);
+
+        let max_capacity = std::env::var("VORTEX_CACHE_MAX_CAPACITY")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(10_000);
+
+        tracing::info!(
+            "Cache enabled: TTL={}s, max_capacity={}",
+            ttl_seconds,
+            max_capacity
+        );
+
+        Some(ConfigCache::new(CacheConfig {
+            ttl_seconds,
+            max_capacity,
+            tti_seconds: None,
+        }))
+    } else {
+        tracing::info!("Cache disabled");
+        None
+    };
+
     // Create application state
-    let state = AppState::from_git_backend(backend);
+    let state = AppState::from_git_backend(backend, cache);
 
     // Run server
-    run_server_with_state(addr, state).await?;
+    run_server_with_state(addr, state, prometheus_handle).await?;
 
     Ok(())
 }

@@ -108,8 +108,7 @@ harness = false
 
 ```rust
 // benches/cache_bench.rs
-use criterion::{
-    black_box, criterion_group, criterion_main,
+use criterion::{criterion_group, criterion_main,
     BenchmarkId, Criterion, Throughput,
 };
 use std::sync::Arc;
@@ -154,7 +153,7 @@ fn bench_cache_get_hit(c: &mut Criterion) {
     c.bench_function("cache_get_hit", |b| {
         b.to_async(&rt).iter(|| async {
             let result = cache.get(&key).await;
-            black_box(result)
+           std::hint::black_box(result)
         });
     });
 }
@@ -168,7 +167,7 @@ fn bench_cache_get_miss(c: &mut Criterion) {
         b.to_async(&rt).iter(|| async {
             let key = CacheKey::new("nonexistent", "app", "main");
             let result = cache.get(&key).await;
-            black_box(result)
+           std::hint::black_box(result)
         });
     });
 }
@@ -313,8 +312,7 @@ criterion_main!(benches);
 
 ```rust
 // benches/serialization_bench.rs
-use criterion::{
-    black_box, criterion_group, criterion_main,
+use criterion::{ criterion_group, criterion_main,
     BenchmarkId, Criterion, Throughput,
 };
 use vortex_core::{ConfigMap, ConfigValue, PropertySource};
@@ -359,7 +357,7 @@ fn bench_json_serialization(c: &mut Criterion) {
             |b, config| {
                 b.iter(|| {
                     let json = serde_json::to_string(config).unwrap();
-                    black_box(json)
+                   std::hint::black_box(json)
                 });
             },
         );
@@ -381,7 +379,7 @@ fn bench_yaml_serialization(c: &mut Criterion) {
             |b, config| {
                 b.iter(|| {
                     let yaml = serde_yaml::to_string(config).unwrap();
-                    black_box(yaml)
+                   std::hint::black_box(yaml)
                 });
             },
         );
@@ -404,7 +402,7 @@ fn bench_properties_serialization(c: &mut Criterion) {
             |b, config| {
                 b.iter(|| {
                     let props = PropertiesFormatter::format(config);
-                    black_box(props)
+                   std::hint::black_box(props)
                 });
             },
         );
@@ -439,7 +437,7 @@ fn bench_json_deserialization(c: &mut Criterion) {
             |b, json| {
                 b.iter(|| {
                     let config: ConfigMap = serde_json::from_str(json).unwrap();
-                    black_box(config)
+                   std::hint::black_box(config)
                 });
             },
         );
@@ -477,7 +475,7 @@ fn bench_config_response_serialization(c: &mut Criterion) {
             |b, response| {
                 b.iter(|| {
                     let json = serde_json::to_string(response).unwrap();
-                    black_box(json)
+                   std::hint::black_box(json)
                 });
             },
         );
@@ -506,7 +504,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tower::ServiceExt;
@@ -558,7 +556,7 @@ fn bench_health_endpoint(c: &mut Criterion) {
                     .unwrap();
 
                 assert_eq!(response.status(), StatusCode::OK);
-                black_box(response)
+               std::hint::black_box(response)
             }
         });
     });
@@ -583,7 +581,7 @@ fn bench_get_config_cache_hit(c: &mut Criterion) {
                     .unwrap();
 
                 assert_eq!(response.status(), StatusCode::OK);
-                black_box(response)
+               std::hint::black_box(response)
             }
         });
     });
@@ -615,7 +613,7 @@ fn bench_content_negotiation(c: &mut Criterion) {
                             .await
                             .unwrap();
 
-                        black_box(response)
+                       std::hint::black_box(response)
                     }
                 });
             },
@@ -812,8 +810,8 @@ fn bench_simple(c: &mut Criterion) {
         b.iter(|| {
             // Codigo a benchmarkear
             let result = expensive_operation();
-            // black_box evita que el compilador optimice el codigo
-            black_box(result)
+            //std::hint::black_box() evita que el compilador optimice el codigo
+           std::hint::black_box(result)
         });
     });
 }
@@ -865,7 +863,7 @@ public class MyBenchmark {
     @Benchmark
     public void benchSimple(Blackhole bh) {
         Object result = expensiveOperation();
-        bh.consume(result);  // Equivalente a black_box
+        bh.consume(result);  // Equivalente astd::hint::black_box()
     }
 
     @Benchmark
@@ -888,7 +886,7 @@ public class MyBenchmark {
 | Output | HTML + JSON + CLI | CLI + JSON |
 | Async | Soporte nativo | Requiere custom harness |
 
-### 2. black_box y Optimizaciones del Compilador
+### 2.std::hint::black_box() y Optimizaciones del Compilador
 
 `black_box` previene que el compilador optimice codigo "muerto".
 
@@ -903,12 +901,12 @@ fn benchmark() {
     // MAL: El resultado no se usa, puede ser eliminado
     expensive_computation();
 
-    // BIEN: black_box fuerza al compilador a mantener el codigo
-    black_box(expensive_computation());
+    // BIEN:std::hint::black_box() fuerza al compilador a mantener el codigo
+   std::hint::black_box(expensive_computation());
 
     // BIEN para inputs tambien
     let result = process(black_box(input));
-    black_box(result);
+   std::hint::black_box(result);
 }
 ```
 
@@ -970,7 +968,7 @@ fn bench_async_operations(c: &mut Criterion) {
         // to_async convierte el bencher para async
         b.to_async(&rt).iter(|| async {
             let result = async_operation().await;
-            black_box(result)
+           std::hint::black_box(result)
         });
     });
 
@@ -1014,7 +1012,7 @@ c.bench_function("batched", |b| {
     b.iter(|| {
         let mut sum = 0;
         for i in 0..1000 {
-            sum += black_box(i);
+            sum +=std::hint::black_box(i);
         }
         sum
     });
@@ -1051,7 +1049,7 @@ c.bench_function("cache_get_fresh", |b| {
 });
 ```
 
-### 3. No usar black_box
+### 3. No usarstd::hint::black_box()
 
 ```rust
 // MAL: Compilador puede optimizar todo
@@ -1062,10 +1060,10 @@ c.bench_function("optimized_away", |b| {
     });
 });
 
-// BIEN: black_box previene optimizaciones
+// BIEN:std::hint::black_box() previene optimizaciones
 c.bench_function("real_measurement", |b| {
     b.iter(|| {
-        black_box(complex_computation())
+       std::hint::black_box(complex_computation())
     });
 });
 ```
