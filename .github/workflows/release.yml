@@ -6,6 +6,8 @@ name: Release
 on:
   push:
     branches: [main]
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -16,6 +18,7 @@ jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-latest
+    if: github.event_name != 'release'
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
@@ -26,8 +29,8 @@ jobs:
 
   publish-docker:
     name: Publish Docker Image
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
+    needs: [release-please]
+    if: ${{ always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'release') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -49,8 +52,8 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{version}},value=${{ needs.release-please.outputs.tag_name }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release-please.outputs.tag_name }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
       - name: Build and push Docker image
