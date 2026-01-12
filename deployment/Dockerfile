@@ -2,14 +2,14 @@
 # =============================================================================
 # Vortex Config Server - Optimized Alpine Dockerfile
 # =============================================================================
-# Final image: ~30MB (Alpine + git + optimized binary)
+# Final image: ~37MB (Alpine + git + optimized binary)
 # Security: Non-root user, minimal attack surface
 # Optimizations: LTO, opt-level=z, strip, codegen-units=1, panic=abort
 
 # -----------------------------------------------------------------------------
 # Stage 1: Build with musl for Alpine compatibility
 # -----------------------------------------------------------------------------
-FROM rustlang/rust:nightly-alpine AS builder
+FROM rust:1.92-alpine AS builder
 
 WORKDIR /app
 
