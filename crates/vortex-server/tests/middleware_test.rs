@@ -25,13 +25,13 @@ async fn request_id_is_valid_uuid() {
 }
 
 #[tokio::test]
-async fn request_id_is_uuid_v4() {
+async fn request_id_is_uuid_v7() {
     let response = client().get("/health").await;
 
     let id = response.header("x-request-id").unwrap();
     let parsed = Uuid::parse_str(id).unwrap();
 
-    assert_eq!(parsed.get_version_num(), 4);
+    assert_eq!(parsed.get_version_num(), 7);
 }
 
 #[tokio::test]
