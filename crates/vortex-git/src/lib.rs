@@ -44,3 +44,6 @@ pub use reader::{ConfigFileResolver, ConfigFormat, ConfigParser};
 pub use repository::{GitBackendConfig, GitRef, GitRepository};
 pub use source::{ConfigQuery, ConfigResult, ConfigSource};
 pub use sync::{GitState, RefreshConfig, RefreshHandle, RefreshScheduler};
+
+// Re-export vortex_core for consumers
+pub use vortex_core;
