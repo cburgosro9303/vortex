@@ -1,6 +1,7 @@
 # Vortex Config
 
 [![CI](https://github.com/cburgosro9303/vortex-config/actions/workflows/ci.yml/badge.svg)](https://github.com/cburgosro9303/vortex-config/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/cburgosro9303/vortex-config/branch/main/graph/badge.svg)](https://codecov.io/gh/cburgosro9303/vortex-config)
 [![License](https://img.shields.io/badge/license-Polyform%20NC%201.0-green.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.92%2B-orange.svg)](https://www.rust-lang.org/)
 [![Status](https://img.shields.io/badge/status-50%25%20complete-yellow.svg)](STATUS.md)
