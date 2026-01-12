@@ -77,7 +77,7 @@ fn bench_cache_insert(c: &mut Criterion) {
             let counter = Arc::clone(&counter);
             async move {
                 let count = counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                let key = CacheKey::new(&format!("app-{}", count), "prod", "main");
+                let key = CacheKey::new(format!("app-{}", count), "prod", "main");
                 cache.insert(key, (*response).clone()).await;
             }
         });
@@ -102,7 +102,7 @@ fn bench_cache_insert_varying_sizes(c: &mut Criterion) {
                 let counter = Arc::clone(&counter);
                 async move {
                     let count = counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    let key = CacheKey::new(&format!("app-{}", count), "prod", "main");
+                    let key = CacheKey::new(format!("app-{}", count), "prod", "main");
                     cache.insert(key, (*response).clone()).await;
                 }
             });
@@ -127,7 +127,7 @@ fn bench_cache_invalidate(c: &mut Criterion) {
             let counter = Arc::clone(&counter);
             async move {
                 let count = counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                let key = CacheKey::new(&format!("app-{}", count), "prod", "main");
+                let key = CacheKey::new(format!("app-{}", count), "prod", "main");
                 // Insert then invalidate
                 cache.insert(key.clone(), (*response).clone()).await;
                 cache.invalidate(&key).await;
@@ -144,7 +144,7 @@ fn bench_cache_concurrent_gets(c: &mut Criterion) {
     // Pre-populate con 1000 entries
     rt.block_on(async {
         for i in 0..1000 {
-            let key = CacheKey::new(&format!("app-{}", i), "prod", "main");
+            let key = CacheKey::new(format!("app-{}", i), "prod", "main");
             cache.insert(key, create_test_response(50)).await;
         }
     });
@@ -157,7 +157,7 @@ fn bench_cache_concurrent_gets(c: &mut Criterion) {
                     .map(|i| {
                         let cache = Arc::clone(&cache);
                         tokio::spawn(async move {
-                            let key = CacheKey::new(&format!("app-{}", i % 1000), "prod", "main");
+                            let key = CacheKey::new(format!("app-{}", i % 1000), "prod", "main");
                             cache.get(&key).await
                         })
                     })

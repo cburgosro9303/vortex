@@ -247,8 +247,8 @@ impl ConfigCache {
     /// Sincroniza el cache (para tests principalmente).
     /// Fuerza la limpieza de entries expiradas.
     #[cfg(test)]
-    pub(crate) fn sync(&self) {
-        self.inner.run_pending_tasks();
+    pub(crate) async fn sync(&self) {
+        self.inner.run_pending_tasks().await;
     }
 }
 
@@ -333,7 +333,7 @@ mod tests {
         cache.invalidate(&key).await;
 
         // Forzar limpieza
-        cache.sync();
+        cache.sync().await;
 
         assert!(cache.get(&key).await.is_none());
     }
@@ -344,7 +344,7 @@ mod tests {
 
         // Insert multiple entries
         for i in 0..10 {
-            let key = CacheKey::new(&format!("app{}", i), "prod", "main");
+            let key = CacheKey::new(format!("app{}", i), "prod", "main");
             cache
                 .insert(
                     key.clone(),
@@ -357,7 +357,7 @@ mod tests {
 
         // Verify all entries are still accessible
         for i in 0..10 {
-            let key = CacheKey::new(&format!("app{}", i), "prod", "main");
+            let key = CacheKey::new(format!("app{}", i), "prod", "main");
             assert!(cache.get(&key).await.is_some());
         }
     }

@@ -41,7 +41,7 @@ pub async fn get_config(
     let response = match state.cache() {
         Some(cache) => {
             // Create cache key
-            let cache_key = CacheKey::new(&path.app, &profiles.join(","), &label);
+            let cache_key = CacheKey::new(&path.app, profiles.join(","), &label);
 
             // Try to get from cache or fetch from backend
             cache
@@ -94,7 +94,7 @@ pub async fn get_config_with_label(
         match state.cache() {
             Some(cache) => {
                 // Create cache key
-                let cache_key = CacheKey::new(&path.app, &profiles.join(","), &label);
+                let cache_key = CacheKey::new(&path.app, profiles.join(","), &label);
 
                 // Try to get from cache or fetch from backend
                 match cache
@@ -118,7 +118,7 @@ pub async fn get_config_with_label(
                         );
 
                         let fallback_key =
-                            CacheKey::new(&path.app, &profiles.join(","), &default_label);
+                            CacheKey::new(&path.app, profiles.join(","), &default_label);
                         cache
                             .get_or_insert_with(fallback_key, || {
                                 let config_source = state.config_source();
