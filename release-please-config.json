@@ -1,10 +1,9 @@
 {
+  "release-type": "rust-workspace",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "changelog-path": "CHANGELOG.md",
   "packages": {
-    ".": {
-      "release-type": "rust",
-      "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
-      "changelog-path": "CHANGELOG.md"
-    }
+    ".": {}
   }
 }
