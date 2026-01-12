@@ -1,12 +1,22 @@
 //! Vortex Core - Domain types and traits
 //!
 //! This crate provides the foundational types for the Vortex Config server.
+//!
+//! # Key Types
+//!
+//! - [`ConfigMap`]: Complete configuration for an application
+//! - [`PropertySource`]: Configuration from a single source
+//! - [`Application`], [`Profile`], [`Label`]: Identifiers for configuration
+//! - [`VortexError`]: Main error type
+//! - [`Result`]: Type alias for `Result<T, VortexError>`
 
 mod config;
+mod error;
 mod types;
 
 // Re-export public types
 pub use config::{ConfigMap, ConfigMapBuilder, PropertySource};
+pub use error::{Result, VortexError};
 pub use types::{Application, Label, Profile};
 
 /// Returns the crate version.
