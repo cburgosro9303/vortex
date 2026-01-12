@@ -90,6 +90,13 @@ pub trait ConfigSource: Send + Sync {
     fn supports_refresh(&self) -> bool {
         false
     }
+
+    /// Returns the default label for this source.
+    ///
+    /// For Git sources, this is typically "main" or "master".
+    fn default_label(&self) -> &str {
+        "main"
+    }
 }
 
 #[cfg(test)]

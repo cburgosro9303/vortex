@@ -5,7 +5,7 @@ use axum::{
     response::Response,
 };
 use tracing::instrument;
-use vortex_git::ConfigQuery as GitConfigQuery;
+use vortex_git::{ConfigQuery as GitConfigQuery, ConfigSourceError};
 
 use crate::error::AppError;
 use crate::extractors::{
@@ -94,12 +94,32 @@ pub async fn get_config_with_label(
     // Create query for the config source with label
     let git_query = GitConfigQuery::new(&path.app, profiles.clone()).with_label_set(&label);
 
-    // Fetch from the config source
-    let result = state
-        .config_source()
-        .fetch(&git_query)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    // Fetch from the config source, with fallback to default label if enabled
+    let result = match state.config_source().fetch(&git_query).await {
+        Ok(result) => result,
+        Err(e) => {
+            // If label not found and useDefaultLabel is true, retry with default label
+            if query.use_default_label && is_label_not_found(&e) {
+                let default_label = state.config_source().default_label();
+                tracing::info!(
+                    original_label = %label,
+                    default_label = %default_label,
+                    "Label not found, falling back to default"
+                );
+
+                let fallback_query =
+                    GitConfigQuery::new(&path.app, profiles.clone()).with_label_set(default_label);
+
+                state
+                    .config_source()
+                    .fetch(&fallback_query)
+                    .await
+                    .map_err(|e| AppError::Internal(e.to_string()))?
+            } else {
+                return Err(AppError::Internal(e.to_string()));
+            }
+        },
+    };
 
     // Convert to response format
     let response = ConfigResponse {
@@ -166,4 +186,9 @@ fn validate_label(label: &str) -> Result<(), AppError> {
     }
 
     Ok(())
+}
+
+/// Checks if the error is a LabelNotFound error.
+fn is_label_not_found(error: &ConfigSourceError) -> bool {
+    matches!(error, ConfigSourceError::LabelNotFound(_))
 }
