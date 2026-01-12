@@ -163,6 +163,10 @@ impl ConfigSource for GitBackend {
     fn supports_refresh(&self) -> bool {
         true
     }
+
+    fn default_label(&self) -> &str {
+        self.config.default_label()
+    }
 }
 
 impl Drop for GitBackend {
