@@ -48,7 +48,7 @@ A high-performance, cloud-native configuration server written in Rust. Designed 
 
 ### Prerequisites
 
-- Rust 1.85+ (edition 2024)
+- Rust 1.92+ (edition 2024)
 - Cargo
 
 ### Installation
