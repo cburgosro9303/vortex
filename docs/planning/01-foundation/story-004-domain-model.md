@@ -251,9 +251,9 @@ impl Label {
 
 //! Configuration structures for Vortex Config.
 
-use crate::types::{Application, Label, Profile};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+    use crate::types::{Application, Label, Profile};
+    use serde::{Deserialize, Serialize};
+    use std::collections::HashMap;
 
 /// A collection of configuration properties from a specific source.
 ///

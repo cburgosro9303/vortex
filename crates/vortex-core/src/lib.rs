@@ -2,6 +2,13 @@
 //!
 //! This crate provides the foundational types for the Vortex Config server.
 
+mod config;
+mod types;
+
+// Re-export public types
+pub use config::{ConfigMap, ConfigMapBuilder, PropertySource};
+pub use types::{Application, Label, Profile};
+
 /// Returns the crate version.
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
