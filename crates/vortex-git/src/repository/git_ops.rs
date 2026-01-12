@@ -253,18 +253,18 @@ impl GitRepository {
                     .or_else(|_| repo.find_reference(&format!("refs/remotes/origin/{}", name)))
                     .map_err(|_| ConfigSourceError::LabelNotFound(name.clone()))?;
 
-                reference
-                    .into_fully_peeled_id()
-                    .map_err(|e| ConfigSourceError::git(format!("Failed to peel reference: {}", e)))?
+                reference.into_fully_peeled_id().map_err(|e| {
+                    ConfigSourceError::git(format!("Failed to peel reference: {}", e))
+                })?
             },
             GitRef::Tag(name) => {
                 let reference = repo
                     .find_reference(&format!("refs/tags/{}", name))
                     .map_err(|_| ConfigSourceError::LabelNotFound(name.clone()))?;
 
-                reference
-                    .into_fully_peeled_id()
-                    .map_err(|e| ConfigSourceError::git(format!("Failed to peel reference: {}", e)))?
+                reference.into_fully_peeled_id().map_err(|e| {
+                    ConfigSourceError::git(format!("Failed to peel reference: {}", e))
+                })?
             },
             GitRef::Commit(sha) => {
                 let oid = gix::ObjectId::from_hex(sha.as_bytes())
