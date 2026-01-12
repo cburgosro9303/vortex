@@ -840,7 +840,7 @@ impl AnomalyDetector {
 # Core (ya en PRD)
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
-gix = "0.58"
+# Git operations via system git CLI (no crate dependency)
 sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "mysql", "sqlite"] }
 moka = { version = "0.12", features = ["future"] }
 serde = { version = "1", features = ["derive"] }

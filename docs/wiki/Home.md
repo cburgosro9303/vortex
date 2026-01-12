@@ -129,7 +129,7 @@ curl http://localhost:8888/myapp/production
                      │
           ┌──────────▼──────────┐
           │   Git Backend       │
-          │    (gix)            │
+          │  (Git CLI)          │
           └──────────┬──────────┘
                      │
           ┌──────────▼──────────┐
@@ -146,7 +146,7 @@ curl http://localhost:8888/myapp/production
 - **Rust 1.92+** (edition 2024)
 - **Tokio** - Async runtime
 - **Axum 0.8** - HTTP framework
-- **gix** - Pure Rust Git library
+- **Git CLI** - System git command (maximum compatibility)
 - **Moka 0.12** - Async cache
 - **serde** - Serialization
 

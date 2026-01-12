@@ -10,7 +10,7 @@ El objetivo es crear la estructura base del proyecto con tres crates iniciales:
 
 - **vortex-core**: Tipos y traits del dominio (librería) — Base para `ConfigMap`, `PropertySource`, traits como `ConfigSource` y `InheritanceResolver`
 - **vortex-server**: Servidor HTTP (binario, futuro) — Axum API, endpoints REST compatibles con Spring Cloud Config
-- **vortex-sources**: Backends de configuración (librería, futuro) — Implementaciones de Git (gix), S3 (aws-sdk), SQL (SQLx)
+- **vortex-sources**: Backends de configuración (librería, futuro) — Implementaciones de Git (Git CLI), S3 (aws-sdk), SQL (SQLx)
 
 ## Alcance
 

@@ -146,23 +146,33 @@ tokio-test = "0.4"
 
 ## Decisiones Arquitectonicas (ADRs)
 
-### ADR-004: gix como libreria Git
+### ADR-004: Git CLI como implementación Git
 
-**Estado**: Aceptado
+**Estado**: Aceptado (Revisado 2026-01-12)
 
-**Contexto**: Necesitamos una libreria Git nativa en Rust para operaciones de clone, pull, y checkout.
+**Contexto**: Necesitamos una forma de interactuar con repositorios Git para operaciones de clone, pull, y checkout.
 
-**Decision**: Usar `gix` (anteriormente gitoxide) como libreria Git.
+**Decision**: Usar el comando `git` del sistema (Git CLI) mediante `std::process::Command`.
 
 **Razones**:
-- Implementacion pura en Rust (sin dependencia de libgit2/C)
-- Activamente mantenido por el autor de git2-rs
-- Mejor performance que git2 en muchas operaciones
-- API mas idiomatica para Rust
+- **Máxima compatibilidad**: Funciona con cualquier repositorio Git sin problemas de implementación
+- **Simplicidad**: No requiere dependencias adicionales de Rust
+- **Madurez**: Git CLI es extremadamente estable y probado
+- **Debugging**: Fácil de depurar y diagnosticar problemas
+- **Sin dependencias C**: No requiere toolchain C ni libgit2
+- **Operaciones spawn_blocking**: Se integra bien con Tokio usando `spawn_blocking`
 
 **Alternativas consideradas**:
-- git2-rs: Binding a libgit2, mas maduro pero requiere C toolchain
-- Ejecutar git CLI: Simple pero menos control y parsing de output
+- **gix (gitoxide)**: Pure Rust, pero API aún en desarrollo y posibles incompatibilidades
+- **git2-rs**: Binding a libgit2, maduro pero requiere C toolchain y libgit2 instalado
+- **Implementación actual elegida**: Git CLI - mejor balance entre simplicidad y compatibilidad
+
+**Trade-offs aceptados**:
+- Requiere que `git` esté instalado en el sistema
+- Parsing de output de texto en lugar de API estructurada
+- Menos control fino sobre operaciones Git internas
+
+**Nota**: Aunque la documentación inicial mencionaba `gix`, la implementación real usa Git CLI para garantizar máxima compatibilidad en producción.
 
 ### ADR-005: Estrategia de Sincronizacion
 

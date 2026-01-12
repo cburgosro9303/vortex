@@ -28,7 +28,7 @@ Vortex Config sigue una arquitectura de capas (layered architecture) con separac
 └──────────────┬──────────────────────────┘
                │
 ┌──────────────▼──────────────────────────┐
-│        Git Backend (gix)                │
+│        Git Backend (Git CLI)            │
 │  - Clone/pull repositories              │
 │  - File resolution                      │
 │  - Refresh scheduler                    │
@@ -65,7 +65,7 @@ Vortex Config sigue una arquitectura de capas (layered architecture) con separac
 - `reader/` - File reading and parsing
 - `sync/` - Refresh scheduler
 
-**Dependencias:** gix, tokio, vortex-core
+**Dependencias:** tokio, vortex-core (Git CLI del sistema)
 
 ### vortex-server
 
@@ -242,7 +242,7 @@ Archivos buscados (menor a mayor prioridad):
 - All I/O operations are async
 
 **Blocking operations:**
-- Git operations (gix) → `spawn_blocking`
+- Git operations (Git CLI via std::process::Command) → `spawn_blocking`
 - File I/O → async via tokio
 
 ---

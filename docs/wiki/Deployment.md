@@ -2,6 +2,16 @@
 
 Guía completa para desplegar Vortex Config en producción.
 
+## Requirements
+
+**System Dependencies:**
+- Git 2.x+ installed on the system
+- Docker (for containerized deployment) or Rust 1.92+ (for source deployment)
+
+**Note:** Vortex Config uses the system's `git` CLI for repository operations, ensuring maximum compatibility. The Docker image includes git by default.
+
+---
+
 ## Docker Deployment
 
 ### Quick Start
