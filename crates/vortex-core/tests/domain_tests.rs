@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use vortex_core::{Application, ConfigMap, Label, Profile, PropertySource, Result, VortexError};
+use vortex_core::{Application, ConfigMap, PropertySource, Result, VortexError};
 
 #[test]
 fn test_validation_workflow() {
@@ -50,40 +49,40 @@ fn test_error_context_preservation() {
 }
 
 #[test]
-fn test_complete_config_workflow() {
-    // Simulate loading configuration from multiple sources
-    let app_props = PropertySource::new(
-        "application.yml",
-        HashMap::from([
-            ("server.port".into(), "8000".into()),
-            ("app.name".into(), "Default App".into()),
-        ]),
-    );
+fn test_config_value_workflow() {
+    // 1. Create ConfigMap from JSON (simulating loading from file)
+    let json_config = r#"{
+        "server": {
+            "port": 8000,
+            "host": "localhost"
+        },
+        "app": {
+            "name": "Default App",
+            "enabled": true
+        },
+        "features": ["auth", "monitoring"]
+    }"#;
+    
+    let config = ConfigMap::from_json(json_config).expect("Failed to parse JSON");
 
-    let profile_props = PropertySource::new(
-        "application-production.yml",
-        HashMap::from([
-            ("server.port".into(), "8080".into()),
-            ("database.pool.size".into(), "20".into()),
-        ]),
-    );
+    // 2. Verify typed access via dot notation
+    assert_eq!(config.get("server.port").unwrap().as_i64(), Some(8000));
+    assert_eq!(config.get("server.host").unwrap().as_str(), Some("localhost"));
+    assert_eq!(config.get("app.enabled").unwrap().as_bool(), Some(true));
+    
+    // Verify array access (requires manual traversing for now or specialized get)
+    if let Some(features) = config.get("features").and_then(|v| v.as_array()) {
+        assert_eq!(features.len(), 2);
+        assert_eq!(features[0].as_str(), Some("auth"));
+    } else {
+        panic!("Features should be an array");
+    }
 
-    let config = ConfigMap::builder()
-        .application(Application::new("myapp"))
-        .profile(Profile::new("production"))
-        .label(Label::new("main"))
-        .property_source(profile_props) // Higher priority
-        .property_source(app_props) // Lower priority
-        .build();
-
-    // Profile-specific value takes precedence
-    assert_eq!(config.get_property("server.port"), Some("8080"));
-
-    // Falls back to default
-    assert_eq!(config.get_property("app.name"), Some("Default App"));
-
-    // Profile-specific only
-    assert_eq!(config.get_property("database.pool.size"), Some("20"));
+    // 3. Create PropertySource wrapping the config
+    let source = PropertySource::new("application.yml", config);
+    
+    assert_eq!(source.name, "application.yml");
+    assert!(!source.config.is_empty());
 }
 
 #[test]

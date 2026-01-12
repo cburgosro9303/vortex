@@ -15,7 +15,7 @@ mod error;
 mod types;
 
 // Re-export public types
-pub use config::{ConfigMap, ConfigMapBuilder, PropertySource};
+pub use config::{ConfigMap, ConfigValue, PropertySource};
 pub use error::{Result, VortexError};
 pub use types::{Application, Label, Profile};
 
