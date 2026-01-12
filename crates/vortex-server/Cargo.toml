@@ -30,7 +30,7 @@ config = "0.15.19"
 
 # Metrics
 metrics = "0.24"
-metrics-exporter-prometheus = "0.16.2"
+metrics-exporter-prometheus = "0.18.1"
 
 # Error handling
 thiserror = "2.0.17"
