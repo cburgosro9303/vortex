@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1](https://github.com/cburgosro9303/vortex-config/compare/vortex-config-v1.0.0...vortex-config-v1.0.1) (2026-01-12)
+
+
+### Bug Fixes
+
+* add [package] section to root Cargo.toml ([5d7907d](https://github.com/cburgosro9303/vortex-config/commit/5d7907dffc40c739dbdae1c9abf3c8746c728ba4))
+* configure release-please for rust workspace ([582f67e](https://github.com/cburgosro9303/vortex-config/commit/582f67e65c2db0194c59dda74c1547693297f2ae))
+* use explicit versions in all crates for release-please ([c343b64](https://github.com/cburgosro9303/vortex-config/commit/c343b646a17b9e03ead5ee1be69ef44de24c955d))
+* use rust release-type with bootstrap-sha ([2af4860](https://github.com/cburgosro9303/vortex-config/commit/2af4860abc597398a1681041a0a0b6ff812b78be))
+
 ## [1.0.0] - 2026-01-12
 
 ### Added
