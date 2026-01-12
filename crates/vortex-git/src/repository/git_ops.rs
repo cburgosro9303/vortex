@@ -329,10 +329,10 @@ impl GitRepository {
                 // List local branches
                 if let Ok(local) = refs.local_branches() {
                     for branch in local.flatten() {
-                        if let Ok(name) = branch.name().as_bstr().to_str() {
-                            if let Some(short) = name.strip_prefix("refs/heads/") {
-                                branches.push(short.to_string());
-                            }
+                        if let Ok(name) = branch.name().as_bstr().to_str()
+                            && let Some(short) = name.strip_prefix("refs/heads/")
+                        {
+                            branches.push(short.to_string());
                         }
                     }
                 }
@@ -340,10 +340,10 @@ impl GitRepository {
                 // List remote branches
                 if let Ok(remote) = refs.remote_branches() {
                     for branch in remote.flatten() {
-                        if let Ok(name) = branch.name().as_bstr().to_str() {
-                            if let Some(short) = name.strip_prefix("refs/remotes/") {
-                                branches.push(short.to_string());
-                            }
+                        if let Ok(name) = branch.name().as_bstr().to_str()
+                            && let Some(short) = name.strip_prefix("refs/remotes/")
+                        {
+                            branches.push(short.to_string());
                         }
                     }
                 }
@@ -367,14 +367,14 @@ impl GitRepository {
 
             let mut tags = Vec::new();
 
-            if let Ok(refs) = repo.references() {
-                if let Ok(tag_refs) = refs.tags() {
-                    for tag in tag_refs.flatten() {
-                        if let Ok(name) = tag.name().as_bstr().to_str() {
-                            if let Some(short) = name.strip_prefix("refs/tags/") {
-                                tags.push(short.to_string());
-                            }
-                        }
+            if let Ok(refs) = repo.references()
+                && let Ok(tag_refs) = refs.tags()
+            {
+                for tag in tag_refs.flatten() {
+                    if let Ok(name) = tag.name().as_bstr().to_str()
+                        && let Some(short) = name.strip_prefix("refs/tags/")
+                    {
+                        tags.push(short.to_string());
                     }
                 }
             }
