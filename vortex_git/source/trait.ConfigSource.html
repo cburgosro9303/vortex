@@ -1,0 +1,95 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A source of configuration data."><title>ConfigSource in vortex_git::source - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="vortex_git" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">ConfigSource</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../vortex_git/index.html">vortex_<wbr>git</a><span class="version">1.0.2</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Config<wbr>Source</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#implementors-1" title="Implementors">Implementors</a></li><li><a href="#example" title="Example">Example</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.fetch" title="fetch">fetch</a></li><li><a href="#tymethod.health_check" title="health_check">health_check</a></li><li><a href="#tymethod.name" title="name">name</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.default_label" title="default_label">default_label</a></li><li><a href="#method.refresh" title="refresh">refresh</a></li><li><a href="#method.supports_refresh" title="supports_refresh">supports_refresh</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In vortex_<wbr>git::<wbr>source</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">vortex_git</a>::<wbr><a href="index.html">source</a></div><h1>Trait <span class="trait">Config<wbr>Source</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/vortex_git/source/traits.rs.html#42-100">Source</a> </span></div><pre class="rust item-decl"><code>pub trait ConfigSource: <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> {
+    // Required methods
+    fn <a href="#tymethod.fetch" class="fn">fetch</a>&lt;'life0, 'life1, 'async_trait&gt;(
+        &amp;'life0 self,
+        query: &amp;'life1 <a class="struct" href="struct.ConfigQuery.html" title="struct vortex_git::source::ConfigQuery">ConfigQuery</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.92.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.92.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.92.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.ConfigResult.html" title="struct vortex_git::source::ConfigResult">ConfigResult</a>, <a class="enum" href="../error/enum.ConfigSourceError.html" title="enum vortex_git::error::ConfigSourceError">ConfigSourceError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.health_check" class="fn">health_check</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.92.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.92.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.92.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.unit.html">()</a>, <a class="enum" href="../error/enum.ConfigSourceError.html" title="enum vortex_git::error::ConfigSourceError">ConfigSourceError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.name" class="fn">name</a>(&amp;self) -&gt; &amp;<a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.str.html">str</a>;
+
+    // Provided methods
+    fn <a href="#method.refresh" class="fn">refresh</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.92.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.92.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.92.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.unit.html">()</a>, <a class="enum" href="../error/enum.ConfigSourceError.html" title="enum vortex_git::error::ConfigSourceError">ConfigSourceError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.supports_refresh" class="fn">supports_refresh</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.default_label" class="fn">default_label</a>(&amp;self) -&gt; &amp;<a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.str.html">str</a> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A source of configuration data.</p>
+<p>This trait abstracts over different configuration backends (Git, S3, database, etc.)
+allowing the server to fetch configuration without knowing the underlying storage.</p>
+<h2 id="implementors-1"><a class="doc-anchor" href="#implementors-1">§</a>Implementors</h2>
+<ul>
+<li><code>GitBackend</code> - Fetches configuration from a Git repository</li>
+<li>(Future) <code>S3Backend</code> - Fetches configuration from S3</li>
+<li>(Future) <code>DatabaseBackend</code> - Fetches configuration from a database</li>
+</ul>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>vortex_git::{ConfigSource, ConfigQuery, ConfigResult};
+
+<span class="kw">struct </span>MySource;
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl </span>ConfigSource <span class="kw">for </span>MySource {
+    <span class="kw">async fn </span>fetch(<span class="kw-2">&amp;</span><span class="self">self</span>, query: <span class="kw-2">&amp;</span>ConfigQuery) -&gt; <span class="prelude-ty">Result</span>&lt;ConfigResult, ConfigSourceError&gt; {
+        <span class="comment">// Implementation here
+    </span>}
+
+    <span class="kw">async fn </span>health_check(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConfigSourceError&gt; {
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+        <span class="string">"my-source"
+    </span>}
+}</code></pre></div></div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.fetch" class="method"><a class="src rightside" href="../../src/vortex_git/source/traits.rs.html#58">Source</a><h4 class="code-header">fn <a href="#tymethod.fetch" class="fn">fetch</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    query: &amp;'life1 <a class="struct" href="struct.ConfigQuery.html" title="struct vortex_git::source::ConfigQuery">ConfigQuery</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.92.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.92.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.92.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.ConfigResult.html" title="struct vortex_git::source::ConfigResult">ConfigResult</a>, <a class="enum" href="../error/enum.ConfigSourceError.html" title="enum vortex_git::error::ConfigSourceError">ConfigSourceError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Fetches configuration for the given query.</p>
+<h5 id="arguments"><a class="doc-anchor" href="#arguments">§</a>Arguments</h5>
+<ul>
+<li><code>query</code> - The configuration query containing application, profiles, and label</li>
+</ul>
+<h5 id="returns"><a class="doc-anchor" href="#returns">§</a>Returns</h5>
+<p>A <code>ConfigResult</code> containing the resolved configuration, or an error.</p>
+<h5 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h5>
+<ul>
+<li><code>ConfigSourceError::ApplicationNotFound</code> if the application doesn’t exist</li>
+<li><code>ConfigSourceError::LabelNotFound</code> if the branch/tag doesn’t exist</li>
+<li><code>ConfigSourceError::SourceUnavailable</code> if the source is not accessible</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.health_check" class="method"><a class="src rightside" href="../../src/vortex_git/source/traits.rs.html#67">Source</a><h4 class="code-header">fn <a href="#tymethod.health_check" class="fn">health_check</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.92.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.92.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.92.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.unit.html">()</a>, <a class="enum" href="../error/enum.ConfigSourceError.html" title="enum vortex_git::error::ConfigSourceError">ConfigSourceError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Performs a health check on the configuration source.</p>
+<p>This should verify that the source is accessible and properly configured.</p>
+<h5 id="returns-1"><a class="doc-anchor" href="#returns-1">§</a>Returns</h5>
+<p><code>Ok(())</code> if the source is healthy, or an error describing the problem.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.name" class="method"><a class="src rightside" href="../../src/vortex_git/source/traits.rs.html#72">Source</a><h4 class="code-header">fn <a href="#tymethod.name" class="fn">name</a>(&amp;self) -&gt; &amp;<a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.str.html">str</a></h4></section></summary><div class="docblock"><p>Returns the name of this configuration source.</p>
+<p>This is used for logging and identification purposes.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.refresh" class="method"><a class="src rightside" href="../../src/vortex_git/source/traits.rs.html#82-84">Source</a><h4 class="code-header">fn <a href="#method.refresh" class="fn">refresh</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.92.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.92.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.92.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.unit.html">()</a>, <a class="enum" href="../error/enum.ConfigSourceError.html" title="enum vortex_git::error::ConfigSourceError">ConfigSourceError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.92.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Triggers a refresh of the configuration source.</p>
+<p>For Git sources, this typically means pulling the latest changes.
+The default implementation is a no-op for sources that don’t support refresh.</p>
+<h5 id="returns-2"><a class="doc-anchor" href="#returns-2">§</a>Returns</h5>
+<p><code>Ok(())</code> on success, or an error if refresh fails.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.supports_refresh" class="method"><a class="src rightside" href="../../src/vortex_git/source/traits.rs.html#90-92">Source</a><h4 class="code-header">fn <a href="#method.supports_refresh" class="fn">supports_refresh</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether this source supports refresh operations.</p>
+<p>Sources that don’t support refresh (e.g., static file sources)
+should return <code>false</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.default_label" class="method"><a class="src rightside" href="../../src/vortex_git/source/traits.rs.html#97-99">Source</a><h4 class="code-header">fn <a href="#method.default_label" class="fn">default_label</a>(&amp;self) -&gt; &amp;<a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.str.html">str</a></h4></section></summary><div class="docblock"><p>Returns the default label for this source.</p>
+<p>For Git sources, this is typically “main” or “master”.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-ConfigSource-for-GitBackend" class="impl"><a class="src rightside" href="../../src/vortex_git/backend.rs.html#107-170">Source</a><a href="#impl-ConfigSource-for-GitBackend" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ConfigSource.html" title="trait vortex_git::source::ConfigSource">ConfigSource</a> for <a class="struct" href="../backend/struct.GitBackend.html" title="struct vortex_git::backend::GitBackend">GitBackend</a></h3></section></div><script src="../../trait.impl/vortex_git/source/traits/trait.ConfigSource.js" async></script></section></div></main></body></html>

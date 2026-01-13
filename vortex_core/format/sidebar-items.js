@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ConfigFormat"],"mod":["json","properties","spring","yaml"],"trait":["FormatParser","FormatSerializer"]};

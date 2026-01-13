@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_config","get_config_with_label"]};

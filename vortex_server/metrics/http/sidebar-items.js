@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["http_metrics_middleware","register_http_metrics"]};

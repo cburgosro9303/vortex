@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["register_cache_metrics"],"struct":["CacheMetrics"]};

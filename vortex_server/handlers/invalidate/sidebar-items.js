@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["invalidate_all","invalidate_by_app","invalidate_by_app_profile","invalidate_by_app_profile_label"],"struct":["AppPath","AppProfileLabelPath","AppProfilePath","InvalidateByPatternsRequest","InvalidateResponse"]};
