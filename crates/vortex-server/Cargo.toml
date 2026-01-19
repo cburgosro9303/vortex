@@ -33,7 +33,7 @@ metrics = "0.24.3"
 metrics-exporter-prometheus = "0.18.1"
 
 # Error handling
-thiserror = "2.0.17"
+thiserror = "2.0.18"
 anyhow = "1.0"
 async-trait = "0.1"
 
