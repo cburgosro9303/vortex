@@ -1,6 +1,0 @@
-*.bin
-target/
-Cargo.lock
-.claude
-.idea/
-**/.idea/**
