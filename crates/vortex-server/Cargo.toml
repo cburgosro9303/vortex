@@ -22,7 +22,7 @@ urlencoding = "2.1"
 serde_yaml = "0.9"
 
 # Cache
-moka = { version = "0.12.12", features = ["future"] }
+moka = { version = "0.12.13", features = ["future"] }
 glob = "0.3.3"
 
 # Configuration
