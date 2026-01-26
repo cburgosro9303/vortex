@@ -1,0 +1,17 @@
+[package]
+name = "vortex-infrastructure"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Infrastructure adapters for Vortex API Client"
+
+[dependencies]
+vortex-domain = { workspace = true }
+vortex-application = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,30 @@
+[package]
+name = "vortex-ui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "UI layer for Vortex API Client"
+build = "build.rs"
+
+[dependencies]
+vortex-domain = { workspace = true }
+slint = { workspace = true }
+
+[build-dependencies]
+slint-build = "1.14.1"
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+# UI crate cannot use workspace lints due to Slint generated code requiring unsafe
+[lints.rust]
+unsafe_code = "allow"
+missing_docs = "allow"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+nursery = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"

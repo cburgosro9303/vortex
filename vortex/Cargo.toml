@@ -1,0 +1,60 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/domain",
+    "crates/application",
+    "crates/infrastructure",
+    "crates/ui",
+    "crates/app",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93.0"
+authors = ["Vortex Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/your-org/vortex"
+
+[workspace.dependencies]
+# Internal crates
+vortex-domain = { path = "crates/domain" }
+vortex-application = { path = "crates/application" }
+vortex-infrastructure = { path = "crates/infrastructure" }
+vortex-ui = { path = "crates/ui" }
+
+# Async runtime
+tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros", "time", "sync"] }
+
+# Serialization
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+
+# Error handling
+thiserror = "2.0.18"
+
+# UI Framework
+slint = "1.14.1"
+
+# HTTP Client (for future use)
+reqwest = { version = "0.13.1", features = ["json", "rustls-tls"], default-features = false }
+
+# Utilities
+uuid = { version = "1.20.0", features = ["v7", "serde"] }
+chrono = { version = "0.4.43", features = ["serde"] }
+url = { version = "2.5.8", features = ["serde"] }
+
+# Testing
+pretty_assertions = "1.4.1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
+nursery = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
