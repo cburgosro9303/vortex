@@ -1,0 +1,20 @@
+[package]
+name = "vortex"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Vortex API Client - Desktop application"
+
+[[bin]]
+name = "vortex"
+path = "src/main.rs"
+
+[dependencies]
+vortex-domain = { workspace = true }
+vortex-application = { workspace = true }
+vortex-infrastructure = { workspace = true }
+vortex-ui = { workspace = true }
+tokio = { workspace = true }
+
+[lints]
+workspace = true

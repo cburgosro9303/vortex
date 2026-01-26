@@ -1,0 +1,20 @@
+[package]
+name = "vortex-domain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Domain types for Vortex API Client"
+
+[dependencies]
+serde = { workspace = true }
+uuid = { workspace = true }
+url = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

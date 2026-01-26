@@ -1,0 +1,72 @@
+// Vortex API Client - Main Window
+// Sprint 00: Empty window with basic structure
+
+import { VerticalBox, HorizontalBox, Button, LineEdit } from "std-widgets.slint";
+
+// Application color palette
+export global Theme {
+    // Background colors
+    out property <color> background-primary: #1e1e2e;
+    out property <color> background-secondary: #313244;
+    out property <color> background-tertiary: #45475a;
+
+    // Text colors
+    out property <color> text-primary: #cdd6f4;
+    out property <color> text-secondary: #a6adc8;
+    out property <color> text-muted: #6c7086;
+
+    // Accent colors
+    out property <color> accent-primary: #89b4fa;
+    out property <color> accent-success: #a6e3a1;
+    out property <color> accent-warning: #f9e2af;
+    out property <color> accent-error: #f38ba8;
+
+    // Spacing
+    out property <length> spacing-xs: 4px;
+    out property <length> spacing-sm: 8px;
+    out property <length> spacing-md: 16px;
+    out property <length> spacing-lg: 24px;
+    out property <length> spacing-xl: 32px;
+}
+
+// Main application window
+export component MainWindow inherits Window {
+    title: "Vortex API Client";
+    min-width: 1024px;
+    min-height: 768px;
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    background: Theme.background-primary;
+
+    // Placeholder content for Sprint 00
+    VerticalBox {
+        alignment: center;
+        spacing: Theme.spacing-md;
+
+        Text {
+            text: "Vortex API Client";
+            font-size: 32px;
+            font-weight: 700;
+            color: Theme.text-primary;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: "Sprint 00 - Technical Foundations";
+            font-size: 16px;
+            color: Theme.text-secondary;
+            horizontal-alignment: center;
+        }
+
+        Rectangle {
+            height: Theme.spacing-xl;
+        }
+
+        Text {
+            text: "Ready for development";
+            font-size: 14px;
+            color: Theme.text-muted;
+            horizontal-alignment: center;
+        }
+    }
+}
