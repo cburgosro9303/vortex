@@ -33,7 +33,13 @@ use crate::HistoryItem;
 use crate::VariableRow;
 use crate::VortexPalette;
 use crate::VortexTypography;
-use crate::bridge::{EnvironmentData, HistoryItemData, TreeItemData, UiCommand, UiUpdate, VariableData};
+use crate::ResponseHeader;
+use crate::QueryParam;
+use crate::HeaderRow;
+use crate::bridge::{
+    AuthData, EnvironmentData, HeaderData, HistoryItemData, QueryParamData, TreeItemData,
+    UiCommand, UiUpdate, VariableData,
+};
 
 /// Application window wrapper with business logic bindings.
 pub struct AppWindow {
@@ -87,6 +93,29 @@ impl AppWindow {
         // History command senders
         let cmd_tx_history_click = cmd_tx.clone();
         let cmd_tx_clear_history = cmd_tx.clone();
+
+        // Sprint 05: Query params command senders
+        let cmd_tx_add_qp = cmd_tx.clone();
+        let cmd_tx_del_qp = cmd_tx.clone();
+        let cmd_tx_qp_changed = cmd_tx.clone();
+
+        // Sprint 05: Headers command senders
+        let cmd_tx_add_header = cmd_tx.clone();
+        let cmd_tx_del_header = cmd_tx.clone();
+        let cmd_tx_header_changed = cmd_tx.clone();
+
+        // Sprint 05: Auth command senders
+        let cmd_tx_auth_type = cmd_tx.clone();
+        let cmd_tx_bearer = cmd_tx.clone();
+        let cmd_tx_basic = cmd_tx.clone();
+        let cmd_tx_apikey = cmd_tx.clone();
+
+        // Sprint 05: Collection management command senders
+        let cmd_tx_save_req = cmd_tx.clone();
+        let cmd_tx_rename = cmd_tx.clone();
+        let cmd_tx_delete_req = cmd_tx.clone();
+        let cmd_tx_confirm_del = cmd_tx.clone();
+        let cmd_tx_cancel_del = cmd_tx.clone();
 
         // Set up UI callbacks
         window.on_send_request(move || {
@@ -248,6 +277,95 @@ impl AppWindow {
             let _ = cmd_tx_clear_history.send(UiCommand::ClearHistory);
         });
 
+        // Sprint 05: Query params callbacks
+        window.on_add_query_param(move || {
+            let _ = cmd_tx_add_qp.send(UiCommand::AddQueryParam);
+        });
+
+        window.on_delete_query_param(move |index| {
+            let _ = cmd_tx_del_qp.send(UiCommand::DeleteQueryParam { index });
+        });
+
+        window.on_query_param_changed(move |index, param: crate::QueryParam| {
+            let _ = cmd_tx_qp_changed.send(UiCommand::QueryParamChanged {
+                index,
+                key: param.key.to_string(),
+                value: param.value.to_string(),
+                enabled: param.enabled,
+            });
+        });
+
+        // Sprint 05: Headers callbacks
+        window.on_add_request_header(move || {
+            let _ = cmd_tx_add_header.send(UiCommand::AddRequestHeader);
+        });
+
+        window.on_delete_request_header(move |index| {
+            let _ = cmd_tx_del_header.send(UiCommand::DeleteRequestHeader { index });
+        });
+
+        window.on_request_header_changed(move |index, header: crate::HeaderRow| {
+            let _ = cmd_tx_header_changed.send(UiCommand::RequestHeaderChanged {
+                index,
+                key: header.key.to_string(),
+                value: header.value.to_string(),
+                enabled: header.enabled,
+            });
+        });
+
+        // Sprint 05: Auth callbacks
+        window.on_auth_type_changed(move |auth_type| {
+            let _ = cmd_tx_auth_type.send(UiCommand::AuthTypeChanged { auth_type });
+        });
+
+        window.on_auth_bearer_token_changed(move |token| {
+            let _ = cmd_tx_bearer.send(UiCommand::BearerTokenChanged {
+                token: token.to_string(),
+            });
+        });
+
+        window.on_auth_basic_credentials_changed(move |username, password| {
+            let _ = cmd_tx_basic.send(UiCommand::BasicCredentialsChanged {
+                username: username.to_string(),
+                password: password.to_string(),
+            });
+        });
+
+        window.on_auth_api_key_changed(move |key_name, key_value, location| {
+            let _ = cmd_tx_apikey.send(UiCommand::ApiKeyChanged {
+                key_name: key_name.to_string(),
+                key_value: key_value.to_string(),
+                location,
+            });
+        });
+
+        // Sprint 05: Collection management callbacks
+        window.on_save_current_request(move || {
+            let _ = cmd_tx_save_req.send(UiCommand::SaveCurrentRequest);
+        });
+
+        window.on_rename_item(move |id, new_name| {
+            let _ = cmd_tx_rename.send(UiCommand::RenameItem {
+                id: id.to_string(),
+                new_name: new_name.to_string(),
+            });
+        });
+
+        window.on_delete_item_requested(move |id, item_type| {
+            let _ = cmd_tx_delete_req.send(UiCommand::DeleteItemRequested {
+                id: id.to_string(),
+                item_type: item_type.to_string(),
+            });
+        });
+
+        window.on_confirm_delete(move || {
+            let _ = cmd_tx_confirm_del.send(UiCommand::ConfirmDelete);
+        });
+
+        window.on_cancel_delete(move || {
+            let _ = cmd_tx_cancel_del.send(UiCommand::CancelDelete);
+        });
+
         // Spawn the async runtime in a separate thread
         let ui_weak_async = ui_weak.clone();
         std::thread::spawn(move || {
@@ -318,6 +436,16 @@ struct AppState {
     // History state (Sprint 04)
     history: RequestHistory,
     history_visible: bool,
+    // Sprint 05: Query params state
+    query_params: Vec<QueryParamData>,
+    base_url: String, // URL without query params
+    // Sprint 05: Request headers state
+    request_headers: Vec<HeaderData>,
+    // Sprint 05: Authentication state
+    auth_data: AuthData,
+    // Sprint 05: Collection management state
+    pending_delete_id: Option<String>,
+    pending_delete_type: Option<String>,
 }
 
 impl AppState {
@@ -336,6 +464,13 @@ impl AppState {
             font_scale: settings.font_scale,
             history,
             history_visible: settings.history_visible,
+            // Sprint 05
+            query_params: Vec::new(),
+            base_url: String::new(),
+            request_headers: Vec::new(),
+            auth_data: AuthData::default(),
+            pending_delete_id: None,
+            pending_delete_type: None,
         }
     }
 
@@ -964,7 +1099,39 @@ fn run_async_runtime(
                 }
 
                 UiCommand::UrlChanged { url } => {
-                    state.current_url = url;
+                    state.current_url = url.clone();
+
+                    // Sprint 05: Sync query params from URL
+                    if let Some(query_start) = url.find('?') {
+                        state.base_url = url[..query_start].to_string();
+                        let query_string = &url[query_start + 1..];
+
+                        // Parse query params
+                        state.query_params = query_string
+                            .split('&')
+                            .filter(|s| !s.is_empty())
+                            .map(|param| {
+                                let mut parts = param.splitn(2, '=');
+                                let key = parts.next().unwrap_or("").to_string();
+                                let value = parts.next().unwrap_or("").to_string();
+                                QueryParamData {
+                                    key,
+                                    value,
+                                    enabled: true,
+                                }
+                            })
+                            .collect();
+
+                        let _ = update_tx.send(UiUpdate::QueryParams(state.query_params.clone()));
+                    } else {
+                        state.base_url = url;
+                        // Only clear if there were params before
+                        if !state.query_params.is_empty() {
+                            state.query_params.clear();
+                            let _ = update_tx.send(UiUpdate::QueryParams(vec![]));
+                        }
+                    }
+
                     resolve_and_update_url(&state, &update_tx);
                 }
 
@@ -1064,6 +1231,167 @@ fn run_async_runtime(
                         eprintln!("Failed to save settings: {e}");
                     }
                 }
+
+                // Sprint 05: Query Parameters commands
+                UiCommand::AddQueryParam => {
+                    state.query_params.push(QueryParamData {
+                        key: String::new(),
+                        value: String::new(),
+                        enabled: true,
+                    });
+                    let _ = update_tx.send(UiUpdate::QueryParams(state.query_params.clone()));
+                    update_url_from_params(&mut state, &update_tx);
+                }
+
+                UiCommand::DeleteQueryParam { index } => {
+                    if (index as usize) < state.query_params.len() {
+                        state.query_params.remove(index as usize);
+                        let _ = update_tx.send(UiUpdate::QueryParams(state.query_params.clone()));
+                        update_url_from_params(&mut state, &update_tx);
+                    }
+                }
+
+                UiCommand::QueryParamChanged { index, key, value, enabled } => {
+                    if let Some(param) = state.query_params.get_mut(index as usize) {
+                        param.key = key;
+                        param.value = value;
+                        param.enabled = enabled;
+                        // Don't send QueryParams back to avoid rebuilding UI and losing focus
+                        // Only update the URL which doesn't affect the input focus
+                        update_url_from_params(&mut state, &update_tx);
+                    }
+                }
+
+                // Sprint 05: Request Headers commands
+                UiCommand::AddRequestHeader => {
+                    state.request_headers.push(HeaderData {
+                        key: String::new(),
+                        value: String::new(),
+                        enabled: true,
+                    });
+                    let _ = update_tx.send(UiUpdate::RequestHeaders(state.request_headers.clone()));
+                }
+
+                UiCommand::DeleteRequestHeader { index } => {
+                    if (index as usize) < state.request_headers.len() {
+                        state.request_headers.remove(index as usize);
+                        let _ = update_tx.send(UiUpdate::RequestHeaders(state.request_headers.clone()));
+                    }
+                }
+
+                UiCommand::RequestHeaderChanged { index, key, value, enabled } => {
+                    if let Some(header) = state.request_headers.get_mut(index as usize) {
+                        header.key = key;
+                        header.value = value;
+                        header.enabled = enabled;
+                    }
+                }
+
+                // Sprint 05: Authentication commands
+                UiCommand::AuthTypeChanged { auth_type } => {
+                    state.auth_data.auth_type = auth_type;
+                }
+
+                UiCommand::BearerTokenChanged { token } => {
+                    state.auth_data.bearer_token = token;
+                }
+
+                UiCommand::BasicCredentialsChanged { username, password } => {
+                    state.auth_data.basic_username = username;
+                    state.auth_data.basic_password = password;
+                }
+
+                UiCommand::ApiKeyChanged { key_name, key_value, location } => {
+                    state.auth_data.api_key_name = key_name;
+                    state.auth_data.api_key_value = key_value;
+                    state.auth_data.api_key_location = location;
+                }
+
+                // Sprint 05: Collection Management commands
+                UiCommand::SaveCurrentRequest => {
+                    // TODO: Implement save current request to collection
+                    eprintln!("SaveCurrentRequest not yet implemented");
+                }
+
+                UiCommand::RenameItem { id, new_name } => {
+                    // Rename the item (file or folder)
+                    let path = PathBuf::from(&id);
+                    if path.exists() {
+                        let parent = path.parent().unwrap_or(&path);
+                        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+                        let new_path = if ext.is_empty() {
+                            parent.join(&new_name)
+                        } else {
+                            parent.join(format!("{}.{}", new_name, ext))
+                        };
+
+                        if let Err(e) = tokio::fs::rename(&path, &new_path).await {
+                            let _ = update_tx.send(UiUpdate::Error {
+                                title: "Failed to rename".to_string(),
+                                message: e.to_string(),
+                            });
+                        } else {
+                            // Refresh tree
+                            if let Some(ref ws_path) = state.workspace_path {
+                                let items = load_workspace_tree(ws_path, &state.expanded_folders).await;
+                                let _ = update_tx.send(UiUpdate::CollectionItems(items));
+                            }
+                        }
+                    }
+                }
+
+                UiCommand::DeleteItemRequested { id, item_type } => {
+                    state.pending_delete_id = Some(id.clone());
+                    state.pending_delete_type = Some(item_type.clone());
+
+                    let name = PathBuf::from(&id)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("item")
+                        .to_string();
+
+                    let _ = update_tx.send(UiUpdate::ShowConfirmDialog {
+                        title: format!("Delete {}", if item_type == "request" { "Request" } else { "Collection" }),
+                        message: format!("Are you sure you want to delete '{}'? This action cannot be undone.", name),
+                        item_id: id,
+                        item_type,
+                    });
+                }
+
+                UiCommand::ConfirmDelete => {
+                    if let Some(ref id) = state.pending_delete_id.take() {
+                        let path = PathBuf::from(id);
+                        if path.is_file() {
+                            if let Err(e) = tokio::fs::remove_file(&path).await {
+                                let _ = update_tx.send(UiUpdate::Error {
+                                    title: "Failed to delete".to_string(),
+                                    message: e.to_string(),
+                                });
+                            }
+                        } else if path.is_dir() {
+                            if let Err(e) = tokio::fs::remove_dir_all(&path).await {
+                                let _ = update_tx.send(UiUpdate::Error {
+                                    title: "Failed to delete".to_string(),
+                                    message: e.to_string(),
+                                });
+                            }
+                        }
+
+                        // Refresh tree
+                        if let Some(ref ws_path) = state.workspace_path {
+                            let items = load_workspace_tree(ws_path, &state.expanded_folders).await;
+                            let _ = update_tx.send(UiUpdate::CollectionItems(items));
+                        }
+                    }
+                    state.pending_delete_type = None;
+                    let _ = update_tx.send(UiUpdate::HideConfirmDialog);
+                }
+
+                UiCommand::CancelDelete => {
+                    state.pending_delete_id = None;
+                    state.pending_delete_type = None;
+                    let _ = update_tx.send(UiUpdate::HideConfirmDialog);
+                }
             }
         }
     });
@@ -1089,6 +1417,48 @@ fn resolve_and_update_url(state: &AppState, update_tx: &mpsc::UnboundedSender<Ui
         has_unresolved: !result.unresolved.is_empty(),
         unresolved_names: result.unresolved,
     });
+}
+
+/// Updates the URL based on query parameters (Sprint 05).
+fn update_url_from_params(state: &mut AppState, update_tx: &mpsc::UnboundedSender<UiUpdate>) {
+    // Build query string from enabled params
+    let query_parts: Vec<String> = state
+        .query_params
+        .iter()
+        .filter(|p| p.enabled && !p.key.is_empty())
+        .map(|p| {
+            if p.value.is_empty() {
+                p.key.clone()
+            } else {
+                format!("{}={}", p.key, p.value)
+            }
+        })
+        .collect();
+
+    // Update current_url with new query string
+    let base = if state.base_url.is_empty() {
+        // Extract base URL from current_url if not set
+        state.current_url.split('?').next().unwrap_or("").to_string()
+    } else {
+        state.base_url.clone()
+    };
+
+    // Store the base URL for future updates
+    if state.base_url.is_empty() && !base.is_empty() {
+        state.base_url = base.clone();
+    }
+
+    state.current_url = if query_parts.is_empty() {
+        base
+    } else {
+        format!("{}?{}", base, query_parts.join("&"))
+    };
+
+    // Update the URL in the UI
+    let _ = update_tx.send(UiUpdate::UpdateUrl(state.current_url.clone()));
+
+    // Update the resolved URL preview
+    resolve_and_update_url(state, update_tx);
 }
 
 /// Loads environments from the workspace.
@@ -1189,6 +1559,66 @@ async fn handle_send_request(
         request.url = resolved_url.clone();
         request.body = request_body;
 
+        // Sprint 05: Add custom headers
+        for header in &state.request_headers {
+            if header.enabled && !header.key.is_empty() {
+                let resolved_value = resolver.resolve(&header.value).resolved;
+                request.headers.add(vortex_domain::request::Header::new(
+                    header.key.clone(),
+                    resolved_value,
+                ));
+            }
+        }
+
+        // Sprint 05: Add authentication headers
+        match state.auth_data.auth_type {
+            1 => {
+                // Bearer token
+                if !state.auth_data.bearer_token.is_empty() {
+                    let resolved_token = resolver.resolve(&state.auth_data.bearer_token).resolved;
+                    request.headers.add(vortex_domain::request::Header::new(
+                        "Authorization",
+                        format!("Bearer {}", resolved_token),
+                    ));
+                }
+            }
+            2 => {
+                // Basic auth
+                if !state.auth_data.basic_username.is_empty() {
+                    let resolved_username = resolver.resolve(&state.auth_data.basic_username).resolved;
+                    let resolved_password = resolver.resolve(&state.auth_data.basic_password).resolved;
+                    let credentials = format!("{}:{}", resolved_username, resolved_password);
+                    use base64::Engine;
+                    let encoded = base64::engine::general_purpose::STANDARD.encode(credentials);
+                    request.headers.add(vortex_domain::request::Header::new(
+                        "Authorization",
+                        format!("Basic {}", encoded),
+                    ));
+                }
+            }
+            3 => {
+                // API Key
+                if !state.auth_data.api_key_name.is_empty() && !state.auth_data.api_key_value.is_empty() {
+                    let resolved_value = resolver.resolve(&state.auth_data.api_key_value).resolved;
+                    if state.auth_data.api_key_location == 0 {
+                        // Header
+                        request.headers.add(vortex_domain::request::Header::new(
+                            state.auth_data.api_key_name.clone(),
+                            resolved_value,
+                        ));
+                    } else {
+                        // Query param - append to URL
+                        let separator = if resolved_url.contains('?') { "&" } else { "?" };
+                        request.url = format!(
+                            "{}{}{}={}",
+                            request.url, separator, state.auth_data.api_key_name, resolved_value
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
+
         // Update UI to loading state
         let _ = update_tx.send(UiUpdate::State(RequestState::loading()));
 
@@ -1206,6 +1636,19 @@ async fn handle_send_request(
             Ok(response) => (Some(response.status), Some(response.duration.as_millis() as u64)),
             Err(_) => (None, None),
         };
+
+        // Sprint 05: Extract response headers
+        if let Ok(ref response) = result {
+            let response_headers: Vec<crate::bridge::ResponseHeaderData> = response
+                .headers_map
+                .iter()
+                .map(|(name, value)| crate::bridge::ResponseHeaderData {
+                    name: name.clone(),
+                    value: value.clone(),
+                })
+                .collect();
+            let _ = update_tx.send(UiUpdate::ResponseHeaders(response_headers));
+        }
 
         // Convert result to RequestState
         let request_state = result.to_request_state();
@@ -1545,6 +1988,119 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
 
         UiUpdate::HistoryVisible(visible) => {
             ui.set_history_visible(visible);
+        }
+
+        // Sprint 05: URL update (from params sync)
+        UiUpdate::UpdateUrl(url) => {
+            ui.set_url(url.into());
+        }
+
+        // Sprint 05: Query params updates
+        UiUpdate::QueryParams(params) => {
+            let slint_params: Vec<QueryParam> = params
+                .into_iter()
+                .map(|p| QueryParam {
+                    key: p.key.into(),
+                    value: p.value.into(),
+                    enabled: p.enabled,
+                })
+                .collect();
+
+            let model: ModelRc<QueryParam> = Rc::new(VecModel::from(slint_params)).into();
+            ui.set_query_params(model);
+        }
+
+        // Sprint 05: Request headers updates
+        UiUpdate::RequestHeaders(headers) => {
+            let slint_headers: Vec<HeaderRow> = headers
+                .into_iter()
+                .map(|h| HeaderRow {
+                    key: h.key.into(),
+                    value: h.value.into(),
+                    enabled: h.enabled,
+                })
+                .collect();
+
+            let model: ModelRc<HeaderRow> = Rc::new(VecModel::from(slint_headers)).into();
+            ui.set_request_headers(model);
+        }
+
+        // Sprint 05: Response headers updates
+        UiUpdate::ResponseHeaders(headers) => {
+            let slint_headers: Vec<ResponseHeader> = headers
+                .into_iter()
+                .map(|h| ResponseHeader {
+                    name: h.name.into(),
+                    value: h.value.into(),
+                })
+                .collect();
+
+            let model: ModelRc<ResponseHeader> = Rc::new(VecModel::from(slint_headers)).into();
+            ui.set_response_headers(model);
+        }
+
+        // Sprint 05: Auth data updates
+        UiUpdate::AuthData(auth) => {
+            ui.set_auth_type(auth.auth_type);
+            ui.set_auth_bearer_token(auth.bearer_token.into());
+            ui.set_auth_basic_username(auth.basic_username.into());
+            ui.set_auth_basic_password(auth.basic_password.into());
+            ui.set_auth_api_key_name(auth.api_key_name.into());
+            ui.set_auth_api_key_value(auth.api_key_value.into());
+            ui.set_auth_api_key_location(auth.api_key_location);
+        }
+
+        // Sprint 05: Confirm dialog updates
+        UiUpdate::ShowConfirmDialog { title, message, item_id, item_type } => {
+            ui.set_confirm_dialog_title(title.into());
+            ui.set_confirm_dialog_message(message.into());
+            ui.set_pending_delete_id(item_id.into());
+            ui.set_pending_delete_type(item_type.into());
+            ui.set_show_confirm_dialog(true);
+        }
+
+        UiUpdate::HideConfirmDialog => {
+            ui.set_show_confirm_dialog(false);
+        }
+
+        // Sprint 05: Load full request (with headers, params, auth)
+        UiUpdate::LoadFullRequest { url, method, body, headers, query_params, auth } => {
+            ui.set_url(url.into());
+            ui.set_method_index(method);
+            ui.set_request_body(body.into());
+
+            // Update headers
+            let slint_headers: Vec<HeaderRow> = headers
+                .into_iter()
+                .map(|h| HeaderRow {
+                    key: h.key.into(),
+                    value: h.value.into(),
+                    enabled: h.enabled,
+                })
+                .collect();
+            let headers_model: ModelRc<HeaderRow> = Rc::new(VecModel::from(slint_headers)).into();
+            ui.set_request_headers(headers_model);
+
+            // Update query params
+            let slint_params: Vec<QueryParam> = query_params
+                .into_iter()
+                .map(|p| QueryParam {
+                    key: p.key.into(),
+                    value: p.value.into(),
+                    enabled: p.enabled,
+                })
+                .collect();
+            let params_model: ModelRc<QueryParam> = Rc::new(VecModel::from(slint_params)).into();
+            ui.set_query_params(params_model);
+
+            // Update auth
+            ui.set_auth_type(auth.auth_type);
+            ui.set_auth_bearer_token(auth.bearer_token.into());
+            ui.set_auth_basic_username(auth.basic_username.into());
+            ui.set_auth_basic_password(auth.basic_password.into());
+            ui.set_auth_api_key_name(auth.api_key_name.into());
+            ui.set_auth_api_key_value(auth.api_key_value.into());
+            ui.set_auth_api_key_location(auth.api_key_location);
         }
     }
 }

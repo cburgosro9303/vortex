@@ -1,0 +1,131 @@
+// Confirmation Dialog Component
+// For confirming destructive actions like delete
+
+import { Button } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+export component ConfirmDialog inherits Rectangle {
+    in property <bool> is-visible: false;
+    in property <string> title: "Confirm";
+    in property <string> message: "Are you sure?";
+    in property <string> confirm-text: "Delete";
+    in property <string> cancel-text: "Cancel";
+    in property <bool> is-destructive: true;
+
+    callback confirmed();
+    callback cancelled();
+
+    // Full screen overlay
+    width: 100%;
+    height: 100%;
+    background: is-visible ? #00000080 : transparent;
+    visible: is-visible;
+
+    // Block clicks on overlay
+    TouchArea {
+        clicked => { cancelled(); }
+    }
+
+    // Dialog box centered
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 400px;
+        height: 200px;
+        background: VortexPalette.bg-secondary;
+        border-radius: VortexShape.radius-lg;
+        border-width: 1px;
+        border-color: VortexPalette.border-default;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: #00000040;
+
+        // Prevent click-through to overlay
+        TouchArea { }
+
+        VerticalLayout {
+            padding: VortexSpacing.lg;
+            spacing: VortexSpacing.md;
+
+            // Title
+            Text {
+                text: title;
+                color: is-destructive ? VortexPalette.status-error : VortexPalette.text-primary;
+                font-size: VortexTypography.font-xl;
+                font-weight: VortexTypography.weight-bold;
+                horizontal-alignment: center;
+            }
+
+            // Message
+            Text {
+                text: message;
+                color: VortexPalette.text-primary;
+                font-size: VortexTypography.font-base;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+                vertical-stretch: 1;
+            }
+
+            // Buttons
+            HorizontalLayout {
+                spacing: VortexSpacing.md;
+                alignment: center;
+
+                // Cancel button
+                Rectangle {
+                    width: 100px;
+                    height: 36px;
+                    background: VortexPalette.bg-tertiary;
+                    border-radius: VortexShape.radius-sm;
+                    border-width: 1px;
+                    border-color: VortexPalette.border-default;
+
+                    states [
+                        hover when cancel-touch.has-hover: {
+                            background: VortexPalette.bg-hover;
+                        }
+                    ]
+
+                    Text {
+                        text: cancel-text;
+                        color: VortexPalette.text-primary;
+                        font-size: VortexTypography.font-base;
+                        font-weight: VortexTypography.weight-medium;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    cancel-touch := TouchArea {
+                        clicked => { cancelled(); }
+                    }
+                }
+
+                // Confirm button
+                Rectangle {
+                    width: 100px;
+                    height: 36px;
+                    background: is-destructive ? VortexPalette.status-error : VortexPalette.button-primary;
+                    border-radius: VortexShape.radius-sm;
+
+                    states [
+                        hover when confirm-touch.has-hover: {
+                            background: is-destructive ? #d43d3d : VortexPalette.button-primary-hover;
+                        }
+                    ]
+
+                    Text {
+                        text: confirm-text;
+                        color: white;
+                        font-size: VortexTypography.font-base;
+                        font-weight: VortexTypography.weight-medium;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    confirm-touch := TouchArea {
+                        clicked => { confirmed(); }
+                    }
+                }
+            }
+        }
+    }
+}

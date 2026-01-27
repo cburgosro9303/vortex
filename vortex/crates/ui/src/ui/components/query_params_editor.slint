@@ -1,0 +1,252 @@
+// Query Parameters Editor Component
+// For editing URL query parameters with key-value pairs
+
+import { LineEdit, Button, CheckBox, ScrollView } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+// A single query parameter row for editing
+export struct QueryParam {
+    key: string,
+    value: string,
+    enabled: bool,
+}
+
+component QueryParamRow inherits Rectangle {
+    in property <int> index;
+    in-out property <QueryParam> param;
+
+    callback delete-clicked(int);
+    callback param-changed(int, QueryParam);
+
+    height: 36px;
+    background: mod(index, 2) == 0 ? VortexPalette.bg-secondary : VortexPalette.bg-tertiary;
+
+    HorizontalLayout {
+        padding: VortexSpacing.xs;
+        spacing: VortexSpacing.sm;
+
+        // Enable checkbox
+        CheckBox {
+            width: 20px;
+            checked: param.enabled;
+            toggled => {
+                param.enabled = self.checked;
+                param-changed(index, param);
+            }
+        }
+
+        // Key input
+        Rectangle {
+            width: 140px;
+            background: VortexPalette.bg-input;
+            border-radius: VortexShape.radius-sm;
+            border-width: 1px;
+            border-color: VortexPalette.border-default;
+
+            LineEdit {
+                text: param.key;
+                placeholder-text: "key";
+                font-size: VortexTypography.font-sm;
+                edited => {
+                    param.key = self.text;
+                    param-changed(index, param);
+                }
+            }
+        }
+
+        // Value input
+        Rectangle {
+            horizontal-stretch: 1;
+            background: VortexPalette.bg-input;
+            border-radius: VortexShape.radius-sm;
+            border-width: 1px;
+            border-color: VortexPalette.border-default;
+
+            LineEdit {
+                text: param.value;
+                placeholder-text: "value (supports {{variables}})";
+                font-size: VortexTypography.font-sm;
+                edited => {
+                    param.value = self.text;
+                    param-changed(index, param);
+                }
+            }
+        }
+
+        // Delete button
+        Rectangle {
+            width: 28px;
+            height: 28px;
+            background: VortexPalette.bg-tertiary;
+            border-radius: VortexShape.radius-sm;
+
+            states [
+                hover when delete-touch.has-hover: {
+                    background: VortexPalette.status-error;
+                }
+            ]
+
+            Text {
+                text: "\u{2715}"; // X icon
+                color: VortexPalette.text-secondary;
+                font-size: VortexTypography.font-base;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            delete-touch := TouchArea {
+                clicked => {
+                    delete-clicked(index);
+                }
+            }
+        }
+    }
+}
+
+export component QueryParamsEditor inherits Rectangle {
+    in property <string> title: "Query Params";
+    in-out property <[QueryParam]> params: [];
+    in property <bool> collapsed: false;
+
+    callback add-param();
+    callback delete-param(int);
+    callback param-changed(int, QueryParam);
+    callback toggle-collapsed();
+
+    background: VortexPalette.bg-primary;
+    border-radius: VortexShape.radius-sm;
+    border-width: 1px;
+    border-color: VortexPalette.border-default;
+
+    VerticalLayout {
+        // Header
+        Rectangle {
+            height: 36px;
+            background: VortexPalette.bg-secondary;
+            border-radius: collapsed ? VortexShape.radius-sm : 0;
+
+            HorizontalLayout {
+                padding: VortexSpacing.sm;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: VortexSpacing.sm;
+
+                    // Collapse toggle
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+
+                        Text {
+                            text: collapsed ? "\u{25B6}" : "\u{25BC}"; // Right/down triangle
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-xs;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        TouchArea {
+                            clicked => { toggle-collapsed(); }
+                        }
+                    }
+
+                    Text {
+                        text: title;
+                        color: VortexPalette.text-primary;
+                        font-size: VortexTypography.font-base;
+                        font-weight: VortexTypography.weight-bold;
+                        vertical-alignment: center;
+                    }
+
+                    // Param count badge
+                    if params.length > 0: Rectangle {
+                        width: 24px;
+                        height: 20px;
+                        background: VortexPalette.primary;
+                        border-radius: VortexShape.radius-sm;
+
+                        Text {
+                            text: params.length;
+                            color: VortexPalette.on-primary;
+                            font-size: VortexTypography.font-xs;
+                            font-weight: VortexTypography.weight-bold;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                Button {
+                    text: "+ Add";
+                    clicked => { add-param(); }
+                }
+            }
+        }
+
+        // Content (hidden when collapsed)
+        if !collapsed: VerticalLayout {
+            // Column headers
+            Rectangle {
+                height: 28px;
+                background: VortexPalette.bg-tertiary;
+
+                HorizontalLayout {
+                    padding-left: VortexSpacing.sm;
+                    padding-right: VortexSpacing.sm;
+                    spacing: VortexSpacing.sm;
+
+                    Rectangle { width: 20px; }
+
+                    Text {
+                        width: 140px;
+                        text: "Key";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-xs;
+                        font-weight: VortexTypography.weight-bold;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        horizontal-stretch: 1;
+                        text: "Value";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-xs;
+                        font-weight: VortexTypography.weight-bold;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle { width: 28px; }
+                }
+            }
+
+            // Params list
+            if params.length > 0: ScrollView {
+                min-height: 72px;
+                max-height: 180px;
+
+                VerticalLayout {
+                    for param[index] in params: QueryParamRow {
+                        index: index;
+                        param: param;
+
+                        delete-clicked(idx) => { delete-param(idx); }
+                        param-changed(idx, p) => { param-changed(idx, p); }
+                    }
+                }
+            }
+
+            // Empty state
+            if params.length == 0: Rectangle {
+                height: 60px;
+
+                Text {
+                    text: "No query parameters.\nClick '+ Add' to create one.";
+                    color: VortexPalette.text-placeholder;
+                    font-size: VortexTypography.font-sm;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
