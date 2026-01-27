@@ -36,8 +36,14 @@ export component ResponsePanel inherits Rectangle {
     // Tab state: 0=Body, 1=Headers
     in-out property <int> active-tab: 0;
 
+    // Sprint 06: Track if body is formatted
+    in-out property <bool> is-formatted: false;
+
     callback retry-clicked();
     callback copy-body-clicked();
+    // Sprint 06: Format callbacks
+    callback format-body-clicked();
+    callback copy-formatted-clicked();
 
     background: VortexPalette.bg-secondary;
     min-height: 200px;
@@ -212,23 +218,48 @@ export component ResponsePanel inherits Rectangle {
 
                     Rectangle { horizontal-stretch: 1; }
 
-                    // Copy button (only for body tab)
-                    if active-tab == 0: Rectangle {
-                        width: 60px;
-                        height: 24px;
-                        background: copy-touch.has-hover ? VortexPalette.bg-hover : transparent;
-                        border-radius: VortexShape.radius-sm;
+                    // Format and Copy buttons (only for body tab)
+                    if active-tab == 0: HorizontalLayout {
+                        spacing: VortexSpacing.xs;
 
-                        Text {
-                            text: "Copy";
-                            color: VortexPalette.text-accent;
-                            font-size: VortexTypography.font-sm;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
+                        // Format button
+                        Rectangle {
+                            width: 70px;
+                            height: 24px;
+                            background: format-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                            border-radius: VortexShape.radius-sm;
+
+                            Text {
+                                text: is-formatted ? "Raw" : "Format";
+                                color: VortexPalette.text-accent;
+                                font-size: VortexTypography.font-sm;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            format-touch := TouchArea {
+                                clicked => { format-body-clicked(); }
+                            }
                         }
 
-                        copy-touch := TouchArea {
-                            clicked => { copy-body-clicked(); }
+                        // Copy button
+                        Rectangle {
+                            width: 60px;
+                            height: 24px;
+                            background: copy-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                            border-radius: VortexShape.radius-sm;
+
+                            Text {
+                                text: "Copy";
+                                color: VortexPalette.text-accent;
+                                font-size: VortexTypography.font-sm;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            copy-touch := TouchArea {
+                                clicked => { copy-body-clicked(); }
+                            }
                         }
                     }
                 }

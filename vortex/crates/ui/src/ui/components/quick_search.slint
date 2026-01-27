@@ -1,0 +1,349 @@
+// Quick Search Dialog Component (Cmd+K)
+// Global search for requests, collections, and URLs
+
+import { LineEdit, ScrollView } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+// Search result item
+export struct SearchResult {
+    id: string,
+    name: string,
+    method: string,
+    url: string,
+    collection-name: string,
+    path: string,
+}
+
+// Individual result row
+component SearchResultItem inherits Rectangle {
+    in property <SearchResult> result;
+    in property <bool> is-selected: false;
+
+    callback clicked();
+
+    height: 56px;
+    background: is-selected ? VortexPalette.bg-selected : transparent;
+    border-radius: VortexShape.radius-sm;
+
+    states [
+        hover when touch.has-hover && !is-selected: {
+            background: VortexPalette.bg-hover;
+        }
+    ]
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding: VortexSpacing.sm;
+        spacing: VortexSpacing.md;
+
+        // Method badge
+        Rectangle {
+            width: 48px;
+            height: 22px;
+            border-radius: VortexShape.radius-sm;
+            background: result.method == "GET" ? VortexPalette.method-get :
+                       result.method == "POST" ? VortexPalette.method-post :
+                       result.method == "PUT" ? VortexPalette.method-put :
+                       result.method == "PATCH" ? VortexPalette.method-patch :
+                       result.method == "DELETE" ? VortexPalette.method-delete :
+                       result.method == "HEAD" ? VortexPalette.method-head :
+                       result.method == "OPTIONS" ? VortexPalette.method-options :
+                       VortexPalette.outline;
+
+            Text {
+                text: result.method;
+                font-size: VortexTypography.font-xs;
+                font-weight: VortexTypography.weight-bold;
+                color: white;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        // Request info
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 2px;
+            alignment: center;
+
+            Text {
+                text: result.name;
+                font-size: VortexTypography.font-base;
+                font-weight: VortexTypography.weight-medium;
+                color: is-selected ? white : VortexPalette.text-primary;
+                overflow: elide;
+            }
+
+            Text {
+                text: result.url;
+                font-size: VortexTypography.font-sm;
+                color: is-selected ? #ffffffcc : VortexPalette.text-secondary;
+                overflow: elide;
+            }
+        }
+
+        // Collection name
+        Text {
+            text: result.collection-name;
+            font-size: VortexTypography.font-xs;
+            color: is-selected ? #ffffffaa : VortexPalette.text-placeholder;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component QuickSearchDialog inherits Rectangle {
+    in property <bool> is-visible: false;
+    in property <[SearchResult]> results: [];
+    in-out property <string> search-query: "";
+    in-out property <int> selected-index: 0;
+
+    callback search-changed(string);
+    callback result-clicked(SearchResult);
+    callback close-clicked();
+
+    // Full screen overlay
+    visible: is-visible;
+    background: transparent;
+
+    // Keyboard handler for navigation
+    FocusScope {
+        enabled: is-visible;
+
+        key-pressed(event) => {
+            // Escape: Close dialog
+            if (event.text == Key.Escape) {
+                close-clicked();
+                return accept;
+            }
+            // Enter: Select current item
+            if (event.text == Key.Return) {
+                if (results.length > 0 && selected-index >= 0 && selected-index < results.length) {
+                    result-clicked(results[selected-index]);
+                }
+                return accept;
+            }
+            // Down arrow: Move selection down
+            if (event.text == Key.DownArrow) {
+                if (selected-index < results.length - 1) {
+                    selected-index = selected-index + 1;
+                }
+                return accept;
+            }
+            // Up arrow: Move selection up
+            if (event.text == Key.UpArrow) {
+                if (selected-index > 0) {
+                    selected-index = selected-index - 1;
+                }
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    // Background overlay
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        background: #00000060;
+
+        TouchArea {
+            clicked => { close-clicked(); }
+        }
+    }
+
+    // Search dialog - positioned near top
+    Rectangle {
+        width: 600px;
+        x: (parent.width - self.width) / 2;
+        y: 100px;
+        height: min(480px, 80px + results.length * 56px + 16px);
+        background: VortexPalette.surface-container;
+        border-radius: VortexShape.radius-lg;
+        drop-shadow-blur: 32px;
+        drop-shadow-color: #00000060;
+        drop-shadow-offset-y: 8px;
+
+        // Block clicks from closing dialog
+        TouchArea { }
+
+        VerticalLayout {
+            padding: VortexSpacing.md;
+            spacing: VortexSpacing.sm;
+
+            // Search input
+            Rectangle {
+                height: 48px;
+                background: VortexPalette.bg-input;
+                border-radius: VortexShape.radius-md;
+                border-width: 2px;
+                border-color: VortexPalette.primary;
+
+                HorizontalLayout {
+                    padding-left: VortexSpacing.md;
+                    padding-right: VortexSpacing.sm;
+                    spacing: VortexSpacing.sm;
+
+                    // Search icon
+                    Text {
+                        text: "\u{1F50D}"; // Magnifying glass
+                        font-size: VortexTypography.font-lg;
+                        color: VortexPalette.text-secondary;
+                        vertical-alignment: center;
+                    }
+
+                    search-input := LineEdit {
+                        horizontal-stretch: 1;
+                        placeholder-text: "Search requests by name, URL, or method...";
+                        text <=> search-query;
+                        font-size: VortexTypography.font-base;
+
+                        edited => { search-changed(self.text); }
+                    }
+
+                    // Escape hint
+                    Text {
+                        text: "ESC";
+                        font-size: VortexTypography.font-xs;
+                        color: VortexPalette.text-placeholder;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Results list
+            if results.length > 0: ScrollView {
+                vertical-stretch: 1;
+                min-height: 56px;
+
+                VerticalLayout {
+                    spacing: 2px;
+
+                    for result[index] in results: SearchResultItem {
+                        result: result;
+                        is-selected: index == selected-index;
+
+                        clicked => {
+                            result-clicked(result);
+                        }
+                    }
+                }
+            }
+
+            // Empty state
+            if results.length == 0 && search-query != "": Rectangle {
+                height: 100px;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: VortexSpacing.sm;
+
+                    Text {
+                        text: "No results found";
+                        font-size: VortexTypography.font-base;
+                        color: VortexPalette.text-secondary;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: "Try a different search term";
+                        font-size: VortexTypography.font-sm;
+                        color: VortexPalette.text-placeholder;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            // Initial state
+            if results.length == 0 && search-query == "": Rectangle {
+                height: 80px;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: VortexSpacing.xs;
+
+                    Text {
+                        text: "Quick Search";
+                        font-size: VortexTypography.font-lg;
+                        font-weight: VortexTypography.weight-bold;
+                        color: VortexPalette.text-primary;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: "Type to search requests in your collections";
+                        font-size: VortexTypography.font-sm;
+                        color: VortexPalette.text-secondary;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            // Keyboard hints
+            Rectangle {
+                height: 24px;
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: VortexSpacing.lg;
+
+                    HorizontalLayout {
+                        spacing: VortexSpacing.xs;
+
+                        Text {
+                            text: "\u{2191}\u{2193}";
+                            font-size: VortexTypography.font-xs;
+                            color: VortexPalette.text-placeholder;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "Navigate";
+                            font-size: VortexTypography.font-xs;
+                            color: VortexPalette.text-placeholder;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: VortexSpacing.xs;
+
+                        Text {
+                            text: "\u{21B5}";
+                            font-size: VortexTypography.font-xs;
+                            color: VortexPalette.text-placeholder;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "Open";
+                            font-size: VortexTypography.font-xs;
+                            color: VortexPalette.text-placeholder;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: VortexSpacing.xs;
+
+                        Text {
+                            text: "ESC";
+                            font-size: VortexTypography.font-xs;
+                            color: VortexPalette.text-placeholder;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "Close";
+                            font-size: VortexTypography.font-xs;
+                            color: VortexPalette.text-placeholder;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -4,6 +4,7 @@
 // Sprint 03: Environments and Variables
 // Sprint 04: Settings and Theme
 // Sprint 05: Headers, Query Params, Auth, Response Tabs, Collection Management
+// Sprint 06: Tabs, Quick Search, Import/Export, Keyboard Shortcuts
 
 import { VerticalBox, HorizontalBox, TextEdit, ScrollView, LineEdit, Button, ComboBox } from "std-widgets.slint";
 import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "theme.slint";
@@ -23,8 +24,11 @@ import { QueryParamsEditor, QueryParam } from "components/query_params_editor.sl
 import { HeadersEditor, HeaderRow } from "components/headers_editor.slint";
 import { AuthEditor } from "components/auth_editor.slint";
 import { ConfirmDialog } from "components/confirm_dialog.slint";
+// Sprint 06 imports
+import { RequestTabBar, RequestTab } from "components/request_tabs.slint";
+import { QuickSearchDialog, SearchResult } from "components/quick_search.slint";
 
-export { HistoryItem, ResponseHeader, QueryParam, HeaderRow }
+export { HistoryItem, ResponseHeader, QueryParam, HeaderRow, RequestTab, SearchResult }
 
 export { EnvironmentInfo, VariableRow }
 
@@ -183,6 +187,77 @@ export component MainWindow inherits Window {
     callback delete-item-requested(string, string);  // id, type
     callback confirm-delete();
     callback cancel-delete();
+
+    // Sprint 06: Request Tabs state
+    in-out property <[RequestTab]> request-tabs: [];
+    in-out property <string> active-tab-id: "";
+
+    // Sprint 06: Request Tabs callbacks
+    callback tab-clicked(string);
+    callback tab-close-clicked(string);
+    callback new-tab-clicked();
+
+    // Sprint 06: Quick Search state
+    in-out property <bool> show-quick-search: false;
+    in-out property <string> search-query: "";
+    in-out property <[SearchResult]> search-results: [];
+    in-out property <int> search-selected-index: 0;
+
+    // Sprint 06: Quick Search callbacks
+    callback open-quick-search();
+    callback close-quick-search();
+    callback search-query-changed(string);
+    callback search-result-clicked(SearchResult);
+
+    // Sprint 06: Import/Export callbacks
+    callback import-collection();
+    callback export-collection();
+    callback export-as-curl();
+
+    // Sprint 06: JSON Format callbacks
+    callback format-response-body();
+    callback format-request-body();
+    callback copy-formatted-response();
+
+    // Sprint 06: Global keyboard shortcuts handler
+    FocusScope {
+        enabled: !show-quick-search && !show-settings && !show-confirm-dialog && !show-environment-manager;
+
+        key-pressed(event) => {
+            // Check for Cmd/Ctrl modifier (Meta on macOS, Control on others)
+            if (event.modifiers.meta || event.modifiers.control) {
+                // Cmd/Ctrl + Enter: Send request
+                if (event.text == Key.Return) {
+                    send-request();
+                    return accept;
+                }
+                // Cmd/Ctrl + S: Save current request
+                if (event.text == "s" || event.text == "S") {
+                    save-current-request();
+                    return accept;
+                }
+                // Cmd/Ctrl + K: Open quick search
+                if (event.text == "k" || event.text == "K") {
+                    open-quick-search();
+                    show-quick-search = true;
+                    return accept;
+                }
+                // Cmd/Ctrl + W: Close current tab
+                if (event.text == "w" || event.text == "W") {
+                    if active-tab-id != "" {
+                        tab-close-clicked(active-tab-id);
+                    }
+                    return accept;
+                }
+                // Cmd/Ctrl + T: New tab
+                if (event.text == "t" || event.text == "T") {
+                    new-tab-clicked();
+                    return accept;
+                }
+            }
+            return reject;
+        }
+    }
 
     VerticalLayout {
         spacing: 0;
@@ -410,6 +485,48 @@ export component MainWindow inherits Window {
                             HorizontalLayout {
                                 spacing: VortexSpacing.xs;
 
+                                // Import button
+                                Rectangle {
+                                    width: 24px;
+                                    height: 24px;
+                                    background: import-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                                    border-radius: VortexShape.radius-sm;
+
+                                    Text {
+                                        text: "\u{2B07}"; // Down arrow (import)
+                                        font-size: VortexTypography.font-sm;
+                                        color: workspace-path != "" ? VortexPalette.text-secondary : VortexPalette.text-placeholder;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+
+                                    import-touch := TouchArea {
+                                        enabled: workspace-path != "";
+                                        clicked => { import-collection(); }
+                                    }
+                                }
+
+                                // Export button
+                                Rectangle {
+                                    width: 24px;
+                                    height: 24px;
+                                    background: export-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                                    border-radius: VortexShape.radius-sm;
+
+                                    Text {
+                                        text: "\u{2B06}"; // Up arrow (export)
+                                        font-size: VortexTypography.font-sm;
+                                        color: workspace-path != "" ? VortexPalette.text-secondary : VortexPalette.text-placeholder;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+
+                                    export-touch := TouchArea {
+                                        enabled: workspace-path != "";
+                                        clicked => { export-collection(); }
+                                    }
+                                }
+
                                 Button {
                                     text: "+";
                                     enabled: workspace-path != "";
@@ -489,6 +606,16 @@ export component MainWindow inherits Window {
 
                 VerticalLayout {
                     spacing: 0;
+
+                    // Sprint 06: Request Tabs Bar
+                    RequestTabBar {
+                        tabs: request-tabs;
+                        active-tab-id: root.active-tab-id;
+
+                        tab-clicked(id) => { root.tab-clicked(id); }
+                        tab-close-clicked(id) => { root.tab-close-clicked(id); }
+                        new-tab-clicked => { root.new-tab-clicked(); }
+                    }
 
                     // URL Bar with variable preview
                     Rectangle {
@@ -606,10 +733,35 @@ export component MainWindow inherits Window {
                                     padding: VortexSpacing.sm;
                                     spacing: VortexSpacing.xs;
 
-                                    Text {
-                                        text: "Request Body (JSON)";
-                                        color: VortexPalette.text-secondary;
-                                        font-size: VortexTypography.font-sm;
+                                    HorizontalLayout {
+                                        alignment: space-between;
+
+                                        Text {
+                                            text: "Request Body (JSON)";
+                                            color: VortexPalette.text-secondary;
+                                            font-size: VortexTypography.font-sm;
+                                            vertical-alignment: center;
+                                        }
+
+                                        // Format button
+                                        Rectangle {
+                                            width: 60px;
+                                            height: 24px;
+                                            background: format-body-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                                            border-radius: VortexShape.radius-sm;
+
+                                            Text {
+                                                text: "Format";
+                                                color: VortexPalette.text-accent;
+                                                font-size: VortexTypography.font-sm;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+
+                                            format-body-touch := TouchArea {
+                                                clicked => { format-request-body(); }
+                                            }
+                                        }
                                     }
 
                                     Rectangle {
@@ -654,6 +806,9 @@ export component MainWindow inherits Window {
 
                         retry-clicked => { send-request(); }
                         copy-body-clicked => { copy-response-body(); }
+                        // Sprint 06: Format callbacks
+                        format-body-clicked => { format-response-body(); }
+                        copy-formatted-clicked => { copy-formatted-response(); }
                     }
                 }
             }
@@ -711,6 +866,26 @@ export component MainWindow inherits Window {
         cancelled => {
             cancel-delete();
             show-confirm-dialog = false;
+        }
+    }
+
+    // Sprint 06: Quick Search Dialog (overlay)
+    QuickSearchDialog {
+        is-visible: show-quick-search;
+        search-query <=> root.search-query;
+        results: search-results;
+        selected-index: search-selected-index;
+
+        search-changed(query) => {
+            search-query-changed(query);
+        }
+        result-clicked(result) => {
+            search-result-clicked(result);
+            show-quick-search = false;
+        }
+        close-clicked => {
+            close-quick-search();
+            show-quick-search = false;
         }
     }
 }

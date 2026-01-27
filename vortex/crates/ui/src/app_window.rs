@@ -36,9 +36,12 @@ use crate::VortexTypography;
 use crate::ResponseHeader;
 use crate::QueryParam;
 use crate::HeaderRow;
+// Sprint 06: Tab and Search types
+use crate::RequestTab;
+use crate::SearchResult;
 use crate::bridge::{
-    AuthData, EnvironmentData, HeaderData, HistoryItemData, QueryParamData, TreeItemData,
-    UiCommand, UiUpdate, VariableData,
+    AuthData, EnvironmentData, HeaderData, HistoryItemData, QueryParamData, SearchResultData,
+    TabData, TabState, TreeItemData, UiCommand, UiUpdate, VariableData,
 };
 
 /// Application window wrapper with business logic bindings.
@@ -116,6 +119,27 @@ impl AppWindow {
         let cmd_tx_delete_req = cmd_tx.clone();
         let cmd_tx_confirm_del = cmd_tx.clone();
         let cmd_tx_cancel_del = cmd_tx.clone();
+
+        // Sprint 06: Tab command senders
+        let cmd_tx_tab_clicked = cmd_tx.clone();
+        let cmd_tx_tab_close = cmd_tx.clone();
+        let cmd_tx_new_tab = cmd_tx.clone();
+
+        // Sprint 06: Quick search command senders
+        let cmd_tx_open_search = cmd_tx.clone();
+        let cmd_tx_close_search = cmd_tx.clone();
+        let cmd_tx_search_query = cmd_tx.clone();
+        let cmd_tx_search_result = cmd_tx.clone();
+
+        // Sprint 06: Import/Export command senders
+        let cmd_tx_import = cmd_tx.clone();
+        let cmd_tx_export = cmd_tx.clone();
+        let cmd_tx_export_curl = cmd_tx.clone();
+
+        // Sprint 06: JSON format command senders
+        let cmd_tx_format = cmd_tx.clone();
+        let cmd_tx_format_req = cmd_tx.clone();
+        let cmd_tx_copy_formatted = cmd_tx.clone();
 
         // Set up UI callbacks
         window.on_send_request(move || {
@@ -366,6 +390,75 @@ impl AppWindow {
             let _ = cmd_tx_cancel_del.send(UiCommand::CancelDelete);
         });
 
+        // Sprint 06: Tab callbacks
+        window.on_tab_clicked(move |id| {
+            let _ = cmd_tx_tab_clicked.send(UiCommand::TabClicked {
+                id: id.to_string(),
+            });
+        });
+
+        window.on_tab_close_clicked(move |id| {
+            let _ = cmd_tx_tab_close.send(UiCommand::TabCloseClicked {
+                id: id.to_string(),
+            });
+        });
+
+        window.on_new_tab_clicked(move || {
+            let _ = cmd_tx_new_tab.send(UiCommand::NewTabClicked);
+        });
+
+        // Sprint 06: Quick search callbacks
+        window.on_open_quick_search(move || {
+            let _ = cmd_tx_open_search.send(UiCommand::OpenQuickSearch);
+        });
+
+        window.on_close_quick_search(move || {
+            let _ = cmd_tx_close_search.send(UiCommand::CloseQuickSearch);
+        });
+
+        window.on_search_query_changed(move |query| {
+            let _ = cmd_tx_search_query.send(UiCommand::SearchQueryChanged {
+                query: query.to_string(),
+            });
+        });
+
+        window.on_search_result_clicked(move |result: SearchResult| {
+            let _ = cmd_tx_search_result.send(UiCommand::SearchResultClicked {
+                id: result.id.to_string(),
+                path: result.path.to_string(),
+            });
+        });
+
+        // Sprint 06: Import/Export callbacks
+        window.on_import_collection(move || {
+            let _ = cmd_tx_import.send(UiCommand::ImportCollection);
+        });
+
+        window.on_export_collection(move || {
+            let _ = cmd_tx_export.send(UiCommand::ExportCollection);
+        });
+
+        window.on_export_as_curl(move || {
+            let _ = cmd_tx_export_curl.send(UiCommand::ExportAsCurl);
+        });
+
+        // Sprint 06: JSON format callbacks
+        window.on_format_response_body(move || {
+            let _ = cmd_tx_format.send(UiCommand::FormatResponseBody);
+        });
+
+        window.on_copy_formatted_response(move || {
+            let _ = cmd_tx_copy_formatted.send(UiCommand::CopyFormattedResponse);
+        });
+
+        let ui_weak_format_req = ui_weak.clone();
+        window.on_format_request_body(move || {
+            if let Some(ui) = ui_weak_format_req.upgrade() {
+                let body = ui.get_request_body().to_string();
+                let _ = cmd_tx_format_req.send(UiCommand::FormatRequestBody { body });
+            }
+        });
+
         // Spawn the async runtime in a separate thread
         let ui_weak_async = ui_weak.clone();
         std::thread::spawn(move || {
@@ -446,6 +539,13 @@ struct AppState {
     // Sprint 05: Collection management state
     pending_delete_id: Option<String>,
     pending_delete_type: Option<String>,
+    // Sprint 06: Tab state
+    tabs: Vec<TabState>,
+    active_tab_id: Option<String>,
+    // Sprint 06: Search state
+    all_requests: Vec<SearchResultData>, // Cached for search
+    // Sprint 06: Response body for formatting
+    response_body: String,
 }
 
 impl AppState {
@@ -471,7 +571,41 @@ impl AppState {
             auth_data: AuthData::default(),
             pending_delete_id: None,
             pending_delete_type: None,
+            // Sprint 06
+            tabs: Vec::new(),
+            active_tab_id: None,
+            all_requests: Vec::new(),
+            response_body: String::new(),
         }
+    }
+
+    /// Gets tabs as UI data.
+    fn tabs_to_ui(&self) -> Vec<TabData> {
+        self.tabs.iter().map(TabState::to_tab_data).collect()
+    }
+
+    /// Saves current UI state to the active tab.
+    fn save_current_tab_state(
+        &mut self,
+        url: &str,
+        method: i32,
+        body: &str,
+    ) {
+        if let Some(ref active_id) = self.active_tab_id {
+            if let Some(tab) = self.tabs.iter_mut().find(|t| &t.id == active_id) {
+                tab.url = url.to_string();
+                tab.method = method;
+                tab.body = body.to_string();
+                tab.headers = self.request_headers.clone();
+                tab.query_params = self.query_params.clone();
+                tab.auth = self.auth_data.clone();
+            }
+        }
+    }
+
+    /// Restores tab state to UI.
+    fn get_tab_state(&self, tab_id: &str) -> Option<&TabState> {
+        self.tabs.iter().find(|t| t.id == tab_id)
     }
 
     fn to_settings(&self) -> UserSettings {
@@ -578,6 +712,24 @@ fn run_async_runtime(
                     )
                     .await
                     {
+                        // Save response to current tab
+                        if let Some(ref active_id) = state.active_tab_id {
+                            if let Some(tab) = state.tabs.iter_mut().find(|t| &t.id == active_id) {
+                                tab.response_state = result.response_state;
+                                tab.response_body = result.response_body.clone();
+                                tab.status_code = result.status_code.map(|s| s as i32).unwrap_or(0);
+                                tab.status_text = result.status_text.clone();
+                                tab.duration = result.duration_display.clone();
+                                tab.size = result.size_display.clone();
+                                tab.response_headers = result.response_headers.clone();
+                                tab.error_title = result.error_title.clone();
+                                tab.error_message = result.error_message.clone();
+                            }
+                        }
+
+                        // Also save to state for formatting
+                        state.response_body = result.response_body.clone();
+
                         // Add to history
                         let entry = if let (Some(status), Some(duration)) = (result.status_code, result.duration_ms) {
                             HistoryEntry::new(result.method, result.url, status, duration, None)
@@ -649,6 +801,9 @@ fn run_async_runtime(
                                 load_workspace_tree(&path, &state.expanded_folders).await;
                             let _ = update_tx.send(UiUpdate::CollectionItems(items));
 
+                            // Sprint 06: Cache all requests for quick search
+                            state.all_requests = load_all_requests_for_search(&path).await;
+
                             // Load environments
                             load_environments(&path, &mut state, &update_tx).await;
                         }
@@ -695,13 +850,39 @@ fn run_async_runtime(
                 }
 
                 UiCommand::ItemDoubleClicked { id: _, path } => {
-                    // Load request into editor
+                    // Load request into editor - Sprint 06: Opens in a tab
                     if path.extension().map_or(false, |e| e == "json") {
-                        if let Ok(content) = tokio::fs::read_to_string(&path).await {
-                            if let Ok(request) =
-                                from_json::<vortex_domain::persistence::SavedRequest>(&content)
-                            {
-                                use vortex_domain::persistence::PersistenceHttpMethod;
+                        // Check if this request is already open in a tab
+                        let path_str = path.display().to_string();
+                        let existing_tab = state.tabs.iter().find(|t| t.file_path.as_ref() == Some(&path_str));
+
+                        if let Some(tab) = existing_tab {
+                            // Tab already exists, switch to it
+                            let tab_id = tab.id.clone();
+                            state.active_tab_id = Some(tab_id.clone());
+
+                            let tab_data = state.get_tab_state(&tab_id).cloned();
+                            if let Some(tab) = tab_data {
+                                state.current_url = tab.url.clone();
+                                state.base_url = tab.url.split('?').next().unwrap_or("").to_string();
+                                state.query_params = tab.query_params.clone();
+                                state.request_headers = tab.headers.clone();
+                                state.auth_data = tab.auth.clone();
+
+                                let _ = update_tx.send(UiUpdate::LoadFullRequest {
+                                    url: tab.url.clone(),
+                                    method: tab.method,
+                                    body: tab.body.clone(),
+                                    headers: tab.headers.clone(),
+                                    query_params: tab.query_params.clone(),
+                                    auth: tab.auth.clone(),
+                                });
+                            }
+
+                            let _ = update_tx.send(UiUpdate::ActiveTabChanged(tab_id));
+                        } else if let Ok(content) = tokio::fs::read_to_string(&path).await {
+                            // Create a new tab for this request
+                            if let Ok(request) = from_json::<vortex_domain::persistence::SavedRequest>(&content) {
                                 use vortex_domain::persistence::PersistenceRequestBody;
 
                                 let method_index = match request.method {
@@ -719,26 +900,65 @@ fn run_async_runtime(
                                     .body
                                     .as_ref()
                                     .map(|b| match b {
-                                        PersistenceRequestBody::Json { content } => {
-                                            content.to_string()
-                                        }
+                                        PersistenceRequestBody::Json { content } => content.to_string(),
                                         PersistenceRequestBody::Text { content } => content.clone(),
-                                        PersistenceRequestBody::Graphql { query, .. } => {
-                                            query.clone()
-                                        }
+                                        PersistenceRequestBody::Graphql { query, .. } => query.clone(),
                                         _ => String::new(),
                                     })
                                     .unwrap_or_default();
 
-                                state.current_url = request.url.clone();
+                                let headers: Vec<HeaderData> = request.headers.iter()
+                                    .map(|(k, v)| HeaderData { key: k.clone(), value: v.clone(), enabled: true })
+                                    .collect();
 
-                                let _ = update_tx.send(UiUpdate::LoadRequest {
+                                let query_params: Vec<QueryParamData> = request.query_params.iter()
+                                    .map(|(k, v)| QueryParamData { key: k.clone(), value: v.clone(), enabled: true })
+                                    .collect();
+
+                                let new_tab = TabState {
+                                    id: uuid::Uuid::new_v4().to_string(),
+                                    name: request.name.clone(),
+                                    method: method_index,
                                     url: request.url.clone(),
+                                    body: body.clone(),
+                                    headers: headers.clone(),
+                                    query_params: query_params.clone(),
+                                    auth: AuthData::default(),
+                                    has_unsaved_changes: false,
+                                    file_path: Some(path_str),
+                                    // Response defaults
+                                    response_state: 0,
+                                    response_body: String::new(),
+                                    status_code: 0,
+                                    status_text: String::new(),
+                                    duration: String::new(),
+                                    size: String::new(),
+                                    response_headers: Vec::new(),
+                                    error_title: String::new(),
+                                    error_message: String::new(),
+                                };
+
+                                let new_id = new_tab.id.clone();
+                                state.tabs.push(new_tab);
+                                state.active_tab_id = Some(new_id.clone());
+
+                                state.current_url = request.url.clone();
+                                state.base_url = request.url.split('?').next().unwrap_or("").to_string();
+                                state.query_params = query_params.clone();
+                                state.request_headers = headers.clone();
+
+                                let _ = update_tx.send(UiUpdate::LoadFullRequest {
+                                    url: request.url,
                                     method: method_index,
                                     body,
+                                    headers,
+                                    query_params,
+                                    auth: AuthData::default(),
                                 });
 
-                                // Update resolved URL preview
+                                let _ = update_tx.send(UiUpdate::TabsUpdated(state.tabs_to_ui()));
+                                let _ = update_tx.send(UiUpdate::ActiveTabChanged(new_id));
+
                                 resolve_and_update_url(&state, &update_tx);
                             }
                         }
@@ -1392,6 +1612,353 @@ fn run_async_runtime(
                     state.pending_delete_type = None;
                     let _ = update_tx.send(UiUpdate::HideConfirmDialog);
                 }
+
+                // --- Sprint 06: Tab Commands ---
+                UiCommand::TabClicked { id } => {
+                    // Save current tab state before switching
+                    if state.active_tab_id.is_some() {
+                        // Get current UI values via oneshot channel
+                        let (data_tx, mut data_rx) = tokio::sync::oneshot::channel::<(String, i32, String)>();
+                        let ui_weak_clone = ui_weak.clone();
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = ui_weak_clone.upgrade() {
+                                let url = ui.get_url().to_string();
+                                let method = ui.get_method_index();
+                                let body = ui.get_request_body().to_string();
+                                let _ = data_tx.send((url, method, body));
+                            }
+                        });
+
+                        if let Ok(Ok((url, method, body))) = tokio::time::timeout(
+                            std::time::Duration::from_millis(50),
+                            &mut data_rx,
+                        ).await {
+                            state.save_current_tab_state(&url, method, &body);
+                        }
+                    }
+
+                    // Switch to new tab
+                    state.active_tab_id = Some(id.clone());
+
+                    // Restore tab state to UI - clone tab data first to avoid borrow issues
+                    let tab_data = state.get_tab_state(&id).cloned();
+                    if let Some(tab) = tab_data {
+                        state.current_url = tab.url.clone();
+                        state.base_url = tab.url.split('?').next().unwrap_or("").to_string();
+                        state.query_params = tab.query_params.clone();
+                        state.request_headers = tab.headers.clone();
+                        state.auth_data = tab.auth.clone();
+
+                        let _ = update_tx.send(UiUpdate::LoadFullRequest {
+                            url: tab.url.clone(),
+                            method: tab.method,
+                            body: tab.body.clone(),
+                            headers: tab.headers.clone(),
+                            query_params: tab.query_params.clone(),
+                            auth: tab.auth.clone(),
+                        });
+
+                        // Restore response state for this tab
+                        let _ = update_tx.send(UiUpdate::RestoreResponseState {
+                            state: tab.response_state,
+                            body: tab.response_body.clone(),
+                            status_code: tab.status_code,
+                            status_text: tab.status_text.clone(),
+                            duration: tab.duration.clone(),
+                            size: tab.size.clone(),
+                            headers: tab.response_headers.clone(),
+                            error_title: tab.error_title.clone(),
+                            error_message: tab.error_message.clone(),
+                        });
+
+                        resolve_and_update_url(&state, &update_tx);
+                    }
+
+                    let _ = update_tx.send(UiUpdate::ActiveTabChanged(id));
+                }
+
+                UiCommand::TabCloseClicked { id } => {
+                    // Remove the tab
+                    state.tabs.retain(|t| t.id != id);
+
+                    // If we closed the active tab, switch to another
+                    if state.active_tab_id.as_ref() == Some(&id) {
+                        state.active_tab_id = state.tabs.first().map(|t| t.id.clone());
+
+                        if let Some(ref new_active) = state.active_tab_id.clone() {
+                            let tab_data = state.get_tab_state(new_active).cloned();
+                            if let Some(tab) = tab_data {
+                                state.current_url = tab.url.clone();
+                                state.query_params = tab.query_params.clone();
+                                state.request_headers = tab.headers.clone();
+                                state.auth_data = tab.auth.clone();
+
+                                let _ = update_tx.send(UiUpdate::LoadFullRequest {
+                                    url: tab.url.clone(),
+                                    method: tab.method,
+                                    body: tab.body.clone(),
+                                    headers: tab.headers.clone(),
+                                    query_params: tab.query_params.clone(),
+                                    auth: tab.auth.clone(),
+                                });
+
+                                // Restore response state
+                                let _ = update_tx.send(UiUpdate::RestoreResponseState {
+                                    state: tab.response_state,
+                                    body: tab.response_body.clone(),
+                                    status_code: tab.status_code,
+                                    status_text: tab.status_text.clone(),
+                                    duration: tab.duration.clone(),
+                                    size: tab.size.clone(),
+                                    headers: tab.response_headers.clone(),
+                                    error_title: tab.error_title.clone(),
+                                    error_message: tab.error_message.clone(),
+                                });
+                            }
+                            let _ = update_tx.send(UiUpdate::ActiveTabChanged(new_active.clone()));
+                        }
+                    }
+
+                    let _ = update_tx.send(UiUpdate::TabsUpdated(state.tabs_to_ui()));
+                }
+
+                UiCommand::NewTabClicked => {
+                    let new_tab = TabState::new_empty();
+                    let new_id = new_tab.id.clone();
+                    state.tabs.push(new_tab);
+                    state.active_tab_id = Some(new_id.clone());
+
+                    // Clear UI for new tab
+                    state.current_url.clear();
+                    state.base_url.clear();
+                    state.query_params.clear();
+                    state.request_headers.clear();
+                    state.auth_data = AuthData::default();
+
+                    let _ = update_tx.send(UiUpdate::LoadFullRequest {
+                        url: String::new(),
+                        method: 0,
+                        body: String::new(),
+                        headers: vec![],
+                        query_params: vec![],
+                        auth: AuthData::default(),
+                    });
+
+                    let _ = update_tx.send(UiUpdate::TabsUpdated(state.tabs_to_ui()));
+                    let _ = update_tx.send(UiUpdate::ActiveTabChanged(new_id));
+                }
+
+                // --- Sprint 06: Quick Search Commands ---
+                UiCommand::OpenQuickSearch => {
+                    let _ = update_tx.send(UiUpdate::ShowQuickSearch(true));
+                    // Send current cached results
+                    let _ = update_tx.send(UiUpdate::SearchResults(state.all_requests.clone()));
+                }
+
+                UiCommand::CloseQuickSearch => {
+                    let _ = update_tx.send(UiUpdate::ShowQuickSearch(false));
+                }
+
+                UiCommand::SearchQueryChanged { query } => {
+                    // Filter requests based on query
+                    let query_lower = query.to_lowercase();
+                    let results: Vec<SearchResultData> = if query.is_empty() {
+                        state.all_requests.clone()
+                    } else {
+                        state.all_requests
+                            .iter()
+                            .filter(|r| {
+                                r.name.to_lowercase().contains(&query_lower)
+                                    || r.url.to_lowercase().contains(&query_lower)
+                                    || r.method.to_lowercase().contains(&query_lower)
+                            })
+                            .cloned()
+                            .collect()
+                    };
+                    let _ = update_tx.send(UiUpdate::SearchResults(results));
+                }
+
+                UiCommand::SearchResultClicked { id: _, path } => {
+                    // Load the request into a new tab
+                    let path = PathBuf::from(&path);
+                    if path.extension().map_or(false, |e| e == "json") {
+                        if let Ok(content) = tokio::fs::read_to_string(&path).await {
+                            if let Ok(request) = from_json::<vortex_domain::persistence::SavedRequest>(&content) {
+                                // Create new tab with this request
+                                let method_index = match request.method {
+                                    PersistenceHttpMethod::Get => 0,
+                                    PersistenceHttpMethod::Post => 1,
+                                    PersistenceHttpMethod::Put => 2,
+                                    PersistenceHttpMethod::Patch => 3,
+                                    PersistenceHttpMethod::Delete => 4,
+                                    PersistenceHttpMethod::Head => 5,
+                                    PersistenceHttpMethod::Options => 6,
+                                    PersistenceHttpMethod::Trace => 0,
+                                };
+
+                                let body = request.body.as_ref().map(|b| match b {
+                                    vortex_domain::persistence::PersistenceRequestBody::Json { content } => content.to_string(),
+                                    vortex_domain::persistence::PersistenceRequestBody::Text { content } => content.clone(),
+                                    _ => String::new(),
+                                }).unwrap_or_default();
+
+                                let headers: Vec<HeaderData> = request.headers.iter()
+                                    .map(|(k, v)| HeaderData { key: k.clone(), value: v.clone(), enabled: true })
+                                    .collect();
+
+                                let query_params: Vec<QueryParamData> = request.query_params.iter()
+                                    .map(|(k, v)| QueryParamData { key: k.clone(), value: v.clone(), enabled: true })
+                                    .collect();
+
+                                let new_tab = TabState {
+                                    id: uuid::Uuid::new_v4().to_string(),
+                                    name: request.name.clone(),
+                                    method: method_index,
+                                    url: request.url.clone(),
+                                    body: body.clone(),
+                                    headers: headers.clone(),
+                                    query_params: query_params.clone(),
+                                    auth: AuthData::default(), // TODO: convert request.auth
+                                    has_unsaved_changes: false,
+                                    file_path: Some(path.display().to_string()),
+                                    // Response defaults
+                                    response_state: 0,
+                                    response_body: String::new(),
+                                    status_code: 0,
+                                    status_text: String::new(),
+                                    duration: String::new(),
+                                    size: String::new(),
+                                    response_headers: Vec::new(),
+                                    error_title: String::new(),
+                                    error_message: String::new(),
+                                };
+
+                                let new_id = new_tab.id.clone();
+                                state.tabs.push(new_tab);
+                                state.active_tab_id = Some(new_id.clone());
+
+                                state.current_url = request.url.clone();
+                                state.query_params = query_params.clone();
+                                state.request_headers = headers.clone();
+
+                                let _ = update_tx.send(UiUpdate::LoadFullRequest {
+                                    url: request.url,
+                                    method: method_index,
+                                    body,
+                                    headers,
+                                    query_params,
+                                    auth: AuthData::default(),
+                                });
+
+                                let _ = update_tx.send(UiUpdate::TabsUpdated(state.tabs_to_ui()));
+                                let _ = update_tx.send(UiUpdate::ActiveTabChanged(new_id));
+                                let _ = update_tx.send(UiUpdate::ShowQuickSearch(false));
+
+                                resolve_and_update_url(&state, &update_tx);
+                            }
+                        }
+                    }
+                }
+
+                // --- Sprint 06: Import/Export Commands ---
+                UiCommand::ImportCollection => {
+                    if let Some(ref ws_path) = state.workspace_path.clone() {
+                        // Open file dialog to select Postman collection
+                        let ws = ws_path.clone();
+                        let tx = update_tx.clone();
+                        std::thread::spawn(move || {
+                            if let Some(path) = rfd::FileDialog::new()
+                                .set_title("Import Postman Collection")
+                                .add_filter("JSON files", &["json"])
+                                .pick_file()
+                            {
+                                // Read and parse Postman collection in a blocking context
+                                if let Ok(content) = std::fs::read_to_string(&path) {
+                                    match import_postman_collection(&content, &ws) {
+                                        Ok(name) => {
+                                            let _ = tx.send(UiUpdate::ImportComplete { collection_name: name });
+                                        }
+                                        Err(e) => {
+                                            let _ = tx.send(UiUpdate::Error {
+                                                title: "Import Failed".to_string(),
+                                                message: e,
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                UiCommand::ExportCollection => {
+                    if let Some(ref ws_path) = state.workspace_path.clone() {
+                        let ws = ws_path.clone();
+                        let tx = update_tx.clone();
+                        std::thread::spawn(move || {
+                            if let Some(path) = rfd::FileDialog::new()
+                                .set_title("Export Collection")
+                                .add_filter("JSON files", &["json"])
+                                .set_file_name("vortex_collection.json")
+                                .save_file()
+                            {
+                                match export_vortex_collection(&ws, &path) {
+                                    Ok(()) => {
+                                        let _ = tx.send(UiUpdate::ExportComplete {
+                                            path: path.display().to_string(),
+                                        });
+                                    }
+                                    Err(e) => {
+                                        let _ = tx.send(UiUpdate::Error {
+                                            title: "Export Failed".to_string(),
+                                            message: e,
+                                        });
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                UiCommand::ExportAsCurl => {
+                    // Generate cURL command from current request
+                    let curl = generate_curl_command(&state);
+                    let _ = update_tx.send(UiUpdate::CurlExport(curl));
+                }
+
+                // --- Sprint 06: JSON Format Commands ---
+                UiCommand::FormatResponseBody => {
+                    if !state.response_body.is_empty() {
+                        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&state.response_body) {
+                            if let Ok(formatted) = serde_json::to_string_pretty(&parsed) {
+                                state.response_body = formatted.clone();
+                                let _ = update_tx.send(UiUpdate::FormattedResponseBody(formatted));
+                            }
+                        }
+                    }
+                }
+
+                UiCommand::FormatRequestBody { body } => {
+                    if !body.is_empty() {
+                        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&body) {
+                            if let Ok(formatted) = serde_json::to_string_pretty(&parsed) {
+                                let _ = update_tx.send(UiUpdate::FormattedRequestBody(formatted));
+                            }
+                        }
+                    }
+                }
+
+                UiCommand::CopyFormattedResponse => {
+                    // Format and then the UI should copy it
+                    if !state.response_body.is_empty() {
+                        let formatted = if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&state.response_body) {
+                            serde_json::to_string_pretty(&parsed).unwrap_or_else(|_| state.response_body.clone())
+                        } else {
+                            state.response_body.clone()
+                        };
+                        let _ = update_tx.send(UiUpdate::CurlExport(formatted)); // Reuse for clipboard
+                    }
+                }
             }
         }
     });
@@ -1496,12 +2063,21 @@ async fn load_environments(
 }
 
 /// Handles the SendRequest command.
-/// Result of a request execution for history tracking.
+/// Result of a request execution for history tracking and tab state saving.
 struct RequestResult {
     method: HttpMethod,
     url: String,
     status_code: Option<u16>,
     duration_ms: Option<u64>,
+    // Response data for tab state
+    response_state: i32,  // 2=Success, 3=Error
+    response_body: String,
+    status_text: String,
+    duration_display: String,
+    size_display: String,
+    response_headers: Vec<crate::bridge::ResponseHeaderData>,
+    error_title: String,
+    error_message: String,
 }
 
 async fn handle_send_request(
@@ -1631,24 +2207,50 @@ async fn handle_send_request(
             .execute_with_cancellation(&request, cancel_receiver)
             .await;
 
-        // Extract status and duration for history
-        let (status_code, duration_ms) = match &result {
-            Ok(response) => (Some(response.status), Some(response.duration.as_millis() as u64)),
-            Err(_) => (None, None),
+        // Extract response data for history and tab state
+        let (status_code, duration_ms, response_state, response_body, status_text, duration_display, size_display, response_headers, error_title, error_message) = match &result {
+            Ok(response) => {
+                let headers: Vec<crate::bridge::ResponseHeaderData> = response
+                    .headers_map
+                    .iter()
+                    .map(|(name, value)| crate::bridge::ResponseHeaderData {
+                        name: name.clone(),
+                        value: value.clone(),
+                    })
+                    .collect();
+
+                (
+                    Some(response.status),
+                    Some(response.duration.as_millis() as u64),
+                    2, // Success
+                    response.body_as_string_lossy(),
+                    response.status_text.clone(),
+                    response.duration_display(),
+                    response.size_display(),
+                    headers,
+                    String::new(),
+                    String::new(),
+                )
+            }
+            Err(e) => {
+                let (title, message) = ("Request Failed".to_string(), e.to_string());
+                (
+                    None,
+                    None,
+                    3, // Error
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    Vec::new(),
+                    title,
+                    message,
+                )
+            }
         };
 
-        // Sprint 05: Extract response headers
-        if let Ok(ref response) = result {
-            let response_headers: Vec<crate::bridge::ResponseHeaderData> = response
-                .headers_map
-                .iter()
-                .map(|(name, value)| crate::bridge::ResponseHeaderData {
-                    name: name.clone(),
-                    value: value.clone(),
-                })
-                .collect();
-            let _ = update_tx.send(UiUpdate::ResponseHeaders(response_headers));
-        }
+        // Send response headers to UI
+        let _ = update_tx.send(UiUpdate::ResponseHeaders(response_headers.clone()));
 
         // Convert result to RequestState
         let request_state = result.to_request_state();
@@ -1659,12 +2261,20 @@ async fn handle_send_request(
         // Clear cancellation token
         *current_cancel = None;
 
-        // Return result for history tracking
+        // Return result for history tracking and tab state saving
         return Some(RequestResult {
             method,
             url: resolved_url,
             status_code,
             duration_ms,
+            response_state,
+            response_body,
+            status_text,
+            duration_display,
+            size_display,
+            response_headers,
+            error_title,
+            error_message,
         });
     }
 
@@ -2102,5 +2712,468 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
             ui.set_auth_api_key_value(auth.api_key_value.into());
             ui.set_auth_api_key_location(auth.api_key_location);
         }
+
+        // Sprint 06: Tab updates
+        UiUpdate::TabsUpdated(tabs) => {
+            let slint_tabs: Vec<RequestTab> = tabs
+                .into_iter()
+                .map(|t| RequestTab {
+                    id: t.id.into(),
+                    name: t.name.into(),
+                    method: t.method.into(),
+                    has_unsaved_changes: t.has_unsaved_changes,
+                })
+                .collect();
+
+            let model: ModelRc<RequestTab> = Rc::new(VecModel::from(slint_tabs)).into();
+            ui.set_request_tabs(model);
+        }
+
+        UiUpdate::ActiveTabChanged(id) => {
+            ui.set_active_tab_id(id.into());
+        }
+
+        // Sprint 06: Search updates
+        UiUpdate::SearchResults(results) => {
+            let slint_results: Vec<SearchResult> = results
+                .into_iter()
+                .map(|r| SearchResult {
+                    id: r.id.into(),
+                    name: r.name.into(),
+                    method: r.method.into(),
+                    url: r.url.into(),
+                    collection_name: r.collection_name.into(),
+                    path: r.path.into(),
+                })
+                .collect();
+
+            let model: ModelRc<SearchResult> = Rc::new(VecModel::from(slint_results)).into();
+            ui.set_search_results(model);
+        }
+
+        UiUpdate::ShowQuickSearch(visible) => {
+            ui.set_show_quick_search(visible);
+            if visible {
+                ui.set_search_query("".into());
+            }
+        }
+
+        // Sprint 06: Import/Export updates
+        UiUpdate::ImportComplete { collection_name } => {
+            // Show success - could also refresh tree
+            eprintln!("Imported collection: {}", collection_name);
+        }
+
+        UiUpdate::ExportComplete { path } => {
+            eprintln!("Exported to: {}", path);
+        }
+
+        UiUpdate::CurlExport(curl) => {
+            // Copy to clipboard (platform-specific)
+            #[cfg(target_os = "macos")]
+            {
+                use std::process::Command;
+                let _ = Command::new("pbcopy")
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                    .and_then(|mut child| {
+                        use std::io::Write;
+                        if let Some(ref mut stdin) = child.stdin {
+                            let _ = stdin.write_all(curl.as_bytes());
+                        }
+                        child.wait()
+                    });
+            }
+            eprintln!("cURL command copied to clipboard");
+        }
+
+        // Sprint 06: JSON formatting updates
+        UiUpdate::FormattedResponseBody(body) => {
+            ui.set_response_body(body.into());
+        }
+
+        UiUpdate::FormattedRequestBody(body) => {
+            ui.set_request_body(body.into());
+        }
+
+        // Restore response state when switching tabs
+        UiUpdate::RestoreResponseState {
+            state,
+            body,
+            status_code,
+            status_text,
+            duration,
+            size,
+            headers,
+            error_title,
+            error_message,
+        } => {
+            ui.set_response_state(state);
+            ui.set_response_body(body.into());
+            ui.set_status_code(status_code);
+            ui.set_status_text(status_text.into());
+            ui.set_duration(duration.into());
+            ui.set_size(size.into());
+            ui.set_error_title(error_title.into());
+            ui.set_error_message(error_message.into());
+
+            // Convert headers to Slint model
+            let slint_headers: Vec<ResponseHeader> = headers
+                .into_iter()
+                .map(|h| ResponseHeader {
+                    name: h.name.into(),
+                    value: h.value.into(),
+                })
+                .collect();
+            let model: ModelRc<ResponseHeader> = Rc::new(VecModel::from(slint_headers)).into();
+            ui.set_response_headers(model);
+        }
     }
+}
+
+// --- Sprint 06: Import/Export Helper Functions ---
+
+/// Import a Postman collection v2.1 format.
+fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<String, String> {
+    // Parse Postman collection JSON
+    let collection: serde_json::Value = serde_json::from_str(content)
+        .map_err(|e| format!("Invalid JSON: {}", e))?;
+
+    // Get collection info
+    let info = collection.get("info")
+        .ok_or("Missing 'info' field in Postman collection")?;
+
+    let collection_name = info.get("name")
+        .and_then(|n| n.as_str())
+        .unwrap_or("Imported Collection")
+        .to_string();
+
+    // Create collection directory
+    let safe_name = collection_name.to_lowercase().replace(' ', "-");
+    let collection_dir = workspace_path.join("collections").join(&safe_name);
+    std::fs::create_dir_all(&collection_dir)
+        .map_err(|e| format!("Failed to create directory: {}", e))?;
+
+    // Create requests directory
+    let requests_dir = collection_dir.join("request");
+    std::fs::create_dir_all(&requests_dir)
+        .map_err(|e| format!("Failed to create requests directory: {}", e))?;
+
+    // Create collection.json
+    let coll_meta = serde_json::json!({
+        "id": uuid::Uuid::new_v4().to_string(),
+        "name": collection_name,
+        "schema_version": 1,
+    });
+    std::fs::write(
+        collection_dir.join("collection.json"),
+        serde_json::to_string_pretty(&coll_meta).unwrap_or_default(),
+    ).map_err(|e| format!("Failed to write collection.json: {}", e))?;
+
+    // Import items
+    if let Some(items) = collection.get("item").and_then(|i| i.as_array()) {
+        import_postman_items(items, &requests_dir)?;
+    }
+
+    Ok(collection_name)
+}
+
+/// Recursively import Postman items.
+fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Result<(), String> {
+    for item in items {
+        let name = item.get("name")
+            .and_then(|n| n.as_str())
+            .unwrap_or("Unnamed");
+
+        // Check if this is a folder or a request
+        if item.get("item").is_some() {
+            // This is a folder - create subdirectory and recurse
+            let safe_name = name.to_lowercase().replace(' ', "-");
+            let subfolder = target_dir.join(&safe_name);
+            std::fs::create_dir_all(&subfolder)
+                .map_err(|e| format!("Failed to create folder: {}", e))?;
+
+            if let Some(sub_items) = item.get("item").and_then(|i| i.as_array()) {
+                import_postman_items(sub_items, &subfolder)?;
+            }
+        } else if let Some(request) = item.get("request") {
+            // This is a request
+            let method = request.get("method")
+                .and_then(|m| m.as_str())
+                .unwrap_or("GET");
+
+            let url = extract_postman_url(request.get("url"));
+
+            // Extract headers
+            let headers: std::collections::BTreeMap<String, String> = request.get("header")
+                .and_then(|h| h.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|h| {
+                            let key = h.get("key")?.as_str()?;
+                            let value = h.get("value")?.as_str()?;
+                            Some((key.to_string(), value.to_string()))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            // Create Vortex request
+            let vortex_request = serde_json::json!({
+                "id": uuid::Uuid::new_v4().to_string(),
+                "name": name,
+                "method": method.to_uppercase(),
+                "url": url,
+                "headers": headers,
+                "schema_version": 1,
+            });
+
+            let safe_name = name.to_lowercase().replace(' ', "-").replace('/', "-");
+            let file_path = target_dir.join(format!("{}.json", safe_name));
+            std::fs::write(
+                &file_path,
+                serde_json::to_string_pretty(&vortex_request).unwrap_or_default(),
+            ).map_err(|e| format!("Failed to write request: {}", e))?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Extract URL from Postman URL object or string.
+fn extract_postman_url(url_value: Option<&serde_json::Value>) -> String {
+    match url_value {
+        Some(serde_json::Value::String(s)) => s.clone(),
+        Some(serde_json::Value::Object(obj)) => {
+            obj.get("raw")
+                .and_then(|r| r.as_str())
+                .unwrap_or("")
+                .to_string()
+        }
+        _ => String::new(),
+    }
+}
+
+/// Export workspace collection to Vortex JSON format.
+fn export_vortex_collection(workspace_path: &PathBuf, output_path: &PathBuf) -> Result<(), String> {
+    let collections_dir = workspace_path.join("collections");
+
+    let mut export = serde_json::json!({
+        "vortex_version": "0.1.0",
+        "export_date": chrono::Utc::now().to_rfc3339(),
+        "collections": [],
+    });
+
+    // Read all collections
+    if let Ok(entries) = std::fs::read_dir(&collections_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if let Ok(collection) = export_collection_dir(&path) {
+                    if let Some(collections) = export.get_mut("collections").and_then(|c| c.as_array_mut()) {
+                        collections.push(collection);
+                    }
+                }
+            }
+        }
+    }
+
+    std::fs::write(output_path, serde_json::to_string_pretty(&export).unwrap_or_default())
+        .map_err(|e| format!("Failed to write export file: {}", e))?;
+
+    Ok(())
+}
+
+/// Export a single collection directory.
+fn export_collection_dir(collection_path: &PathBuf) -> Result<serde_json::Value, String> {
+    let collection_json = collection_path.join("collection.json");
+    let collection_meta: serde_json::Value = if collection_json.exists() {
+        let content = std::fs::read_to_string(&collection_json)
+            .map_err(|e| format!("Failed to read collection.json: {}", e))?;
+        serde_json::from_str(&content).unwrap_or_default()
+    } else {
+        serde_json::json!({
+            "name": collection_path.file_name().and_then(|n| n.to_str()).unwrap_or("Unknown"),
+        })
+    };
+
+    let mut requests = Vec::new();
+    let requests_dir = collection_path.join("request");
+
+    if requests_dir.exists() {
+        collect_requests(&requests_dir, &mut requests)?;
+    }
+
+    Ok(serde_json::json!({
+        "info": collection_meta,
+        "requests": requests,
+    }))
+}
+
+/// Recursively collect requests from a directory.
+fn collect_requests(dir: &PathBuf, requests: &mut Vec<serde_json::Value>) -> Result<(), String> {
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && path.extension().map_or(false, |e| e == "json") {
+                if let Ok(content) = std::fs::read_to_string(&path) {
+                    if let Ok(req) = serde_json::from_str::<serde_json::Value>(&content) {
+                        requests.push(req);
+                    }
+                }
+            } else if path.is_dir() {
+                collect_requests(&path, requests)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Generate cURL command from current request state.
+fn generate_curl_command(state: &AppState) -> String {
+    let mut parts = vec!["curl".to_string()];
+
+    // Method
+    let method = match state.tabs.iter()
+        .find(|t| state.active_tab_id.as_ref() == Some(&t.id))
+        .map(|t| t.method)
+        .unwrap_or(0)
+    {
+        0 => "GET",
+        1 => "POST",
+        2 => "PUT",
+        3 => "PATCH",
+        4 => "DELETE",
+        5 => "HEAD",
+        6 => "OPTIONS",
+        _ => "GET",
+    };
+
+    if method != "GET" {
+        parts.push(format!("-X {}", method));
+    }
+
+    // URL
+    parts.push(format!("'{}'", state.current_url));
+
+    // Headers
+    for header in &state.request_headers {
+        if header.enabled && !header.key.is_empty() {
+            parts.push(format!("-H '{}: {}'", header.key, header.value));
+        }
+    }
+
+    // Auth
+    match state.auth_data.auth_type {
+        1 => {
+            if !state.auth_data.bearer_token.is_empty() {
+                parts.push(format!("-H 'Authorization: Bearer {}'", state.auth_data.bearer_token));
+            }
+        }
+        2 => {
+            if !state.auth_data.basic_username.is_empty() {
+                parts.push(format!("-u '{}:{}'", state.auth_data.basic_username, state.auth_data.basic_password));
+            }
+        }
+        3 => {
+            if !state.auth_data.api_key_name.is_empty() && state.auth_data.api_key_location == 0 {
+                parts.push(format!("-H '{}: {}'", state.auth_data.api_key_name, state.auth_data.api_key_value));
+            }
+        }
+        _ => {}
+    }
+
+    // Body
+    if let Some(tab) = state.tabs.iter().find(|t| state.active_tab_id.as_ref() == Some(&t.id)) {
+        if !tab.body.is_empty() && (method == "POST" || method == "PUT" || method == "PATCH") {
+            parts.push(format!("-d '{}'", tab.body.replace('\'', "'\\''")));
+        }
+    }
+
+    parts.join(" \\\n  ")
+}
+
+/// Load all requests from workspace for quick search.
+async fn load_all_requests_for_search(workspace_path: &PathBuf) -> Vec<SearchResultData> {
+    let mut results = Vec::new();
+    let collections_dir = workspace_path.join("collections");
+
+    if let Ok(mut entries) = tokio::fs::read_dir(&collections_dir).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let path = entry.path();
+            if path.is_dir() {
+                let collection_name = path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
+
+                // Scan for requests in this collection
+                collect_requests_for_search(&path, &collection_name, &mut results).await;
+            }
+        }
+    }
+
+    results
+}
+
+/// Recursively collect requests for search.
+fn collect_requests_for_search<'a>(
+    dir: &'a std::path::Path,
+    collection_name: &'a str,
+    results: &'a mut Vec<SearchResultData>,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>> {
+    Box::pin(async move {
+        // Check requests subdirectory
+        let requests_dir = dir.join("request");
+        let dir_to_scan = if tokio::fs::metadata(&requests_dir).await.is_ok() {
+            requests_dir
+        } else {
+            dir.to_path_buf()
+        };
+
+        if let Ok(mut entries) = tokio::fs::read_dir(&dir_to_scan).await {
+            while let Ok(Some(entry)) = entries.next_entry().await {
+                let path = entry.path();
+
+                if path.is_dir() {
+                    // Recurse into subdirectories
+                    collect_requests_for_search(&path, collection_name, results).await;
+                } else if path.extension().map_or(false, |e| e == "json") {
+                    // This is a request file
+                    if let Ok(content) = tokio::fs::read_to_string(&path).await {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                            let name = json.get("name")
+                                .and_then(|n| n.as_str())
+                                .unwrap_or_else(|| {
+                                    path.file_stem()
+                                        .and_then(|s| s.to_str())
+                                        .unwrap_or("Unknown")
+                                })
+                                .to_string();
+
+                            let method = json.get("method")
+                                .and_then(|m| m.as_str())
+                                .unwrap_or("GET")
+                                .to_string();
+
+                            let url = json.get("url")
+                                .and_then(|u| u.as_str())
+                                .unwrap_or("")
+                                .to_string();
+
+                            results.push(SearchResultData {
+                                id: path.display().to_string(),
+                                name,
+                                method,
+                                url,
+                                collection_name: collection_name.to_string(),
+                                path: path.display().to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    })
 }
