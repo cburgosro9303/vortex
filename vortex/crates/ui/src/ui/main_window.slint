@@ -1,72 +1,199 @@
 // Vortex API Client - Main Window
-// Sprint 00: Empty window with basic structure
+// Sprint 01: MVP Request Execution + Base UI
 
-import { VerticalBox, HorizontalBox, Button, LineEdit } from "std-widgets.slint";
+import { VerticalBox, HorizontalBox, TextEdit, ScrollView, LineEdit } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing } from "theme.slint";
+import { UrlBar } from "components/url_bar.slint";
+import { ResponsePanel } from "components/response_panel.slint";
 
-// Application color palette
-export global Theme {
-    // Background colors
-    out property <color> background-primary: #1e1e2e;
-    out property <color> background-secondary: #313244;
-    out property <color> background-tertiary: #45475a;
-
-    // Text colors
-    out property <color> text-primary: #cdd6f4;
-    out property <color> text-secondary: #a6adc8;
-    out property <color> text-muted: #6c7086;
-
-    // Accent colors
-    out property <color> accent-primary: #89b4fa;
-    out property <color> accent-success: #a6e3a1;
-    out property <color> accent-warning: #f9e2af;
-    out property <color> accent-error: #f38ba8;
-
-    // Spacing
-    out property <length> spacing-xs: 4px;
-    out property <length> spacing-sm: 8px;
-    out property <length> spacing-md: 16px;
-    out property <length> spacing-lg: 24px;
-    out property <length> spacing-xl: 32px;
-}
-
-// Main application window
 export component MainWindow inherits Window {
     title: "Vortex API Client";
-    min-width: 1024px;
-    min-height: 768px;
-    preferred-width: 1280px;
+    min-width: 800px;
+    min-height: 600px;
+    preferred-width: 1200px;
     preferred-height: 800px;
-    background: Theme.background-primary;
+    background: VortexPalette.bg-primary;
 
-    // Placeholder content for Sprint 00
-    VerticalBox {
-        alignment: center;
-        spacing: Theme.spacing-md;
+    // Request state
+    in-out property <string> url: "";
+    in-out property <int> method-index: 0;
+    in-out property <string> request-body: "";
 
-        Text {
-            text: "Vortex API Client";
-            font-size: 32px;
-            font-weight: 700;
-            color: Theme.text-primary;
-            horizontal-alignment: center;
-        }
+    // Response state (0=Idle, 1=Loading, 2=Success, 3=Error)
+    in-out property <int> response-state: 0;
 
-        Text {
-            text: "Sprint 00 - Technical Foundations";
-            font-size: 16px;
-            color: Theme.text-secondary;
-            horizontal-alignment: center;
-        }
+    // Response data
+    in-out property <int> status-code: 0;
+    in-out property <string> status-text: "";
+    in-out property <string> response-body: "";
+    in-out property <string> duration: "";
+    in-out property <string> size: "";
 
+    // Error data
+    in-out property <string> error-title: "";
+    in-out property <string> error-message: "";
+    in-out property <[string]> error-suggestions: [];
+
+    // Loading data
+    in-out property <string> elapsed-time: "0ms";
+
+    // Helper to check if method needs body
+    property <bool> show-body-editor: method-index == 1 || method-index == 2 || method-index == 3;
+
+    // Callbacks to Rust
+    callback send-request();
+    callback cancel-request();
+    callback copy-response-body();
+
+    VerticalLayout {
+        spacing: 0;
+
+        // Title bar - fixed height
         Rectangle {
-            height: Theme.spacing-xl;
+            height: 36px;
+            background: VortexPalette.bg-secondary;
+            border-width: 1px;
+            border-color: VortexPalette.border-default;
+
+            HorizontalLayout {
+                padding-left: VortexSpacing.md;
+                padding-right: VortexSpacing.md;
+
+                Text {
+                    text: "Vortex";
+                    color: VortexPalette.text-primary;
+                    font-size: VortexTypography.font-lg;
+                    font-weight: VortexTypography.weight-bold;
+                    vertical-alignment: center;
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                Text {
+                    text: "v0.1.0";
+                    color: VortexPalette.text-secondary;
+                    font-size: VortexTypography.font-sm;
+                    vertical-alignment: center;
+                }
+            }
         }
 
-        Text {
-            text: "Ready for development";
-            font-size: 14px;
-            color: Theme.text-muted;
-            horizontal-alignment: center;
+        // Main content area - fills remaining space
+        HorizontalLayout {
+            vertical-stretch: 1;
+            spacing: 0;
+
+            // Sidebar placeholder (for future collections) - fixed width
+            Rectangle {
+                width: 250px;
+                background: VortexPalette.bg-secondary;
+                border-width: 1px;
+                border-color: VortexPalette.border-default;
+
+                VerticalLayout {
+                    padding: VortexSpacing.md;
+                    spacing: VortexSpacing.sm;
+
+                    Text {
+                        text: "COLLECTIONS";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-xs;
+                        font-weight: VortexTypography.weight-bold;
+                        letter-spacing: 0.5px;
+                    }
+
+                    Rectangle {
+                        vertical-stretch: 1;
+
+                        Text {
+                            text: "No collections yet\n\nCollections will be\navailable in Sprint 02";
+                            color: VortexPalette.text-placeholder;
+                            font-size: VortexTypography.font-sm;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            // Main editor area - fills remaining width
+            Rectangle {
+                horizontal-stretch: 1;
+                background: VortexPalette.bg-primary;
+
+                VerticalLayout {
+                    spacing: 0;
+
+                    // URL Bar - fixed height
+                    UrlBar {
+                        url <=> root.url;
+                        method-index <=> root.method-index;
+                        is-loading: response-state == 1;
+
+                        send-clicked => { send-request(); }
+                        cancel-clicked => { cancel-request(); }
+                    }
+
+                    // Request body editor - fixed height, visibility controlled
+                    Rectangle {
+                        height: show-body-editor ? 200px : 0px;
+                        background: VortexPalette.bg-primary;
+                        border-width: show-body-editor ? 1px : 0px;
+                        border-color: VortexPalette.border-default;
+                        clip: true;
+                        visible: show-body-editor;
+
+                        VerticalLayout {
+                            padding: VortexSpacing.sm;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: "Request Body (JSON)";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                vertical-stretch: 1;
+                                background: VortexPalette.bg-input;
+                                border-radius: 4px;
+                                border-width: 1px;
+                                border-color: body-editor.has-focus ? VortexPalette.border-focus : VortexPalette.border-default;
+                                clip: true;
+
+                                body-editor := TextEdit {
+                                    x: 8px;
+                                    y: 8px;
+                                    width: parent.width - 16px;
+                                    height: parent.height - 16px;
+                                    text <=> request-body;
+                                    font-size: VortexTypography.font-base;
+                                    read-only: false;
+                                    wrap: word-wrap;
+                                }
+                            }
+                        }
+                    }
+
+                    // Response panel - fills remaining vertical space
+                    ResponsePanel {
+                        vertical-stretch: 1;
+                        state: response-state;
+                        status-code: root.status-code;
+                        status-text: root.status-text;
+                        response-body: root.response-body;
+                        duration: root.duration;
+                        size: root.size;
+                        error-title: root.error-title;
+                        error-message: root.error-message;
+                        error-suggestions: root.error-suggestions;
+                        elapsed-time: root.elapsed-time;
+
+                        retry-clicked => { send-request(); }
+                        copy-body-clicked => { copy-response-body(); }
+                    }
+                }
+            }
         }
     }
 }

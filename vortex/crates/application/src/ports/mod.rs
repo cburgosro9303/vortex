@@ -8,5 +8,5 @@ mod http_client;
 mod storage;
 
 pub use clock::Clock;
-pub use http_client::HttpClient;
+pub use http_client::{CancellationReceiver, CancellationToken, HttpClient, HttpClientError};
 pub use storage::{CollectionStorage, EnvironmentStorage};

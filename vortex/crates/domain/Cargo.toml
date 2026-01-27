@@ -7,6 +7,7 @@ description = "Domain types for Vortex API Client"
 
 [dependencies]
 serde = { workspace = true }
+serde_json = { workspace = true }
 uuid = { workspace = true }
 url = { workspace = true }
 chrono = { workspace = true }
@@ -14,7 +15,6 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
-serde_json = { workspace = true }
 
 [lints]
 workspace = true

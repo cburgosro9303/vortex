@@ -2,4 +2,4 @@
 
 mod spec;
 
-pub use spec::ResponseSpec;
+pub use spec::{ResponseSpec, StatusCode, StatusColorCategory};

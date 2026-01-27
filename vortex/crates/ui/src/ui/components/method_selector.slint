@@ -1,0 +1,100 @@
+// Method Selector Component
+// Dropdown for selecting HTTP methods with color coding
+
+import { VortexPalette, VortexTypography, VortexSpacing } from "../theme.slint";
+
+export component MethodSelector inherits Rectangle {
+    in-out property <int> current-index: 0;
+    in property <[string]> methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+
+    callback method-changed(string);
+
+    width: 100px;
+    height: 32px;
+
+    Rectangle {
+        background: VortexPalette.bg-input;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: VortexPalette.border-default;
+
+        HorizontalLayout {
+            padding: VortexSpacing.sm;
+
+            method-label := Text {
+                text: methods[current-index];
+                color: root.method-color(methods[current-index]);
+                font-size: VortexTypography.font-base;
+                font-weight: VortexTypography.weight-bold;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: " v";
+                color: VortexPalette.text-secondary;
+                font-size: 8px;
+                vertical-alignment: center;
+            }
+        }
+
+        TouchArea {
+            clicked => {
+                popup.show();
+            }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: root.height;
+        width: root.width;
+
+        Rectangle {
+            background: VortexPalette.bg-secondary;
+            border-radius: 4px;
+            border-width: 1px;
+            border-color: VortexPalette.border-default;
+            drop-shadow-blur: 8px;
+            drop-shadow-color: #00000080;
+
+            VerticalLayout {
+                for method[index] in methods: Rectangle {
+                    height: 28px;
+                    background: touch.has-hover ? VortexPalette.bg-hover : transparent;
+
+                    HorizontalLayout {
+                        padding-left: VortexSpacing.sm;
+                        padding-right: VortexSpacing.sm;
+
+                        Text {
+                            text: method;
+                            color: root.method-color(method);
+                            font-size: VortexTypography.font-base;
+                            font-weight: VortexTypography.weight-bold;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    touch := TouchArea {
+                        clicked => {
+                            current-index = index;
+                            method-changed(method);
+                            popup.close();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pure function method-color(method: string) -> color {
+        if method == "GET" { return VortexPalette.method-get; }
+        if method == "POST" { return VortexPalette.method-post; }
+        if method == "PUT" { return VortexPalette.method-put; }
+        if method == "PATCH" { return VortexPalette.method-patch; }
+        if method == "DELETE" { return VortexPalette.method-delete; }
+        if method == "HEAD" { return VortexPalette.method-head; }
+        if method == "OPTIONS" { return VortexPalette.method-options; }
+        return VortexPalette.text-primary;
+    }
+}
