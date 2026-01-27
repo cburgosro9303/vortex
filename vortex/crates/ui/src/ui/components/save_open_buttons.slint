@@ -1,0 +1,101 @@
+// Save and open buttons for file operations.
+
+import { Button, HorizontalBox } from "std-widgets.slint";
+
+export component FileOperationButtons inherits Rectangle {
+    in property <bool> has-changes: false;
+    in property <bool> saving: false;
+    in property <bool> enabled: true;
+
+    callback save-clicked();
+    callback save-as-clicked();
+    callback open-clicked();
+
+    HorizontalBox {
+        spacing: 8px;
+        padding: 8px;
+
+        Button {
+            text: saving ? "Saving..." : (has-changes ? "Save *" : "Save");
+            enabled: root.enabled && !saving;
+            clicked => { root.save-clicked(); }
+        }
+
+        Button {
+            text: "Save As...";
+            enabled: root.enabled && !saving;
+            clicked => { root.save-as-clicked(); }
+        }
+
+        Button {
+            text: "Open...";
+            enabled: root.enabled && !saving;
+            clicked => { root.open-clicked(); }
+        }
+    }
+}
+
+export component CollectionToolbar inherits Rectangle {
+    in property <string> collection-name;
+    in property <bool> has-changes: false;
+    in property <bool> saving: false;
+
+    callback save();
+    callback new-request();
+    callback new-folder();
+    callback settings();
+
+    background: #f5f5f5;
+    min-height: 48px;
+
+    HorizontalBox {
+        padding: 8px;
+        spacing: 12px;
+        alignment: space-between;
+
+        HorizontalBox {
+            spacing: 8px;
+            alignment: start;
+
+            Text {
+                text: collection-name;
+                font-size: 16px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+
+            if has-changes: Text {
+                text: "(unsaved)";
+                font-size: 12px;
+                color: #ff9800;
+                vertical-alignment: center;
+            }
+        }
+
+        HorizontalBox {
+            spacing: 8px;
+            alignment: end;
+
+            Button {
+                text: "+ Request";
+                clicked => { root.new-request(); }
+            }
+
+            Button {
+                text: "+ Folder";
+                clicked => { root.new-folder(); }
+            }
+
+            Button {
+                text: saving ? "Saving..." : "Save";
+                enabled: has-changes && !saving;
+                clicked => { root.save(); }
+            }
+
+            Button {
+                text: "...";
+                clicked => { root.settings(); }
+            }
+        }
+    }
+}

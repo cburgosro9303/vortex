@@ -1,0 +1,82 @@
+// File dialog component for selecting directories and files.
+// Uses native file picker via Rust callback.
+
+import { Button, VerticalBox, HorizontalBox, LineEdit } from "std-widgets.slint";
+
+export component FilePathInput inherits Rectangle {
+    in-out property <string> path;
+    in property <string> placeholder: "Select a path...";
+    in property <string> button-text: "Browse";
+    in property <bool> enabled: true;
+
+    callback browse-clicked();
+    callback path-changed(string);
+
+    HorizontalBox {
+        spacing: 8px;
+
+        LineEdit {
+            text: path;
+            placeholder-text: placeholder;
+            enabled: root.enabled;
+            edited(new-text) => {
+                root.path = new-text;
+                root.path-changed(new-text);
+            }
+        }
+
+        Button {
+            text: button-text;
+            enabled: root.enabled;
+            clicked => {
+                root.browse-clicked();
+            }
+        }
+    }
+}
+
+export component WorkspaceSelector inherits Rectangle {
+    in-out property <string> workspace-path;
+    in property <bool> has-workspace: workspace-path != "";
+
+    callback open-workspace();
+    callback create-workspace();
+    callback close-workspace();
+
+    VerticalBox {
+        spacing: 12px;
+        padding: 16px;
+
+        Text {
+            text: has-workspace ? "Current Workspace" : "No Workspace Open";
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        if has-workspace: Text {
+            text: workspace-path;
+            font-size: 12px;
+            color: #666;
+            overflow: elide;
+        }
+
+        HorizontalBox {
+            spacing: 8px;
+
+            Button {
+                text: "Open Workspace";
+                clicked => { root.open-workspace(); }
+            }
+
+            Button {
+                text: "New Workspace";
+                clicked => { root.create-workspace(); }
+            }
+
+            if has-workspace: Button {
+                text: "Close";
+                clicked => { root.close-workspace(); }
+            }
+        }
+    }
+}

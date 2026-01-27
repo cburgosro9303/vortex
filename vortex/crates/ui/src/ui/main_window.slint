@@ -1,10 +1,14 @@
 // Vortex API Client - Main Window
 // Sprint 01: MVP Request Execution + Base UI
+// Sprint 02: Persistence and Collections
 
-import { VerticalBox, HorizontalBox, TextEdit, ScrollView, LineEdit } from "std-widgets.slint";
+import { VerticalBox, HorizontalBox, TextEdit, ScrollView, LineEdit, Button } from "std-widgets.slint";
 import { VortexPalette, VortexTypography, VortexSpacing } from "theme.slint";
 import { UrlBar } from "components/url_bar.slint";
 import { ResponsePanel } from "components/response_panel.slint";
+import { TreeItem, CollectionTreeView } from "components/collection_tree.slint";
+import { WorkspaceSelector } from "components/file_dialog.slint";
+import { CollectionToolbar } from "components/save_open_buttons.slint";
 
 export component MainWindow inherits Window {
     title: "Vortex API Client";
@@ -45,6 +49,25 @@ export component MainWindow inherits Window {
     callback cancel-request();
     callback copy-response-body();
 
+    // Collection/Workspace callbacks (Sprint 02)
+    callback open-workspace();
+    callback create-workspace();
+    callback close-workspace();
+    callback item-selected(TreeItem);
+    callback item-double-clicked(TreeItem);
+    callback toggle-folder(TreeItem);
+    callback new-request-clicked();
+    callback new-folder-clicked();
+    callback save-collection();
+
+    // Collection/Workspace state (Sprint 02)
+    in-out property <string> workspace-path: "";
+    in-out property <[TreeItem]> collection-items: [];
+    in-out property <string> selected-item-id: "";
+    in-out property <string> current-collection-name: "";
+    in-out property <bool> has-unsaved-changes: false;
+    in-out property <bool> is-saving: false;
+
     VerticalLayout {
         spacing: 0;
 
@@ -83,34 +106,138 @@ export component MainWindow inherits Window {
             vertical-stretch: 1;
             spacing: 0;
 
-            // Sidebar placeholder (for future collections) - fixed width
+            // Sidebar with collections - fixed width
             Rectangle {
-                width: 250px;
+                width: 280px;
                 background: VortexPalette.bg-secondary;
                 border-width: 1px;
                 border-color: VortexPalette.border-default;
 
                 VerticalLayout {
-                    padding: VortexSpacing.md;
-                    spacing: VortexSpacing.sm;
+                    spacing: 0;
 
-                    Text {
-                        text: "COLLECTIONS";
-                        color: VortexPalette.text-secondary;
-                        font-size: VortexTypography.font-xs;
-                        font-weight: VortexTypography.weight-bold;
-                        letter-spacing: 0.5px;
+                    // Workspace selector
+                    Rectangle {
+                        height: workspace-path == "" ? 100px : 80px;
+                        background: VortexPalette.bg-tertiary;
+
+                        VerticalLayout {
+                            padding: VortexSpacing.sm;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: workspace-path == "" ? "No Workspace" : "Workspace";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-xs;
+                                font-weight: VortexTypography.weight-bold;
+                            }
+
+                            if workspace-path != "": Text {
+                                text: workspace-path;
+                                color: VortexPalette.text-primary;
+                                font-size: VortexTypography.font-sm;
+                                overflow: elide;
+                            }
+
+                            HorizontalLayout {
+                                spacing: VortexSpacing.xs;
+
+                                Button {
+                                    text: "Open";
+                                    clicked => { open-workspace(); }
+                                }
+
+                                Button {
+                                    text: "New";
+                                    clicked => { create-workspace(); }
+                                }
+
+                                if workspace-path != "": Button {
+                                    text: "Close";
+                                    clicked => { close-workspace(); }
+                                }
+                            }
+                        }
                     }
 
+                    // Collections header
                     Rectangle {
+                        height: 40px;
+                        background: VortexPalette.bg-secondary;
+
+                        HorizontalLayout {
+                            padding-left: VortexSpacing.md;
+                            padding-right: VortexSpacing.sm;
+                            alignment: space-between;
+
+                            Text {
+                                text: "COLLECTIONS";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-xs;
+                                font-weight: VortexTypography.weight-bold;
+                                letter-spacing: 0.5px;
+                                vertical-alignment: center;
+                            }
+
+                            HorizontalLayout {
+                                spacing: VortexSpacing.xs;
+
+                                Button {
+                                    text: "+";
+                                    enabled: workspace-path != "";
+                                    clicked => { new-request-clicked(); }
+                                }
+                            }
+                        }
+                    }
+
+                    // Collection tree
+                    if collection-items.length > 0: CollectionTreeView {
+                        vertical-stretch: 1;
+                        items: collection-items;
+                        selected-id <=> selected-item-id;
+
+                        item-selected(item) => { root.item-selected(item); }
+                        item-double-clicked(item) => { root.item-double-clicked(item); }
+                        toggle-folder(item) => { root.toggle-folder(item); }
+                    }
+
+                    // Empty state
+                    if collection-items.length == 0: Rectangle {
                         vertical-stretch: 1;
 
                         Text {
-                            text: "No collections yet\n\nCollections will be\navailable in Sprint 02";
+                            text: workspace-path == "" ?
+                                "Open or create a workspace\nto see collections" :
+                                "No collections yet\n\nCreate a new collection\nto get started";
                             color: VortexPalette.text-placeholder;
                             font-size: VortexTypography.font-sm;
                             horizontal-alignment: center;
                             vertical-alignment: center;
+                        }
+                    }
+
+                    // Save indicator
+                    if has-unsaved-changes: Rectangle {
+                        height: 32px;
+                        background: #fff3e0;
+
+                        HorizontalLayout {
+                            padding: VortexSpacing.sm;
+                            alignment: space-between;
+
+                            Text {
+                                text: "Unsaved changes";
+                                color: #e65100;
+                                font-size: VortexTypography.font-sm;
+                                vertical-alignment: center;
+                            }
+
+                            Button {
+                                text: is-saving ? "Saving..." : "Save";
+                                enabled: !is-saving;
+                                clicked => { save-collection(); }
+                            }
                         }
                     }
                 }

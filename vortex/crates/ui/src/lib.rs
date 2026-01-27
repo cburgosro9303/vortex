@@ -9,9 +9,11 @@
 
 mod app_window;
 pub mod bridge;
+pub mod state;
 
 pub use app_window::AppWindow;
 pub use bridge::{UiCommand, UiUpdate};
+pub use state::{CollectionData, CollectionState, FolderData, TreeNode, TreeNodeType};
 
 // Include the generated Slint code
 slint::include_modules!();
