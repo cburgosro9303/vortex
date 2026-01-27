@@ -3,12 +3,13 @@
 // Sprint 02: Persistence and Collections
 // Sprint 03: Environments and Variables
 // Sprint 04: Settings and Theme
+// Sprint 05: Headers, Query Params, Auth, Response Tabs, Collection Management
 
 import { VerticalBox, HorizontalBox, TextEdit, ScrollView, LineEdit, Button, ComboBox } from "std-widgets.slint";
 import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "theme.slint";
 export { VortexPalette, VortexTypography, VortexSpacing, VortexShape }
 import { UrlBar } from "components/url_bar.slint";
-import { ResponsePanel } from "components/response_panel.slint";
+import { ResponsePanel, ResponseHeader } from "components/response_panel.slint";
 import { TreeItem, CollectionTreeView } from "components/collection_tree.slint";
 import { WorkspaceSelector } from "components/file_dialog.slint";
 import { CollectionToolbar } from "components/save_open_buttons.slint";
@@ -17,8 +18,13 @@ import { EnvironmentManager, EnvironmentInfo } from "components/environment_mana
 import { VariableRow } from "components/variables_editor.slint";
 import { SettingsDialog } from "components/settings_dialog.slint";
 import { HistoryPanel, HistoryItem } from "components/history_panel.slint";
+// Sprint 05 imports
+import { QueryParamsEditor, QueryParam } from "components/query_params_editor.slint";
+import { HeadersEditor, HeaderRow } from "components/headers_editor.slint";
+import { AuthEditor } from "components/auth_editor.slint";
+import { ConfirmDialog } from "components/confirm_dialog.slint";
 
-export { HistoryItem }
+export { HistoryItem, ResponseHeader, QueryParam, HeaderRow }
 
 export { EnvironmentInfo, VariableRow }
 
@@ -126,6 +132,57 @@ export component MainWindow inherits Window {
     callback history-item-clicked(HistoryItem);
     callback clear-history();
     callback toggle-history-visibility();
+
+    // Sprint 05: Query Parameters state
+    in-out property <[QueryParam]> query-params: [];
+    in-out property <bool> query-params-collapsed: true;
+
+    // Sprint 05: Query Parameters callbacks
+    callback add-query-param();
+    callback delete-query-param(int);
+    callback query-param-changed(int, QueryParam);
+
+    // Sprint 05: Request Headers state
+    in-out property <[HeaderRow]> request-headers: [];
+    in-out property <bool> headers-collapsed: true;
+
+    // Sprint 05: Request Headers callbacks
+    callback add-request-header();
+    callback delete-request-header(int);
+    callback request-header-changed(int, HeaderRow);
+
+    // Sprint 05: Authentication state
+    in-out property <int> auth-type: 0;  // 0=None, 1=Bearer, 2=Basic, 3=API Key
+    in-out property <string> auth-bearer-token: "";
+    in-out property <string> auth-basic-username: "";
+    in-out property <string> auth-basic-password: "";
+    in-out property <string> auth-api-key-name: "";
+    in-out property <string> auth-api-key-value: "";
+    in-out property <int> auth-api-key-location: 0;  // 0=Header, 1=Query
+    in-out property <bool> auth-collapsed: true;
+
+    // Sprint 05: Authentication callbacks
+    callback auth-type-changed(int);
+    callback auth-bearer-token-changed(string);
+    callback auth-basic-credentials-changed(string, string);
+    callback auth-api-key-changed(string, string, int);
+
+    // Sprint 05: Response Headers state
+    in-out property <[ResponseHeader]> response-headers: [];
+
+    // Sprint 05: Collection management state
+    in-out property <bool> show-confirm-dialog: false;
+    in-out property <string> confirm-dialog-title: "";
+    in-out property <string> confirm-dialog-message: "";
+    in-out property <string> pending-delete-id: "";
+    in-out property <string> pending-delete-type: "";  // "request" or "collection"
+
+    // Sprint 05: Collection management callbacks
+    callback save-current-request();
+    callback rename-item(string, string);  // id, new_name
+    callback delete-item-requested(string, string);  // id, type
+    callback confirm-delete();
+    callback cancel-delete();
 
     VerticalLayout {
         spacing: 0;
@@ -489,42 +546,92 @@ export component MainWindow inherits Window {
                         }
                     }
 
-                    // Request body editor - fixed height, visibility controlled
-                    Rectangle {
-                        height: show-body-editor ? 200px : 0px;
-                        background: VortexPalette.bg-primary;
-                        border-width: show-body-editor ? 1px : 0px;
-                        border-color: VortexPalette.border-default;
-                        clip: true;
-                        visible: show-body-editor;
+                    // Sprint 05: Request configuration panels (scrollable)
+                    ScrollView {
+                        height: 280px;
 
                         VerticalLayout {
                             padding: VortexSpacing.sm;
-                            spacing: VortexSpacing.xs;
+                            spacing: VortexSpacing.sm;
 
-                            Text {
-                                text: "Request Body (JSON)";
-                                color: VortexPalette.text-secondary;
-                                font-size: VortexTypography.font-sm;
+                            // Query Parameters Editor
+                            QueryParamsEditor {
+                                params <=> query-params;
+                                collapsed <=> query-params-collapsed;
+
+                                add-param => { add-query-param(); }
+                                delete-param(idx) => { delete-query-param(idx); }
+                                param-changed(idx, p) => { query-param-changed(idx, p); }
+                                toggle-collapsed => { query-params-collapsed = !query-params-collapsed; }
                             }
 
-                            Rectangle {
-                                vertical-stretch: 1;
-                                background: VortexPalette.bg-input;
-                                border-radius: VortexShape.radius-sm;
-                                border-width: 1px;
-                                border-color: body-editor.has-focus ? VortexPalette.border-focus : VortexPalette.border-default;
-                                clip: true;
+                            // Request Headers Editor
+                            HeadersEditor {
+                                headers <=> request-headers;
+                                collapsed <=> headers-collapsed;
 
-                                body-editor := TextEdit {
-                                    x: 8px;
-                                    y: 8px;
-                                    width: parent.width - 16px;
-                                    height: parent.height - 16px;
-                                    text <=> request-body;
-                                    font-size: VortexTypography.font-base;
-                                    read-only: false;
-                                    wrap: word-wrap;
+                                add-header => { add-request-header(); }
+                                delete-header(idx) => { delete-request-header(idx); }
+                                header-changed(idx, h) => { request-header-changed(idx, h); }
+                                toggle-collapsed => { headers-collapsed = !headers-collapsed; }
+                            }
+
+                            // Authentication Editor
+                            AuthEditor {
+                                auth-type <=> root.auth-type;
+                                bearer-token <=> auth-bearer-token;
+                                basic-username <=> auth-basic-username;
+                                basic-password <=> auth-basic-password;
+                                api-key-name <=> auth-api-key-name;
+                                api-key-value <=> auth-api-key-value;
+                                api-key-location <=> auth-api-key-location;
+                                collapsed <=> auth-collapsed;
+
+                                auth-type-changed(t) => { auth-type-changed(t); }
+                                bearer-token-changed(t) => { auth-bearer-token-changed(t); }
+                                basic-credentials-changed(u, p) => { auth-basic-credentials-changed(u, p); }
+                                api-key-changed(k, v, l) => { auth-api-key-changed(k, v, l); }
+                                toggle-collapsed => { auth-collapsed = !auth-collapsed; }
+                            }
+
+                            // Request body editor - visibility controlled by method
+                            if show-body-editor: Rectangle {
+                                min-height: 150px;
+                                background: VortexPalette.bg-primary;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+                                border-radius: VortexShape.radius-sm;
+
+                                VerticalLayout {
+                                    padding: VortexSpacing.sm;
+                                    spacing: VortexSpacing.xs;
+
+                                    Text {
+                                        text: "Request Body (JSON)";
+                                        color: VortexPalette.text-secondary;
+                                        font-size: VortexTypography.font-sm;
+                                    }
+
+                                    Rectangle {
+                                        vertical-stretch: 1;
+                                        min-height: 100px;
+                                        background: VortexPalette.bg-input;
+                                        border-radius: VortexShape.radius-sm;
+                                        border-width: 1px;
+                                        border-color: body-editor.has-focus ? VortexPalette.border-focus : VortexPalette.border-default;
+                                        clip: true;
+
+                                        body-editor := TextEdit {
+                                            x: 8px;
+                                            y: 8px;
+                                            width: parent.width - 16px;
+                                            height: parent.height - 16px;
+                                            text <=> request-body;
+                                            font-size: VortexTypography.font-base;
+                                            read-only: false;
+                                            wrap: word-wrap;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -539,6 +646,7 @@ export component MainWindow inherits Window {
                         response-body: root.response-body;
                         duration: root.duration;
                         size: root.size;
+                        response-headers: root.response-headers;
                         error-title: root.error-title;
                         error-message: root.error-message;
                         error-suggestions: root.error-suggestions;
@@ -584,6 +692,25 @@ export component MainWindow inherits Window {
         font-scale-changed(idx) => {
             font-scale-index = idx;
             font-scale-changed(idx);
+        }
+    }
+
+    // Sprint 05: Confirm Dialog (overlay)
+    ConfirmDialog {
+        is-visible: show-confirm-dialog;
+        title: confirm-dialog-title;
+        message: confirm-dialog-message;
+        confirm-text: "Delete";
+        cancel-text: "Cancel";
+        is-destructive: true;
+
+        confirmed => {
+            confirm-delete();
+            show-confirm-dialog = false;
+        }
+        cancelled => {
+            cancel-delete();
+            show-confirm-dialog = false;
         }
     }
 }

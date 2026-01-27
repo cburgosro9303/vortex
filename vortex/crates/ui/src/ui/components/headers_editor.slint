@@ -1,0 +1,252 @@
+// Request Headers Editor Component
+// For editing HTTP request headers with key-value pairs
+
+import { LineEdit, Button, CheckBox, ScrollView } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+// A single header row for editing
+export struct HeaderRow {
+    key: string,
+    value: string,
+    enabled: bool,
+}
+
+component HeaderRowItem inherits Rectangle {
+    in property <int> index;
+    in-out property <HeaderRow> header;
+
+    callback delete-clicked(int);
+    callback header-changed(int, HeaderRow);
+
+    height: 36px;
+    background: mod(index, 2) == 0 ? VortexPalette.bg-secondary : VortexPalette.bg-tertiary;
+
+    HorizontalLayout {
+        padding: VortexSpacing.xs;
+        spacing: VortexSpacing.sm;
+
+        // Enable checkbox
+        CheckBox {
+            width: 20px;
+            checked: header.enabled;
+            toggled => {
+                header.enabled = self.checked;
+                header-changed(index, header);
+            }
+        }
+
+        // Key input
+        Rectangle {
+            width: 160px;
+            background: VortexPalette.bg-input;
+            border-radius: VortexShape.radius-sm;
+            border-width: 1px;
+            border-color: VortexPalette.border-default;
+
+            LineEdit {
+                text: header.key;
+                placeholder-text: "Header name";
+                font-size: VortexTypography.font-sm;
+                edited => {
+                    header.key = self.text;
+                    header-changed(index, header);
+                }
+            }
+        }
+
+        // Value input
+        Rectangle {
+            horizontal-stretch: 1;
+            background: VortexPalette.bg-input;
+            border-radius: VortexShape.radius-sm;
+            border-width: 1px;
+            border-color: VortexPalette.border-default;
+
+            LineEdit {
+                text: header.value;
+                placeholder-text: "Header value (supports {{variables}})";
+                font-size: VortexTypography.font-sm;
+                edited => {
+                    header.value = self.text;
+                    header-changed(index, header);
+                }
+            }
+        }
+
+        // Delete button
+        Rectangle {
+            width: 28px;
+            height: 28px;
+            background: VortexPalette.bg-tertiary;
+            border-radius: VortexShape.radius-sm;
+
+            states [
+                hover when delete-touch.has-hover: {
+                    background: VortexPalette.status-error;
+                }
+            ]
+
+            Text {
+                text: "\u{2715}"; // X icon
+                color: VortexPalette.text-secondary;
+                font-size: VortexTypography.font-base;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            delete-touch := TouchArea {
+                clicked => {
+                    delete-clicked(index);
+                }
+            }
+        }
+    }
+}
+
+export component HeadersEditor inherits Rectangle {
+    in property <string> title: "Headers";
+    in-out property <[HeaderRow]> headers: [];
+    in property <bool> collapsed: false;
+
+    callback add-header();
+    callback delete-header(int);
+    callback header-changed(int, HeaderRow);
+    callback toggle-collapsed();
+
+    background: VortexPalette.bg-primary;
+    border-radius: VortexShape.radius-sm;
+    border-width: 1px;
+    border-color: VortexPalette.border-default;
+
+    VerticalLayout {
+        // Header bar
+        Rectangle {
+            height: 36px;
+            background: VortexPalette.bg-secondary;
+            border-radius: collapsed ? VortexShape.radius-sm : 0;
+
+            HorizontalLayout {
+                padding: VortexSpacing.sm;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: VortexSpacing.sm;
+
+                    // Collapse toggle
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+
+                        Text {
+                            text: collapsed ? "\u{25B6}" : "\u{25BC}"; // Right/down triangle
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-xs;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        TouchArea {
+                            clicked => { toggle-collapsed(); }
+                        }
+                    }
+
+                    Text {
+                        text: title;
+                        color: VortexPalette.text-primary;
+                        font-size: VortexTypography.font-base;
+                        font-weight: VortexTypography.weight-bold;
+                        vertical-alignment: center;
+                    }
+
+                    // Header count badge
+                    if headers.length > 0: Rectangle {
+                        width: 24px;
+                        height: 20px;
+                        background: VortexPalette.primary;
+                        border-radius: VortexShape.radius-sm;
+
+                        Text {
+                            text: headers.length;
+                            color: VortexPalette.on-primary;
+                            font-size: VortexTypography.font-xs;
+                            font-weight: VortexTypography.weight-bold;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                Button {
+                    text: "+ Add";
+                    clicked => { add-header(); }
+                }
+            }
+        }
+
+        // Content (hidden when collapsed)
+        if !collapsed: VerticalLayout {
+            // Column headers
+            Rectangle {
+                height: 28px;
+                background: VortexPalette.bg-tertiary;
+
+                HorizontalLayout {
+                    padding-left: VortexSpacing.sm;
+                    padding-right: VortexSpacing.sm;
+                    spacing: VortexSpacing.sm;
+
+                    Rectangle { width: 20px; }
+
+                    Text {
+                        width: 160px;
+                        text: "Header Name";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-xs;
+                        font-weight: VortexTypography.weight-bold;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        horizontal-stretch: 1;
+                        text: "Value";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-xs;
+                        font-weight: VortexTypography.weight-bold;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle { width: 28px; }
+                }
+            }
+
+            // Headers list
+            if headers.length > 0: ScrollView {
+                min-height: 72px;
+                max-height: 180px;
+
+                VerticalLayout {
+                    for header[index] in headers: HeaderRowItem {
+                        index: index;
+                        header: header;
+
+                        delete-clicked(idx) => { delete-header(idx); }
+                        header-changed(idx, h) => { header-changed(idx, h); }
+                    }
+                }
+            }
+
+            // Empty state
+            if headers.length == 0: Rectangle {
+                height: 60px;
+
+                Text {
+                    text: "No custom headers.\nClick '+ Add' to create one.";
+                    color: VortexPalette.text-placeholder;
+                    font-size: VortexTypography.font-sm;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

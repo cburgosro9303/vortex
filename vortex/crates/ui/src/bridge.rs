@@ -105,6 +105,69 @@ pub enum UiCommand {
 
     /// User toggled history visibility.
     ToggleHistoryVisibility,
+
+    // --- Sprint 05: Query Parameters Commands ---
+    /// Add a new query parameter.
+    AddQueryParam,
+
+    /// Delete a query parameter.
+    DeleteQueryParam { index: i32 },
+
+    /// Query parameter changed.
+    QueryParamChanged {
+        index: i32,
+        key: String,
+        value: String,
+        enabled: bool,
+    },
+
+    // --- Sprint 05: Request Headers Commands ---
+    /// Add a new request header.
+    AddRequestHeader,
+
+    /// Delete a request header.
+    DeleteRequestHeader { index: i32 },
+
+    /// Request header changed.
+    RequestHeaderChanged {
+        index: i32,
+        key: String,
+        value: String,
+        enabled: bool,
+    },
+
+    // --- Sprint 05: Authentication Commands ---
+    /// Auth type changed.
+    AuthTypeChanged { auth_type: i32 },
+
+    /// Bearer token changed.
+    BearerTokenChanged { token: String },
+
+    /// Basic auth credentials changed.
+    BasicCredentialsChanged { username: String, password: String },
+
+    /// API Key changed.
+    ApiKeyChanged {
+        key_name: String,
+        key_value: String,
+        location: i32,
+    },
+
+    // --- Sprint 05: Collection Management Commands ---
+    /// Save the current request to a collection.
+    SaveCurrentRequest,
+
+    /// Rename an item (request or collection).
+    RenameItem { id: String, new_name: String },
+
+    /// Request to delete an item (shows confirmation).
+    DeleteItemRequested { id: String, item_type: String },
+
+    /// Confirm deletion of pending item.
+    ConfirmDelete,
+
+    /// Cancel pending deletion.
+    CancelDelete,
 }
 
 /// A tree item for UI display.
@@ -145,6 +208,55 @@ pub struct HistoryItemData {
     pub status_code: i32,
     pub time_ago: String,
     pub duration: String,
+}
+
+/// Query parameter data for UI (Sprint 05).
+#[derive(Debug, Clone)]
+pub struct QueryParamData {
+    pub key: String,
+    pub value: String,
+    pub enabled: bool,
+}
+
+/// Request header data for UI (Sprint 05).
+#[derive(Debug, Clone)]
+pub struct HeaderData {
+    pub key: String,
+    pub value: String,
+    pub enabled: bool,
+}
+
+/// Response header data for UI (Sprint 05).
+#[derive(Debug, Clone)]
+pub struct ResponseHeaderData {
+    pub name: String,
+    pub value: String,
+}
+
+/// Authentication data for UI (Sprint 05).
+#[derive(Debug, Clone)]
+pub struct AuthData {
+    pub auth_type: i32,
+    pub bearer_token: String,
+    pub basic_username: String,
+    pub basic_password: String,
+    pub api_key_name: String,
+    pub api_key_value: String,
+    pub api_key_location: i32,
+}
+
+impl Default for AuthData {
+    fn default() -> Self {
+        Self {
+            auth_type: 0,
+            bearer_token: String::new(),
+            basic_username: String::new(),
+            basic_password: String::new(),
+            api_key_name: String::new(),
+            api_key_value: String::new(),
+            api_key_location: 0,
+        }
+    }
 }
 
 /// Updates sent from async runtime to the UI.
@@ -226,4 +338,46 @@ pub enum UiUpdate {
 
     /// Toggle history panel visibility.
     HistoryVisible(bool),
+
+    // --- Sprint 05: URL Update (sync from params) ---
+    /// Update the URL in the UI (when params change).
+    UpdateUrl(String),
+
+    // --- Sprint 05: Query Parameters Updates ---
+    /// Update query parameters list.
+    QueryParams(Vec<QueryParamData>),
+
+    // --- Sprint 05: Request Headers Updates ---
+    /// Update request headers list.
+    RequestHeaders(Vec<HeaderData>),
+
+    // --- Sprint 05: Response Headers Updates ---
+    /// Update response headers list.
+    ResponseHeaders(Vec<ResponseHeaderData>),
+
+    // --- Sprint 05: Authentication Updates ---
+    /// Update authentication data.
+    AuthData(AuthData),
+
+    // --- Sprint 05: Collection Management Updates ---
+    /// Show confirmation dialog for deletion.
+    ShowConfirmDialog {
+        title: String,
+        message: String,
+        item_id: String,
+        item_type: String,
+    },
+
+    /// Hide confirmation dialog.
+    HideConfirmDialog,
+
+    /// Load request with full data (includes headers, params, auth).
+    LoadFullRequest {
+        url: String,
+        method: i32,
+        body: String,
+        headers: Vec<HeaderData>,
+        query_params: Vec<QueryParamData>,
+        auth: AuthData,
+    },
 }

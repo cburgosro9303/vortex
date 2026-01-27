@@ -1,0 +1,300 @@
+// Authentication Editor Component
+// For configuring request authentication (Bearer, Basic, API Key)
+
+import { LineEdit, ComboBox, Button, CheckBox } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+// Auth type: 0=None, 1=Bearer, 2=Basic, 3=API Key
+export component AuthEditor inherits Rectangle {
+    in property <string> title: "Authorization";
+    in-out property <int> auth-type: 0;  // 0=None, 1=Bearer, 2=Basic, 3=API Key
+    in-out property <string> bearer-token: "";
+    in-out property <string> basic-username: "";
+    in-out property <string> basic-password: "";
+    in-out property <string> api-key-name: "";
+    in-out property <string> api-key-value: "";
+    in-out property <int> api-key-location: 0;  // 0=Header, 1=Query
+    in property <bool> collapsed: false;
+
+    callback auth-type-changed(int);
+    callback bearer-token-changed(string);
+    callback basic-credentials-changed(string, string);
+    callback api-key-changed(string, string, int);
+    callback toggle-collapsed();
+
+    property <[string]> auth-types: ["No Auth", "Bearer Token", "Basic Auth", "API Key"];
+    property <[string]> api-key-locations: ["Header", "Query Param"];
+
+    background: VortexPalette.bg-primary;
+    border-radius: VortexShape.radius-sm;
+    border-width: 1px;
+    border-color: VortexPalette.border-default;
+
+    VerticalLayout {
+        // Header bar
+        Rectangle {
+            height: 36px;
+            background: VortexPalette.bg-secondary;
+            border-radius: collapsed ? VortexShape.radius-sm : 0;
+
+            HorizontalLayout {
+                padding: VortexSpacing.sm;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: VortexSpacing.sm;
+
+                    // Collapse toggle
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+
+                        Text {
+                            text: collapsed ? "\u{25B6}" : "\u{25BC}"; // Right/down triangle
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-xs;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        TouchArea {
+                            clicked => { toggle-collapsed(); }
+                        }
+                    }
+
+                    Text {
+                        text: title;
+                        color: VortexPalette.text-primary;
+                        font-size: VortexTypography.font-base;
+                        font-weight: VortexTypography.weight-bold;
+                        vertical-alignment: center;
+                    }
+
+                    // Auth type indicator
+                    if auth-type > 0: Rectangle {
+                        height: 20px;
+                        width: auth-type == 1 ? 60px : auth-type == 2 ? 50px : 55px;
+                        background: VortexPalette.status-success;
+                        border-radius: VortexShape.radius-sm;
+
+                        Text {
+                            text: auth-type == 1 ? "Bearer" : auth-type == 2 ? "Basic" : "API Key";
+                            color: white;
+                            font-size: VortexTypography.font-xs;
+                            font-weight: VortexTypography.weight-bold;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Auth type selector (always visible in header)
+                ComboBox {
+                    width: 120px;
+                    model: auth-types;
+                    current-index <=> auth-type;
+                    selected(value) => {
+                        auth-type-changed(self.current-index);
+                    }
+                }
+            }
+        }
+
+        // Content (hidden when collapsed)
+        if !collapsed && auth-type > 0: Rectangle {
+            height: auth-type == 1 ? 80px : auth-type == 2 ? 120px : 160px;
+            background: VortexPalette.bg-tertiary;
+
+            VerticalLayout {
+                padding: VortexSpacing.md;
+                spacing: VortexSpacing.sm;
+
+                // Bearer Token
+                if auth-type == 1: VerticalLayout {
+                    spacing: VortexSpacing.xs;
+
+                    Text {
+                        text: "Token";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-sm;
+                    }
+
+                    Rectangle {
+                        height: 32px;
+                        background: VortexPalette.bg-input;
+                        border-radius: VortexShape.radius-sm;
+                        border-width: 1px;
+                        border-color: VortexPalette.border-default;
+
+                        LineEdit {
+                            text <=> bearer-token;
+                            placeholder-text: "JWT token or {{variable}}";
+                            font-size: VortexTypography.font-sm;
+                            edited => {
+                                bearer-token-changed(self.text);
+                            }
+                        }
+                    }
+                }
+
+                // Basic Auth
+                if auth-type == 2: VerticalLayout {
+                    spacing: VortexSpacing.sm;
+
+                    VerticalLayout {
+                        spacing: VortexSpacing.xs;
+
+                        Text {
+                            text: "Username";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-sm;
+                        }
+
+                        Rectangle {
+                            height: 32px;
+                            background: VortexPalette.bg-input;
+                            border-radius: VortexShape.radius-sm;
+                            border-width: 1px;
+                            border-color: VortexPalette.border-default;
+
+                            LineEdit {
+                                text <=> basic-username;
+                                placeholder-text: "Username or {{variable}}";
+                                font-size: VortexTypography.font-sm;
+                                edited => {
+                                    basic-credentials-changed(self.text, basic-password);
+                                }
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        spacing: VortexSpacing.xs;
+
+                        Text {
+                            text: "Password";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-sm;
+                        }
+
+                        Rectangle {
+                            height: 32px;
+                            background: VortexPalette.bg-input;
+                            border-radius: VortexShape.radius-sm;
+                            border-width: 1px;
+                            border-color: VortexPalette.border-default;
+
+                            LineEdit {
+                                text <=> basic-password;
+                                placeholder-text: "Password or {{variable}}";
+                                font-size: VortexTypography.font-sm;
+                                input-type: password;
+                                edited => {
+                                    basic-credentials-changed(basic-username, self.text);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // API Key
+                if auth-type == 3: VerticalLayout {
+                    spacing: VortexSpacing.sm;
+
+                    HorizontalLayout {
+                        spacing: VortexSpacing.md;
+
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: "Key Name";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 32px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                LineEdit {
+                                    text <=> api-key-name;
+                                    placeholder-text: "X-API-Key";
+                                    font-size: VortexTypography.font-sm;
+                                    edited => {
+                                        api-key-changed(self.text, api-key-value, api-key-location);
+                                    }
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            width: 120px;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: "Add to";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            ComboBox {
+                                height: 32px;
+                                model: api-key-locations;
+                                current-index: api-key-location;
+                                selected(value) => {
+                                    api-key-changed(api-key-name, api-key-value, self.current-index);
+                                }
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        spacing: VortexSpacing.xs;
+
+                        Text {
+                            text: "Key Value";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-sm;
+                        }
+
+                        Rectangle {
+                            height: 32px;
+                            background: VortexPalette.bg-input;
+                            border-radius: VortexShape.radius-sm;
+                            border-width: 1px;
+                            border-color: VortexPalette.border-default;
+
+                            LineEdit {
+                                text <=> api-key-value;
+                                placeholder-text: "API key value or {{variable}}";
+                                font-size: VortexTypography.font-sm;
+                                edited => {
+                                    api-key-changed(api-key-name, self.text, api-key-location);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // No auth message
+        if !collapsed && auth-type == 0: Rectangle {
+            height: 50px;
+            background: VortexPalette.bg-tertiary;
+
+            Text {
+                text: "This request does not use any authorization.";
+                color: VortexPalette.text-placeholder;
+                font-size: VortexTypography.font-sm;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

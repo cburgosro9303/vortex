@@ -1,8 +1,14 @@
 // Response Panel Component
-// Displays response data, loading state, or error messages
+// Displays response data with tabs for Body and Headers
 
 import { TextEdit, ScrollView } from "std-widgets.slint";
 import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+// Response header for display
+export struct ResponseHeader {
+    name: string,
+    value: string,
+}
 
 // State enum values (must match Rust side)
 // 0 = Idle, 1 = Loading, 2 = Success, 3 = Error
@@ -17,6 +23,7 @@ export component ResponsePanel inherits Rectangle {
     in property <string> response-body: "";
     in property <string> duration: "";
     in property <string> size: "";
+    in property <[ResponseHeader]> response-headers: [];
 
     // Error data (for Error state)
     in property <string> error-title: "";
@@ -25,6 +32,9 @@ export component ResponsePanel inherits Rectangle {
 
     // Loading data
     in property <string> elapsed-time: "0ms";
+
+    // Tab state: 0=Body, 1=Headers
+    in-out property <int> active-tab: 0;
 
     callback retry-clicked();
     callback copy-body-clicked();
@@ -119,7 +129,7 @@ export component ResponsePanel inherits Rectangle {
         }
     }
 
-    // Success state - show response
+    // Success state - show response with tabs
     Rectangle {
         x: 0;
         y: 0;
@@ -202,8 +212,8 @@ export component ResponsePanel inherits Rectangle {
 
                     Rectangle { horizontal-stretch: 1; }
 
-                    // Copy button
-                    Rectangle {
+                    // Copy button (only for body tab)
+                    if active-tab == 0: Rectangle {
                         width: 60px;
                         height: 24px;
                         background: copy-touch.has-hover ? VortexPalette.bg-hover : transparent;
@@ -224,7 +234,113 @@ export component ResponsePanel inherits Rectangle {
                 }
             }
 
-            // Response body
+            // Tab bar
+            Rectangle {
+                height: 36px;
+                background: VortexPalette.bg-secondary;
+                border-width: 1px;
+                border-color: VortexPalette.border-default;
+
+                HorizontalLayout {
+                    padding-left: VortexSpacing.sm;
+                    spacing: 0;
+
+                    // Body tab
+                    Rectangle {
+                        width: 80px;
+                        height: 35px;
+                        background: active-tab == 0 ? VortexPalette.bg-tertiary : transparent;
+
+                        // Active indicator line at bottom
+                        Rectangle {
+                            x: 0;
+                            y: parent.height - 2px;
+                            width: parent.width;
+                            height: 2px;
+                            background: active-tab == 0 ? VortexPalette.primary : transparent;
+                        }
+
+                        states [
+                            hover when body-tab-touch.has-hover && active-tab != 0: {
+                                background: VortexPalette.bg-hover;
+                            }
+                        ]
+
+                        Text {
+                            text: "Body";
+                            color: active-tab == 0 ? VortexPalette.text-accent : VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-sm;
+                            font-weight: active-tab == 0 ? VortexTypography.weight-bold : VortexTypography.weight-normal;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        body-tab-touch := TouchArea {
+                            clicked => { active-tab = 0; }
+                        }
+                    }
+
+                    // Headers tab
+                    Rectangle {
+                        width: 100px;
+                        height: 35px;
+                        background: active-tab == 1 ? VortexPalette.bg-tertiary : transparent;
+
+                        // Active indicator line at bottom
+                        Rectangle {
+                            x: 0;
+                            y: parent.height - 2px;
+                            width: parent.width;
+                            height: 2px;
+                            background: active-tab == 1 ? VortexPalette.primary : transparent;
+                        }
+
+                        states [
+                            hover when headers-tab-touch.has-hover && active-tab != 1: {
+                                background: VortexPalette.bg-hover;
+                            }
+                        ]
+
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: "Headers";
+                                color: active-tab == 1 ? VortexPalette.text-accent : VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                                font-weight: active-tab == 1 ? VortexTypography.weight-bold : VortexTypography.weight-normal;
+                                vertical-alignment: center;
+                            }
+
+                            // Header count badge
+                            if response-headers.length > 0: Rectangle {
+                                width: 24px;
+                                height: 18px;
+                                background: active-tab == 1 ? VortexPalette.primary : VortexPalette.bg-tertiary;
+                                border-radius: 9px;
+
+                                Text {
+                                    text: response-headers.length;
+                                    color: active-tab == 1 ? VortexPalette.on-primary : VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-xs;
+                                    font-weight: VortexTypography.weight-bold;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        headers-tab-touch := TouchArea {
+                            clicked => { active-tab = 1; }
+                        }
+                    }
+
+                    Rectangle { horizontal-stretch: 1; }
+                }
+            }
+
+            // Tab content
             Rectangle {
                 vertical-stretch: 1;
                 background: VortexPalette.bg-input;
@@ -232,7 +348,8 @@ export component ResponsePanel inherits Rectangle {
                 border-color: VortexPalette.border-default;
                 clip: true;
 
-                body-text := TextEdit {
+                // Body tab content
+                if active-tab == 0: TextEdit {
                     x: 8px;
                     y: 8px;
                     width: parent.width - 16px;
@@ -241,6 +358,61 @@ export component ResponsePanel inherits Rectangle {
                     read-only: true;
                     font-size: VortexTypography.font-base;
                     wrap: word-wrap;
+                }
+
+                // Headers tab content
+                if active-tab == 1: ScrollView {
+                    x: 0;
+                    y: 0;
+                    width: parent.width;
+                    height: parent.height;
+
+                    VerticalLayout {
+                        padding: VortexSpacing.sm;
+                        spacing: 2px;
+
+                        for header[index] in response-headers: Rectangle {
+                            height: 32px;
+                            background: mod(index, 2) == 0 ? VortexPalette.bg-secondary : VortexPalette.bg-tertiary;
+                            border-radius: VortexShape.radius-sm;
+
+                            HorizontalLayout {
+                                padding: VortexSpacing.sm;
+                                spacing: VortexSpacing.md;
+
+                                Text {
+                                    width: 200px;
+                                    text: header.name;
+                                    color: VortexPalette.text-accent;
+                                    font-size: VortexTypography.font-sm;
+                                    font-weight: VortexTypography.weight-medium;
+                                    overflow: elide;
+                                    vertical-alignment: center;
+                                }
+
+                                Text {
+                                    horizontal-stretch: 1;
+                                    text: header.value;
+                                    color: VortexPalette.text-primary;
+                                    font-size: VortexTypography.font-sm;
+                                    overflow: elide;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        if response-headers.length == 0: Rectangle {
+                            height: 100px;
+
+                            Text {
+                                text: "No response headers";
+                                color: VortexPalette.text-placeholder;
+                                font-size: VortexTypography.font-sm;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
                 }
             }
         }
