@@ -1,0 +1,242 @@
+// History Panel Component
+// Shows recent request history in a collapsible sidebar section
+
+import { Button, ScrollView } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+// History item data structure
+export struct HistoryItem {
+    id: string,
+    method: string,
+    url: string,
+    status-code: int,
+    time-ago: string,
+    duration: string,
+}
+
+// Single history row
+component HistoryRow inherits Rectangle {
+    in property <HistoryItem> item;
+    in property <bool> selected: false;
+
+    callback clicked();
+
+    min-height: 44px;
+    background: selected ? VortexPalette.bg-selected : transparent;
+    border-radius: VortexShape.radius-sm;
+
+    states [
+        hover when touch.has-hover && !selected: {
+            background: VortexPalette.bg-hover;
+        }
+    ]
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: VortexSpacing.sm;
+        padding-right: VortexSpacing.sm;
+        spacing: VortexSpacing.sm;
+
+        // Method badge
+        Rectangle {
+            width: 48px;
+            height: 22px;
+            border-radius: VortexShape.radius-sm;
+            background: item.method == "GET" ? VortexPalette.method-get :
+                       item.method == "POST" ? VortexPalette.method-post :
+                       item.method == "PUT" ? VortexPalette.method-put :
+                       item.method == "PATCH" ? VortexPalette.method-patch :
+                       item.method == "DELETE" ? VortexPalette.method-delete :
+                       VortexPalette.outline;
+
+            Text {
+                text: item.method;
+                font-size: VortexTypography.font-xs;
+                font-weight: VortexTypography.weight-bold;
+                color: white;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        // URL and status
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 2px;
+
+            Text {
+                text: item.url;
+                color: VortexPalette.text-primary;
+                font-size: VortexTypography.font-sm;
+                overflow: elide;
+            }
+
+            HorizontalLayout {
+                spacing: VortexSpacing.sm;
+
+                // Status code
+                Text {
+                    text: item.status-code > 0 ? item.status-code : "-";
+                    color: item.status-code >= 200 && item.status-code < 300 ? VortexPalette.status-success :
+                           item.status-code >= 400 ? VortexPalette.status-error :
+                           VortexPalette.text-secondary;
+                    font-size: VortexTypography.font-xs;
+                }
+
+                // Duration
+                Text {
+                    text: item.duration;
+                    color: VortexPalette.text-secondary;
+                    font-size: VortexTypography.font-xs;
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                // Time ago
+                Text {
+                    text: item.time-ago;
+                    color: VortexPalette.text-secondary;
+                    font-size: VortexTypography.font-xs;
+                }
+            }
+        }
+    }
+}
+
+export component HistoryPanel inherits Rectangle {
+    in property <[HistoryItem]> items: [];
+    in property <bool> is-visible: true;
+    in-out property <string> selected-id: "";
+
+    callback item-clicked(HistoryItem);
+    callback clear-history();
+    callback toggle-visibility();
+
+    background: VortexPalette.bg-secondary;
+
+    VerticalLayout {
+        spacing: 0;
+
+        // Header
+        Rectangle {
+            height: 36px;
+            background: VortexPalette.bg-tertiary;
+
+            HorizontalLayout {
+                padding-left: VortexSpacing.sm;
+                padding-right: VortexSpacing.sm;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: VortexSpacing.xs;
+
+                    // Collapse/expand indicator
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+
+                        Text {
+                            text: is-visible ? "\u{25BC}" : "\u{25B6}"; // Down/right triangle
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-xs;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        TouchArea {
+                            clicked => { toggle-visibility(); }
+                        }
+                    }
+
+                    Text {
+                        text: "HISTORY";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-xs;
+                        font-weight: VortexTypography.weight-bold;
+                        letter-spacing: 0.5px;
+                        vertical-alignment: center;
+                    }
+
+                    // Count badge
+                    if items.length > 0: Rectangle {
+                        width: 24px;
+                        height: 18px;
+                        background: VortexPalette.surface-container-high;
+                        border-radius: VortexShape.radius-sm;
+
+                        Text {
+                            text: items.length;
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-xs;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Clear button
+                if items.length > 0 && is-visible: Rectangle {
+                    width: 24px;
+                    height: 24px;
+                    background: transparent;
+                    border-radius: VortexShape.radius-sm;
+
+                    states [
+                        hover when clear-touch.has-hover: {
+                            background: VortexPalette.bg-hover;
+                        }
+                    ]
+
+                    Text {
+                        text: "\u{2715}"; // X
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-sm;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    clear-touch := TouchArea {
+                        clicked => { clear-history(); }
+                    }
+                }
+            }
+        }
+
+        // History list (collapsible)
+        if is-visible: Rectangle {
+            vertical-stretch: 1;
+            min-height: 100px;
+            max-height: 250px;
+
+            if items.length > 0: ScrollView {
+                VerticalLayout {
+                    padding: VortexSpacing.xs;
+                    spacing: 2px;
+
+                    for item in items: HistoryRow {
+                        item: item;
+                        selected: item.id == selected-id;
+
+                        clicked => {
+                            selected-id = item.id;
+                            root.item-clicked(item);
+                        }
+                    }
+                }
+            }
+
+            if items.length == 0: Rectangle {
+                Text {
+                    text: "No history yet\nExecute a request to see it here";
+                    color: VortexPalette.text-placeholder;
+                    font-size: VortexTypography.font-sm;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

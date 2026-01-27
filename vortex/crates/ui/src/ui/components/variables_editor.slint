@@ -1,0 +1,236 @@
+// Variables Editor Component
+// For editing environment variables
+
+import { LineEdit, Button, CheckBox, ScrollView } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+// A single variable row for editing
+export struct VariableRow {
+    name: string,
+    value: string,
+    enabled: bool,
+    is-secret: bool,
+}
+
+component VariableRowItem inherits Rectangle {
+    in property <int> index;
+    in-out property <VariableRow> variable;
+    in property <bool> show-secret-value: false;
+
+    callback delete-clicked(int);
+    callback variable-changed(int, VariableRow);
+
+    height: 36px;
+    background: mod(index, 2) == 0 ? VortexPalette.bg-secondary : VortexPalette.bg-tertiary;
+
+    HorizontalLayout {
+        padding: VortexSpacing.xs;
+        spacing: VortexSpacing.sm;
+
+        // Enable checkbox
+        CheckBox {
+            width: 20px;
+            checked: variable.enabled;
+            toggled => {
+                variable.enabled = self.checked;
+                variable-changed(index, variable);
+            }
+        }
+
+        // Name input
+        Rectangle {
+            width: 120px;
+            background: VortexPalette.bg-input;
+            border-radius: VortexShape.radius-sm;
+            border-width: 1px;
+            border-color: VortexPalette.border-default;
+
+            LineEdit {
+                text: variable.name;
+                placeholder-text: "name";
+                font-size: VortexTypography.font-sm;
+                edited => {
+                    variable.name = self.text;
+                    variable-changed(index, variable);
+                }
+            }
+        }
+
+        // Value input
+        Rectangle {
+            horizontal-stretch: 1;
+            background: VortexPalette.bg-input;
+            border-radius: VortexShape.radius-sm;
+            border-width: 1px;
+            border-color: variable.is-secret ? VortexPalette.status-warning : VortexPalette.border-default;
+
+            LineEdit {
+                text: variable.is-secret && !show-secret-value ? "********" : variable.value;
+                placeholder-text: "value";
+                font-size: VortexTypography.font-sm;
+                input-type: variable.is-secret && !show-secret-value ? password : text;
+                edited => {
+                    variable.value = self.text;
+                    variable-changed(index, variable);
+                }
+            }
+        }
+
+        // Secret toggle
+        Rectangle {
+            width: 28px;
+            height: 28px;
+            background: variable.is-secret ? VortexPalette.status-warning : VortexPalette.bg-tertiary;
+            border-radius: VortexShape.radius-sm;
+
+            Text {
+                text: variable.is-secret ? "S" : "s"; // S for Secret (capitalized when active)
+                color: variable.is-secret ? white : VortexPalette.text-secondary;
+                font-size: VortexTypography.font-sm;
+                font-weight: variable.is-secret ? VortexTypography.weight-bold : VortexTypography.weight-normal;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => {
+                    variable.is-secret = !variable.is-secret;
+                    variable-changed(index, variable);
+                }
+            }
+        }
+
+        // Delete button
+        Rectangle {
+            width: 28px;
+            height: 28px;
+            background: VortexPalette.bg-tertiary;
+            border-radius: VortexShape.radius-sm;
+
+            states [
+                hover when delete-touch.has-hover: {
+                    background: VortexPalette.status-error;
+                }
+            ]
+
+            Text {
+                text: "\u{2715}"; // X icon
+                color: VortexPalette.text-secondary;
+                font-size: VortexTypography.font-base;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            delete-touch := TouchArea {
+                clicked => {
+                    delete-clicked(index);
+                }
+            }
+        }
+    }
+}
+
+export component VariablesEditor inherits Rectangle {
+    in property <string> title: "Variables";
+    in-out property <[VariableRow]> variables: [];
+    in property <bool> show-secret-values: false;
+
+    callback add-variable();
+    callback delete-variable(int);
+    callback variable-changed(int, VariableRow);
+
+    background: VortexPalette.bg-primary;
+    border-radius: VortexShape.radius-sm;
+    border-width: 1px;
+    border-color: VortexPalette.border-default;
+
+    VerticalLayout {
+        // Header
+        Rectangle {
+            height: 36px;
+            background: VortexPalette.bg-secondary;
+
+            HorizontalLayout {
+                padding: VortexSpacing.sm;
+                alignment: space-between;
+
+                Text {
+                    text: title;
+                    color: VortexPalette.text-primary;
+                    font-size: VortexTypography.font-base;
+                    font-weight: VortexTypography.weight-bold;
+                    vertical-alignment: center;
+                }
+
+                Button {
+                    text: "+ Add";
+                    clicked => { add-variable(); }
+                }
+            }
+        }
+
+        // Column headers
+        Rectangle {
+            height: 28px;
+            background: VortexPalette.bg-tertiary;
+
+            HorizontalLayout {
+                padding-left: VortexSpacing.sm;
+                padding-right: VortexSpacing.sm;
+                spacing: VortexSpacing.sm;
+
+                Rectangle { width: 20px; }
+
+                Text {
+                    width: 120px;
+                    text: "Name";
+                    color: VortexPalette.text-secondary;
+                    font-size: VortexTypography.font-xs;
+                    font-weight: VortexTypography.weight-bold;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    horizontal-stretch: 1;
+                    text: "Value";
+                    color: VortexPalette.text-secondary;
+                    font-size: VortexTypography.font-xs;
+                    font-weight: VortexTypography.weight-bold;
+                    vertical-alignment: center;
+                }
+
+                Rectangle { width: 28px; }
+                Rectangle { width: 28px; }
+            }
+        }
+
+        // Variables list
+        if variables.length > 0: ScrollView {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                for variable[index] in variables: VariableRowItem {
+                    index: index;
+                    variable: variable;
+                    show-secret-value: show-secret-values;
+
+                    delete-clicked(idx) => { delete-variable(idx); }
+                    variable-changed(idx, var) => { variable-changed(idx, var); }
+                }
+            }
+        }
+
+        // Empty state
+        if variables.length == 0: Rectangle {
+            vertical-stretch: 1;
+
+            Text {
+                text: "No variables defined.\nClick '+ Add' to create one.";
+                color: VortexPalette.text-placeholder;
+                font-size: VortexTypography.font-sm;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

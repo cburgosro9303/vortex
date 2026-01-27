@@ -1,0 +1,265 @@
+// Environment Manager Dialog
+// For creating, editing, and deleting environments
+
+import { LineEdit, Button, ListView, ScrollView } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+import { VariablesEditor, VariableRow } from "variables_editor.slint";
+
+export struct EnvironmentInfo {
+    id: string,
+    name: string,
+    variable-count: int,
+}
+
+export component EnvironmentManager inherits Rectangle {
+    in property <bool> is-visible: false;
+    in-out property <[EnvironmentInfo]> environments: [];
+    in-out property <int> selected-index: -1;
+    in-out property <string> selected-name: "";
+    in-out property <[VariableRow]> selected-variables: [];
+
+    callback close-clicked();
+    callback create-environment(string);
+    callback delete-environment(int);
+    callback select-environment(int);
+    callback save-environment();
+    callback add-variable();
+    callback delete-variable(int);
+    callback variable-changed(int, VariableRow);
+
+    background: is-visible ? #00000080 : transparent;
+    visible: is-visible;
+
+    if is-visible: Rectangle {
+        width: 90%;
+        height: 90%;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        background: VortexPalette.bg-primary;
+        border-radius: VortexShape.radius-md;
+        border-width: 1px;
+        border-color: VortexPalette.border-default;
+
+        VerticalLayout {
+            // Header
+            Rectangle {
+                height: 48px;
+                background: VortexPalette.bg-secondary;
+
+                HorizontalLayout {
+                    padding: VortexSpacing.md;
+                    alignment: space-between;
+
+                    Text {
+                        text: "Manage Environments";
+                        color: VortexPalette.text-primary;
+                        font-size: VortexTypography.font-lg;
+                        font-weight: VortexTypography.weight-bold;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle {
+                        width: 32px;
+                        height: 32px;
+                        background: VortexPalette.bg-tertiary;
+                        border-radius: VortexShape.radius-sm;
+
+                        states [
+                            hover when close-touch.has-hover: {
+                                background: VortexPalette.status-error;
+                            }
+                        ]
+
+                        Text {
+                            text: "\u{2715}";
+                            color: VortexPalette.text-primary;
+                            font-size: VortexTypography.font-lg;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        close-touch := TouchArea {
+                            clicked => { close-clicked(); }
+                        }
+                    }
+                }
+            }
+
+            // Main content
+            HorizontalLayout {
+                vertical-stretch: 1;
+                spacing: 0;
+
+                // Environment list sidebar
+                Rectangle {
+                    width: 250px;
+                    background: VortexPalette.bg-secondary;
+                    border-width: 1px;
+                    border-color: VortexPalette.border-default;
+
+                    VerticalLayout {
+                        // New environment input
+                        Rectangle {
+                            height: 48px;
+                            background: VortexPalette.bg-tertiary;
+
+                            HorizontalLayout {
+                                padding: VortexSpacing.sm;
+                                spacing: VortexSpacing.xs;
+
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    background: VortexPalette.bg-input;
+                                    border-radius: VortexShape.radius-sm;
+
+                                    new-env-input := LineEdit {
+                                        placeholder-text: "New environment name";
+                                        font-size: VortexTypography.font-sm;
+                                        accepted => {
+                                            if self.text != "" {
+                                                create-environment(self.text);
+                                                self.text = "";
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Button {
+                                    text: "+";
+                                    clicked => {
+                                        if new-env-input.text != "" {
+                                            create-environment(new-env-input.text);
+                                            new-env-input.text = "";
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Environment list
+                        ScrollView {
+                            vertical-stretch: 1;
+
+                            VerticalLayout {
+                                for env[index] in environments: Rectangle {
+                                    height: 48px;
+                                    background: selected-index == index ? VortexPalette.bg-selected : transparent;
+
+                                    states [
+                                        hover when env-touch.has-hover && selected-index != index: {
+                                            background: VortexPalette.bg-hover;
+                                        }
+                                    ]
+
+                                    HorizontalLayout {
+                                        padding: VortexSpacing.sm;
+                                        alignment: space-between;
+
+                                        VerticalLayout {
+                                            horizontal-stretch: 1;
+                                            alignment: center;
+
+                                            Text {
+                                                text: env.name;
+                                                color: VortexPalette.text-primary;
+                                                font-size: VortexTypography.font-base;
+                                                overflow: elide;
+                                            }
+
+                                            Text {
+                                                text: env.variable-count == 1 ? "1 variable" : env.variable-count + " variables";
+                                                color: VortexPalette.text-secondary;
+                                                font-size: VortexTypography.font-xs;
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            width: 28px;
+                                            height: 28px;
+                                            background: transparent;
+                                            border-radius: VortexShape.radius-sm;
+
+                                            states [
+                                                hover when delete-env-touch.has-hover: {
+                                                    background: VortexPalette.status-error;
+                                                }
+                                            ]
+
+                                            Text {
+                                                text: "\u{2715}"; // X mark (safe icon)
+                                                color: VortexPalette.text-secondary;
+                                                font-size: VortexTypography.font-base;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+
+                                            delete-env-touch := TouchArea {
+                                                clicked => { delete-environment(index); }
+                                            }
+                                        }
+                                    }
+
+                                    env-touch := TouchArea {
+                                        clicked => { select-environment(index); }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Variables editor for selected environment
+                Rectangle {
+                    horizontal-stretch: 1;
+                    background: VortexPalette.bg-primary;
+
+                    if selected-index >= 0: VerticalLayout {
+                        padding: VortexSpacing.md;
+                        spacing: VortexSpacing.md;
+
+                        // Environment name header
+                        HorizontalLayout {
+                            spacing: VortexSpacing.md;
+
+                            Text {
+                                text: "Environment: " + selected-name;
+                                color: VortexPalette.text-primary;
+                                font-size: VortexTypography.font-lg;
+                                font-weight: VortexTypography.weight-bold;
+                                vertical-alignment: center;
+                            }
+
+                            Rectangle { horizontal-stretch: 1; }
+
+                            Button {
+                                text: "Save Changes";
+                                clicked => { save-environment(); }
+                            }
+                        }
+
+                        // Variables editor
+                        VariablesEditor {
+                            vertical-stretch: 1;
+                            title: "Environment Variables";
+                            variables: selected-variables;
+
+                            add-variable => { root.add-variable(); }
+                            delete-variable(idx) => { root.delete-variable(idx); }
+                            variable-changed(idx, var) => { root.variable-changed(idx, var); }
+                        }
+                    }
+
+                    if selected-index < 0: Rectangle {
+                        Text {
+                            text: "Select an environment\nto edit its variables";
+                            color: VortexPalette.text-placeholder;
+                            font-size: VortexTypography.font-base;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

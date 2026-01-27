@@ -2,6 +2,7 @@
 //!
 //! This module provides the main application window with all business logic bindings.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -9,20 +10,30 @@ use std::sync::Arc;
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use tokio::sync::mpsc;
 use vortex_application::{
-    CancellationToken, CreateWorkspace, CreateWorkspaceInput, ExecuteRequest, ExecuteResultExt,
+    CancellationToken, CreateWorkspace, CreateWorkspaceInput, EnvironmentRepository, ExecuteRequest,
+    ExecuteResultExt, VariableResolver,
     ports::WorkspaceRepository,
 };
 use vortex_domain::{
     RequestState,
+    environment::{Environment, ResolutionContext, Variable, VariableMap},
+    persistence::{PersistenceHttpMethod, SavedRequest},
     request::{HttpMethod, RequestBody, RequestSpec},
 };
+use vortex_domain::{FontScale, HistoryEntry, RequestHistory, ThemeMode, UserSettings};
 use vortex_infrastructure::{
-    FileSystemWorkspaceRepository, ReqwestHttpClient, TokioFileSystem, from_json,
+    FileEnvironmentRepository, FileSystemWorkspaceRepository, HistoryRepository,
+    ReqwestHttpClient, SettingsRepository, TokioFileSystem, from_json,
 };
 
 use crate::MainWindow;
 use crate::TreeItem;
-use crate::bridge::{TreeItemData, UiCommand, UiUpdate};
+use crate::EnvironmentInfo;
+use crate::HistoryItem;
+use crate::VariableRow;
+use crate::VortexPalette;
+use crate::VortexTypography;
+use crate::bridge::{EnvironmentData, HistoryItemData, TreeItemData, UiCommand, UiUpdate, VariableData};
 
 /// Application window wrapper with business logic bindings.
 pub struct AppWindow {
@@ -54,6 +65,28 @@ impl AppWindow {
         let cmd_tx_item_sel = cmd_tx.clone();
         let cmd_tx_item_dbl = cmd_tx.clone();
         let cmd_tx_toggle = cmd_tx.clone();
+
+        // Environment command senders
+        let cmd_tx_env_changed = cmd_tx.clone();
+        let cmd_tx_manage_env = cmd_tx.clone();
+        let cmd_tx_create_env = cmd_tx.clone();
+        let cmd_tx_delete_env = cmd_tx.clone();
+        let cmd_tx_select_env = cmd_tx.clone();
+        let cmd_tx_save_env = cmd_tx.clone();
+        let cmd_tx_add_var = cmd_tx.clone();
+        let cmd_tx_del_var = cmd_tx.clone();
+        let cmd_tx_var_changed = cmd_tx.clone();
+        let cmd_tx_url_changed = cmd_tx.clone();
+
+        // Settings command senders
+        let cmd_tx_toggle_theme = cmd_tx.clone();
+        let cmd_tx_open_settings = cmd_tx.clone();
+        let cmd_tx_theme_mode = cmd_tx.clone();
+        let cmd_tx_font_scale = cmd_tx.clone();
+
+        // History command senders
+        let cmd_tx_history_click = cmd_tx.clone();
+        let cmd_tx_clear_history = cmd_tx.clone();
 
         // Set up UI callbacks
         window.on_send_request(move || {
@@ -136,6 +169,85 @@ impl AppWindow {
             });
         });
 
+        // Environment callbacks (Sprint 03)
+        window.on_environment_changed(move |index| {
+            let _ = cmd_tx_env_changed.send(UiCommand::EnvironmentChanged { index });
+        });
+
+        window.on_manage_environments_clicked(move || {
+            let _ = cmd_tx_manage_env.send(UiCommand::ManageEnvironments);
+        });
+
+        window.on_create_environment(move |name| {
+            let _ = cmd_tx_create_env.send(UiCommand::CreateEnvironment {
+                name: name.to_string(),
+            });
+        });
+
+        window.on_delete_environment(move |index| {
+            let _ = cmd_tx_delete_env.send(UiCommand::DeleteEnvironment { index });
+        });
+
+        window.on_select_env_for_editing(move |index| {
+            let _ = cmd_tx_select_env.send(UiCommand::SelectEnvironmentForEditing { index });
+        });
+
+        window.on_save_environment(move || {
+            let _ = cmd_tx_save_env.send(UiCommand::SaveEnvironment);
+        });
+
+        window.on_add_env_variable(move || {
+            let _ = cmd_tx_add_var.send(UiCommand::AddEnvironmentVariable);
+        });
+
+        window.on_delete_env_variable(move |index| {
+            let _ = cmd_tx_del_var.send(UiCommand::DeleteEnvironmentVariable { index });
+        });
+
+        window.on_env_variable_changed(move |index, var: VariableRow| {
+            let _ = cmd_tx_var_changed.send(UiCommand::EnvironmentVariableChanged {
+                index,
+                name: var.name.to_string(),
+                value: var.value.to_string(),
+                enabled: var.enabled,
+                is_secret: var.is_secret,
+            });
+        });
+
+        window.on_url_changed(move |url| {
+            let _ = cmd_tx_url_changed.send(UiCommand::UrlChanged {
+                url: url.to_string(),
+            });
+        });
+
+        // Settings callbacks (Sprint 04)
+        window.on_toggle_theme(move || {
+            let _ = cmd_tx_toggle_theme.send(UiCommand::ToggleTheme);
+        });
+
+        window.on_open_settings(move || {
+            let _ = cmd_tx_open_settings.send(UiCommand::OpenSettings);
+        });
+
+        window.on_theme_mode_changed(move |index| {
+            let _ = cmd_tx_theme_mode.send(UiCommand::SetThemeMode { index });
+        });
+
+        window.on_font_scale_changed(move |index| {
+            let _ = cmd_tx_font_scale.send(UiCommand::SetFontScale { index });
+        });
+
+        // History callbacks (Sprint 04)
+        window.on_history_item_clicked(move |item: HistoryItem| {
+            let _ = cmd_tx_history_click.send(UiCommand::LoadHistoryItem {
+                id: item.id.to_string(),
+            });
+        });
+
+        window.on_clear_history(move || {
+            let _ = cmd_tx_clear_history.send(UiCommand::ClearHistory);
+        });
+
         // Spawn the async runtime in a separate thread
         let ui_weak_async = ui_weak.clone();
         std::thread::spawn(move || {
@@ -192,13 +304,88 @@ impl Default for AppWindow {
 struct AppState {
     workspace_path: Option<PathBuf>,
     expanded_folders: std::collections::HashSet<String>,
+    // Environment state (Sprint 03)
+    environments: Vec<Environment>,
+    current_environment_index: Option<usize>,
+    editing_environment: Option<Environment>,
+    editing_environment_index: Option<usize>,
+    editing_variable_keys: Vec<String>, // Tracks variable order for UI sync
+    current_url: String,
+    // Settings state (Sprint 04)
+    dark_mode: bool,
+    theme_mode: ThemeMode,
+    font_scale: FontScale,
+    // History state (Sprint 04)
+    history: RequestHistory,
+    history_visible: bool,
 }
 
 impl AppState {
-    fn new() -> Self {
+    fn from_settings(settings: UserSettings, history: RequestHistory) -> Self {
         Self {
             workspace_path: None,
             expanded_folders: std::collections::HashSet::new(),
+            environments: Vec::new(),
+            current_environment_index: None,
+            editing_environment: None,
+            editing_environment_index: None,
+            editing_variable_keys: Vec::new(),
+            current_url: String::new(),
+            dark_mode: settings.theme.is_dark(),
+            theme_mode: settings.theme,
+            font_scale: settings.font_scale,
+            history,
+            history_visible: settings.history_visible,
+        }
+    }
+
+    fn to_settings(&self) -> UserSettings {
+        UserSettings {
+            theme: self.theme_mode,
+            font_scale: self.font_scale,
+            history_visible: self.history_visible,
+            ..UserSettings::default()
+        }
+    }
+
+    fn history_to_ui_items(&self) -> Vec<HistoryItemData> {
+        self.history
+            .entries()
+            .iter()
+            .map(|entry| HistoryItemData {
+                id: entry.id.clone(),
+                method: entry.method.to_string(),
+                url: entry.url.clone(),
+                #[allow(clippy::cast_possible_wrap)]
+                status_code: entry.status_code.map_or(0, |s| s as i32),
+                time_ago: entry.time_ago(),
+                duration: entry.duration_display(),
+            })
+            .collect()
+    }
+
+    fn current_environment(&self) -> Option<&Environment> {
+        self.current_environment_index
+            .and_then(|idx| self.environments.get(idx))
+    }
+
+    fn build_resolution_context(&self) -> ResolutionContext {
+        let environment_vars = self
+            .current_environment()
+            .map(|env| env.variables.clone())
+            .unwrap_or_default();
+
+        let environment_name = self
+            .current_environment()
+            .map(|env| env.name.clone())
+            .unwrap_or_default();
+
+        ResolutionContext {
+            globals: VariableMap::new(),
+            collection: VariableMap::new(),
+            environment: environment_vars,
+            environment_name,
+            secrets: HashMap::new(),
         }
     }
 }
@@ -221,21 +408,59 @@ fn run_async_runtime(
         let execute_request = ExecuteRequest::new(Arc::new(http_client));
         let fs = TokioFileSystem;
         let workspace_repo = FileSystemWorkspaceRepository::new(fs);
+        let settings_repo = SettingsRepository::new();
 
-        // Application state
-        let mut state = AppState::new();
+        // Load user settings and history
+        let settings = settings_repo.load().await.unwrap_or_default();
+        let history_repo = HistoryRepository::new();
+        let history = history_repo.load().await.unwrap_or_else(|_| RequestHistory::new(settings.history_limit));
+
+        // Application state (initialized from settings)
+        let mut state = AppState::from_settings(settings.clone(), history);
         let mut current_cancel: Option<CancellationToken> = None;
+
+        // Send initial settings to UI
+        let _ = update_tx.send(UiUpdate::SettingsLoaded {
+            theme_index: settings.theme.to_index(),
+            font_scale_index: settings.font_scale.to_index(),
+            dark_mode: settings.theme.is_dark(),
+            font_scale_factor: settings.font_scale.factor(),
+        });
+
+        // Send initial history to UI
+        let _ = update_tx.send(UiUpdate::HistoryItems(state.history_to_ui_items()));
+        let _ = update_tx.send(UiUpdate::HistoryVisible(state.history_visible));
 
         while let Some(cmd) = cmd_rx.recv().await {
             match cmd {
                 UiCommand::SendRequest => {
-                    handle_send_request(
+                    if let Some(result) = handle_send_request(
                         &ui_weak,
                         &execute_request,
                         &update_tx,
                         &mut current_cancel,
+                        &state,
                     )
-                    .await;
+                    .await
+                    {
+                        // Add to history
+                        let entry = if let (Some(status), Some(duration)) = (result.status_code, result.duration_ms) {
+                            HistoryEntry::new(result.method, result.url, status, duration, None)
+                        } else {
+                            HistoryEntry::failed(result.method, result.url, None)
+                        };
+
+                        state.history.add(entry);
+
+                        // Update UI with new history
+                        let _ = update_tx.send(UiUpdate::HistoryItems(state.history_to_ui_items()));
+
+                        // Save history to disk
+                        let history_repo = HistoryRepository::new();
+                        if let Err(e) = history_repo.save(&state.history).await {
+                            eprintln!("Failed to save history: {e}");
+                        }
+                    }
                 }
 
                 UiCommand::CancelRequest => {
@@ -245,7 +470,8 @@ fn run_async_runtime(
                 }
 
                 UiCommand::CreateWorkspace { path, name } => {
-                    let create_ws = CreateWorkspace::new(FileSystemWorkspaceRepository::new(TokioFileSystem));
+                    let create_ws =
+                        CreateWorkspace::new(FileSystemWorkspaceRepository::new(TokioFileSystem));
                     match create_ws
                         .execute(CreateWorkspaceInput {
                             path: path.clone(),
@@ -255,11 +481,17 @@ fn run_async_runtime(
                     {
                         Ok(_manifest) => {
                             state.workspace_path = Some(path.clone());
+                            state.environments.clear();
+                            state.current_environment_index = None;
+
                             let _ = update_tx
                                 .send(UiUpdate::WorkspacePath(path.display().to_string()));
 
                             // Load initial tree (empty for new workspace)
                             let _ = update_tx.send(UiUpdate::CollectionItems(vec![]));
+
+                            // Load environments
+                            load_environments(&path, &mut state, &update_tx).await;
                         }
                         Err(e) => {
                             let _ = update_tx.send(UiUpdate::Error {
@@ -281,6 +513,9 @@ fn run_async_runtime(
                             let items =
                                 load_workspace_tree(&path, &state.expanded_folders).await;
                             let _ = update_tx.send(UiUpdate::CollectionItems(items));
+
+                            // Load environments
+                            load_environments(&path, &mut state, &update_tx).await;
                         }
                         Err(e) => {
                             let _ = update_tx.send(UiUpdate::Error {
@@ -294,8 +529,15 @@ fn run_async_runtime(
                 UiCommand::CloseWorkspace => {
                     state.workspace_path = None;
                     state.expanded_folders.clear();
+                    state.environments.clear();
+                    state.current_environment_index = None;
+                    state.editing_environment = None;
+                    state.editing_environment_index = None;
+
                     let _ = update_tx.send(UiUpdate::WorkspacePath(String::new()));
                     let _ = update_tx.send(UiUpdate::CollectionItems(vec![]));
+                    let _ = update_tx.send(UiUpdate::EnvironmentNames(vec![]));
+                    let _ = update_tx.send(UiUpdate::CurrentEnvironmentIndex(0));
                 }
 
                 UiCommand::ToggleFolder { id } => {
@@ -321,7 +563,9 @@ fn run_async_runtime(
                     // Load request into editor
                     if path.extension().map_or(false, |e| e == "json") {
                         if let Ok(content) = tokio::fs::read_to_string(&path).await {
-                            if let Ok(request) = from_json::<vortex_domain::persistence::SavedRequest>(&content) {
+                            if let Ok(request) =
+                                from_json::<vortex_domain::persistence::SavedRequest>(&content)
+                            {
                                 use vortex_domain::persistence::PersistenceHttpMethod;
                                 use vortex_domain::persistence::PersistenceRequestBody;
 
@@ -336,28 +580,84 @@ fn run_async_runtime(
                                     PersistenceHttpMethod::Trace => 0,
                                 };
 
-                                let body = request.body.as_ref()
+                                let body = request
+                                    .body
+                                    .as_ref()
                                     .map(|b| match b {
-                                        PersistenceRequestBody::Json { content } => content.to_string(),
+                                        PersistenceRequestBody::Json { content } => {
+                                            content.to_string()
+                                        }
                                         PersistenceRequestBody::Text { content } => content.clone(),
-                                        PersistenceRequestBody::Graphql { query, .. } => query.clone(),
+                                        PersistenceRequestBody::Graphql { query, .. } => {
+                                            query.clone()
+                                        }
                                         _ => String::new(),
                                     })
                                     .unwrap_or_default();
 
+                                state.current_url = request.url.clone();
+
                                 let _ = update_tx.send(UiUpdate::LoadRequest {
-                                    url: request.url,
+                                    url: request.url.clone(),
                                     method: method_index,
                                     body,
                                 });
+
+                                // Update resolved URL preview
+                                resolve_and_update_url(&state, &update_tx);
                             }
                         }
                     }
                 }
 
-                UiCommand::CreateRequest { collection_path: _, name: _ } => {
-                    // TODO: Implement create request
-                    eprintln!("Create request not yet fully implemented");
+                UiCommand::CreateRequest {
+                    collection_path: _,
+                    name,
+                } => {
+                    // Create a new request in the first collection (or selected collection)
+                    if let Some(ref ws_path) = state.workspace_path {
+                        let collections_dir = ws_path.join("collections");
+
+                        // Find the first collection directory
+                        if let Ok(mut entries) = tokio::fs::read_dir(&collections_dir).await {
+                            if let Ok(Some(first_entry)) = entries.next_entry().await {
+                                let collection_path = first_entry.path();
+                                if collection_path.is_dir() {
+                                    // Create the requests directory if it doesn't exist
+                                    let requests_dir = collection_path.join("request");
+                                    let _ = tokio::fs::create_dir_all(&requests_dir).await;
+
+                                    // Generate a unique ID and filename
+                                    let request_id = uuid::Uuid::new_v4().to_string();
+                                    let safe_name = name.to_lowercase().replace(' ', "-");
+                                    let file_name = format!("{}.json", safe_name);
+                                    let file_path = requests_dir.join(&file_name);
+
+                                    // Create the request
+                                    let new_request = SavedRequest::new(
+                                        request_id,
+                                        &name,
+                                        PersistenceHttpMethod::Get,
+                                        "https://api.example.com",
+                                    );
+
+                                    // Serialize and save
+                                    if let Ok(json) = serde_json::to_string_pretty(&new_request) {
+                                        if let Err(e) = tokio::fs::write(&file_path, json).await {
+                                            eprintln!("Failed to write request file: {e}");
+                                        } else {
+                                            // Expand the collection to show the new request
+                                            state.expanded_folders.insert(collection_path.display().to_string());
+
+                                            // Refresh the tree
+                                            let items = load_workspace_tree(ws_path, &state.expanded_folders).await;
+                                            let _ = update_tx.send(UiUpdate::CollectionItems(items));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 UiCommand::SaveCollection => {
@@ -366,18 +666,481 @@ fn run_async_runtime(
                     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                     let _ = update_tx.send(UiUpdate::SavingState(false));
                 }
+
+                // Environment commands (Sprint 03)
+                UiCommand::EnvironmentChanged { index } => {
+                    if index >= 0 {
+                        state.current_environment_index = Some(index as usize);
+                    } else {
+                        state.current_environment_index = None;
+                    }
+                    let _ = update_tx.send(UiUpdate::CurrentEnvironmentIndex(index));
+
+                    // Update resolved URL preview
+                    resolve_and_update_url(&state, &update_tx);
+                }
+
+                UiCommand::ManageEnvironments => {
+                    let env_list: Vec<EnvironmentData> = state
+                        .environments
+                        .iter()
+                        .map(|env| EnvironmentData {
+                            id: env.id.to_string(),
+                            name: env.name.clone(),
+                            variable_count: env.variables.len() as i32,
+                        })
+                        .collect();
+
+                    let _ = update_tx.send(UiUpdate::EnvironmentList(env_list));
+                    let _ = update_tx.send(UiUpdate::ShowEnvironmentManager(true));
+                }
+
+                UiCommand::CreateEnvironment { name } => {
+                    if let Some(ref ws_path) = state.workspace_path {
+                        let new_env = Environment::new(&name);
+                        let env_repo = FileEnvironmentRepository::new(TokioFileSystem);
+
+                        match env_repo.save(ws_path, &new_env).await {
+                            Ok(()) => {
+                                state.environments.push(new_env);
+
+                                // Update environment names
+                                let names: Vec<String> =
+                                    state.environments.iter().map(|e| e.name.clone()).collect();
+                                let _ = update_tx.send(UiUpdate::EnvironmentNames(names));
+
+                                // Update environment list in manager
+                                let env_list: Vec<EnvironmentData> = state
+                                    .environments
+                                    .iter()
+                                    .map(|env| EnvironmentData {
+                                        id: env.id.to_string(),
+                                        name: env.name.clone(),
+                                        variable_count: env.variables.len() as i32,
+                                    })
+                                    .collect();
+                                let _ = update_tx.send(UiUpdate::EnvironmentList(env_list));
+                            }
+                            Err(e) => {
+                                let _ = update_tx.send(UiUpdate::Error {
+                                    title: "Failed to create environment".to_string(),
+                                    message: e.to_string(),
+                                });
+                            }
+                        }
+                    }
+                }
+
+                UiCommand::DeleteEnvironment { index } => {
+                    if let Some(ref ws_path) = state.workspace_path {
+                        if let Some(env) = state.environments.get(index as usize) {
+                            let env_repo = FileEnvironmentRepository::new(TokioFileSystem);
+
+                            match env_repo.delete(ws_path, &env.name).await {
+                                Ok(()) => {
+                                    state.environments.remove(index as usize);
+
+                                    // Reset current environment if it was deleted
+                                    if state.current_environment_index == Some(index as usize) {
+                                        state.current_environment_index = None;
+                                        let _ = update_tx.send(UiUpdate::CurrentEnvironmentIndex(-1));
+                                    } else if let Some(current_idx) = state.current_environment_index
+                                    {
+                                        if current_idx > index as usize {
+                                            state.current_environment_index = Some(current_idx - 1);
+                                            let _ = update_tx.send(UiUpdate::CurrentEnvironmentIndex(
+                                                (current_idx - 1) as i32,
+                                            ));
+                                        }
+                                    }
+
+                                    // Update environment names
+                                    let names: Vec<String> =
+                                        state.environments.iter().map(|e| e.name.clone()).collect();
+                                    let _ = update_tx.send(UiUpdate::EnvironmentNames(names));
+
+                                    // Update environment list in manager
+                                    let env_list: Vec<EnvironmentData> = state
+                                        .environments
+                                        .iter()
+                                        .map(|env| EnvironmentData {
+                                            id: env.id.to_string(),
+                                            name: env.name.clone(),
+                                            variable_count: env.variables.len() as i32,
+                                        })
+                                        .collect();
+                                    let _ = update_tx.send(UiUpdate::EnvironmentList(env_list));
+
+                                    // Clear editing state if deleted
+                                    if state.editing_environment_index == Some(index as usize) {
+                                        state.editing_environment = None;
+                                        state.editing_environment_index = None;
+                                        let _ = update_tx.send(UiUpdate::SelectedEnvironment {
+                                            index: -1,
+                                            name: String::new(),
+                                            variables: vec![],
+                                        });
+                                    }
+
+                                    // Update resolved URL preview
+                                    resolve_and_update_url(&state, &update_tx);
+                                }
+                                Err(e) => {
+                                    let _ = update_tx.send(UiUpdate::Error {
+                                        title: "Failed to delete environment".to_string(),
+                                        message: e.to_string(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                UiCommand::SelectEnvironmentForEditing { index } => {
+                    if let Some(env) = state.environments.get(index as usize) {
+                        state.editing_environment = Some(env.clone());
+                        state.editing_environment_index = Some(index as usize);
+
+                        // Store variable keys in order they're sent to UI
+                        let mut keys: Vec<String> = env.variables.keys().cloned().collect();
+                        keys.sort(); // Sort alphabetically for consistent ordering
+                        state.editing_variable_keys = keys.clone();
+
+                        let variables: Vec<VariableData> = keys
+                            .iter()
+                            .filter_map(|key| {
+                                env.variables.get(key).map(|var| VariableData {
+                                    name: key.clone(),
+                                    value: var.value.clone(),
+                                    enabled: var.enabled,
+                                    is_secret: var.secret,
+                                })
+                            })
+                            .collect();
+
+                        let _ = update_tx.send(UiUpdate::SelectedEnvironment {
+                            index,
+                            name: env.name.clone(),
+                            variables,
+                        });
+                    }
+                }
+
+                UiCommand::SaveEnvironment => {
+                    if let Some(ref ws_path) = state.workspace_path {
+                        if let Some(ref editing_env) = state.editing_environment {
+                            let env_repo = FileEnvironmentRepository::new(TokioFileSystem);
+
+                            match env_repo.save(ws_path, editing_env).await {
+                                Ok(()) => {
+                                    // Update the environment in state
+                                    if let Some(idx) = state.editing_environment_index {
+                                        if idx < state.environments.len() {
+                                            state.environments[idx] = editing_env.clone();
+                                        }
+                                    }
+
+                                    // Update environment list in manager
+                                    let env_list: Vec<EnvironmentData> = state
+                                        .environments
+                                        .iter()
+                                        .map(|env| EnvironmentData {
+                                            id: env.id.to_string(),
+                                            name: env.name.clone(),
+                                            variable_count: env.variables.len() as i32,
+                                        })
+                                        .collect();
+                                    let _ = update_tx.send(UiUpdate::EnvironmentList(env_list));
+
+                                    // Update resolved URL preview
+                                    resolve_and_update_url(&state, &update_tx);
+                                }
+                                Err(e) => {
+                                    let _ = update_tx.send(UiUpdate::Error {
+                                        title: "Failed to save environment".to_string(),
+                                        message: e.to_string(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                UiCommand::AddEnvironmentVariable => {
+                    if let Some(ref mut editing_env) = state.editing_environment {
+                        let var_name = format!("variable_{}", editing_env.variables.len() + 1);
+                        editing_env.variables.insert(
+                            var_name.clone(),
+                            Variable {
+                                value: String::new(),
+                                enabled: true,
+                                secret: false,
+                            },
+                        );
+
+                        // Add to tracked keys
+                        state.editing_variable_keys.push(var_name);
+
+                        // Send variables in tracked order
+                        let variables: Vec<VariableData> = state.editing_variable_keys
+                            .iter()
+                            .filter_map(|key| {
+                                editing_env.variables.get(key).map(|var| VariableData {
+                                    name: key.clone(),
+                                    value: var.value.clone(),
+                                    enabled: var.enabled,
+                                    is_secret: var.secret,
+                                })
+                            })
+                            .collect();
+
+                        let _ = update_tx.send(UiUpdate::SelectedEnvironment {
+                            index: state.editing_environment_index.map_or(-1, |i| i as i32),
+                            name: editing_env.name.clone(),
+                            variables,
+                        });
+                    }
+                }
+
+                UiCommand::DeleteEnvironmentVariable { index } => {
+                    if let Some(ref mut editing_env) = state.editing_environment {
+                        // Use tracked key order for deletion
+                        if let Some(key) = state.editing_variable_keys.get(index as usize).cloned() {
+                            editing_env.variables.remove(&key);
+                            state.editing_variable_keys.remove(index as usize);
+
+                            // Send variables in tracked order
+                            let variables: Vec<VariableData> = state.editing_variable_keys
+                                .iter()
+                                .filter_map(|k| {
+                                    editing_env.variables.get(k).map(|var| VariableData {
+                                        name: k.clone(),
+                                        value: var.value.clone(),
+                                        enabled: var.enabled,
+                                        is_secret: var.secret,
+                                    })
+                                })
+                                .collect();
+
+                            let _ = update_tx.send(UiUpdate::SelectedEnvironment {
+                                index: state.editing_environment_index.map_or(-1, |i| i as i32),
+                                name: editing_env.name.clone(),
+                                variables,
+                            });
+                        }
+                    }
+                }
+
+                UiCommand::EnvironmentVariableChanged {
+                    index,
+                    name,
+                    value,
+                    enabled,
+                    is_secret,
+                } => {
+                    if let Some(ref mut editing_env) = state.editing_environment {
+                        // Get the old key at this index using our tracked order
+                        if let Some(old_key) = state.editing_variable_keys.get(index as usize).cloned() {
+                            // Remove old entry if name changed
+                            if old_key != name {
+                                editing_env.variables.remove(&old_key);
+                                // Update the tracked key
+                                if let Some(key) = state.editing_variable_keys.get_mut(index as usize) {
+                                    *key = name.clone();
+                                }
+                            }
+
+                            // Insert/update the variable
+                            editing_env.variables.insert(
+                                name,
+                                Variable {
+                                    value,
+                                    enabled,
+                                    secret: is_secret,
+                                },
+                            );
+                        }
+                    }
+                }
+
+                UiCommand::UrlChanged { url } => {
+                    state.current_url = url;
+                    resolve_and_update_url(&state, &update_tx);
+                }
+
+                // Settings commands (Sprint 04)
+                UiCommand::ToggleTheme => {
+                    state.dark_mode = !state.dark_mode;
+                    let _ = update_tx.send(UiUpdate::ThemeMode(state.dark_mode));
+
+                    // Save settings
+                    let settings = state.to_settings();
+                    let settings_repo = SettingsRepository::new();
+                    if let Err(e) = settings_repo.save(&settings).await {
+                        eprintln!("Failed to save settings: {e}");
+                    }
+                }
+
+                UiCommand::SetThemeMode { index } => {
+                    let theme = ThemeMode::from_index(index);
+                    state.dark_mode = theme.is_dark();
+                    state.theme_mode = theme;
+                    let _ = update_tx.send(UiUpdate::ThemeMode(state.dark_mode));
+
+                    // Save settings
+                    let settings = state.to_settings();
+                    let settings_repo = SettingsRepository::new();
+                    if let Err(e) = settings_repo.save(&settings).await {
+                        eprintln!("Failed to save settings: {e}");
+                    }
+                }
+
+                UiCommand::SetFontScale { index } => {
+                    let font_scale = FontScale::from_index(index);
+                    state.font_scale = font_scale;
+                    let _ = update_tx.send(UiUpdate::FontScale(font_scale.factor()));
+
+                    // Save settings
+                    let settings = state.to_settings();
+                    let settings_repo = SettingsRepository::new();
+                    if let Err(e) = settings_repo.save(&settings).await {
+                        eprintln!("Failed to save settings: {e}");
+                    }
+                }
+
+                UiCommand::OpenSettings => {
+                    let _ = update_tx.send(UiUpdate::ShowSettings(true));
+                }
+
+                UiCommand::CloseSettings => {
+                    let _ = update_tx.send(UiUpdate::ShowSettings(false));
+                }
+
+                // History commands (Sprint 04)
+                UiCommand::LoadHistoryItem { id } => {
+                    if let Some(entry) = state.history.get(&id) {
+                        // Load the request into the editor
+                        let method_index = match entry.method {
+                            vortex_domain::request::HttpMethod::Get => 0,
+                            vortex_domain::request::HttpMethod::Post => 1,
+                            vortex_domain::request::HttpMethod::Put => 2,
+                            vortex_domain::request::HttpMethod::Patch => 3,
+                            vortex_domain::request::HttpMethod::Delete => 4,
+                            vortex_domain::request::HttpMethod::Head => 5,
+                            vortex_domain::request::HttpMethod::Options => 6,
+                        };
+
+                        let _ = update_tx.send(UiUpdate::LoadRequest {
+                            url: entry.url.clone(),
+                            method: method_index,
+                            body: String::new(), // History doesn't store body
+                        });
+
+                        // Update current URL for variable resolution
+                        state.current_url = entry.url.clone();
+                        resolve_and_update_url(&state, &update_tx);
+                    }
+                }
+
+                UiCommand::ClearHistory => {
+                    state.history.clear();
+                    let _ = update_tx.send(UiUpdate::HistoryItems(vec![]));
+
+                    // Save cleared history
+                    let history_repo = HistoryRepository::new();
+                    if let Err(e) = history_repo.save(&state.history).await {
+                        eprintln!("Failed to save history: {e}");
+                    }
+                }
+
+                UiCommand::ToggleHistoryVisibility => {
+                    state.history_visible = !state.history_visible;
+                    let _ = update_tx.send(UiUpdate::HistoryVisible(state.history_visible));
+
+                    // Save visibility preference
+                    let settings = state.to_settings();
+                    let settings_repo = SettingsRepository::new();
+                    if let Err(e) = settings_repo.save(&settings).await {
+                        eprintln!("Failed to save settings: {e}");
+                    }
+                }
             }
         }
     });
 }
 
+/// Resolves variables in the current URL and sends the update.
+fn resolve_and_update_url(state: &AppState, update_tx: &mpsc::UnboundedSender<UiUpdate>) {
+    if state.current_url.is_empty() {
+        let _ = update_tx.send(UiUpdate::ResolvedUrl {
+            resolved: String::new(),
+            has_unresolved: false,
+            unresolved_names: vec![],
+        });
+        return;
+    }
+
+    let context = state.build_resolution_context();
+    let mut resolver = VariableResolver::new(context);
+    let result = resolver.resolve(&state.current_url);
+
+    let _ = update_tx.send(UiUpdate::ResolvedUrl {
+        resolved: result.resolved,
+        has_unresolved: !result.unresolved.is_empty(),
+        unresolved_names: result.unresolved,
+    });
+}
+
+/// Loads environments from the workspace.
+async fn load_environments(
+    workspace_path: &PathBuf,
+    state: &mut AppState,
+    update_tx: &mpsc::UnboundedSender<UiUpdate>,
+) {
+    let env_repo = FileEnvironmentRepository::new(TokioFileSystem);
+
+    match env_repo.list(workspace_path).await {
+        Ok(env_names) => {
+            state.environments.clear();
+
+            for name in &env_names {
+                if let Ok(env) = env_repo.load(workspace_path, name).await {
+                    state.environments.push(env);
+                }
+            }
+
+            let names: Vec<String> = state.environments.iter().map(|e| e.name.clone()).collect();
+            let _ = update_tx.send(UiUpdate::EnvironmentNames(names));
+
+            // Select first environment if available
+            if !state.environments.is_empty() {
+                state.current_environment_index = Some(0);
+                let _ = update_tx.send(UiUpdate::CurrentEnvironmentIndex(0));
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to load environments: {e}");
+            let _ = update_tx.send(UiUpdate::EnvironmentNames(vec![]));
+        }
+    }
+}
+
 /// Handles the SendRequest command.
+/// Result of a request execution for history tracking.
+struct RequestResult {
+    method: HttpMethod,
+    url: String,
+    status_code: Option<u16>,
+    duration_ms: Option<u64>,
+}
+
 async fn handle_send_request(
     ui_weak: &slint::Weak<MainWindow>,
     execute_request: &ExecuteRequest<ReqwestHttpClient>,
     update_tx: &mpsc::UnboundedSender<UiUpdate>,
     current_cancel: &mut Option<CancellationToken>,
-) {
+    state: &AppState,
+) -> Option<RequestResult> {
     // Get current request data from UI
     let (data_tx, mut data_rx) = tokio::sync::oneshot::channel::<(String, i32, String)>();
 
@@ -396,6 +1159,13 @@ async fn handle_send_request(
             .and_then(|r| r.ok());
 
     if let Some((url, method_index, body)) = request_data {
+        // Resolve variables in URL and body
+        let context = state.build_resolution_context();
+        let mut resolver = VariableResolver::new(context);
+
+        let resolved_url = resolver.resolve(&url).resolved;
+        let resolved_body = resolver.resolve(&body).resolved;
+
         // Create request spec
         let method = match method_index {
             0 => HttpMethod::Get,
@@ -408,15 +1178,15 @@ async fn handle_send_request(
             _ => HttpMethod::Get,
         };
 
-        let request_body = if method.has_body() && !body.is_empty() {
-            RequestBody::json(body)
+        let request_body = if method.has_body() && !resolved_body.is_empty() {
+            RequestBody::json(resolved_body)
         } else {
             RequestBody::none()
         };
 
         let mut request = RequestSpec::new("UI Request");
         request.method = method;
-        request.url = url;
+        request.url = resolved_url.clone();
         request.body = request_body;
 
         // Update UI to loading state
@@ -431,15 +1201,31 @@ async fn handle_send_request(
             .execute_with_cancellation(&request, cancel_receiver)
             .await;
 
+        // Extract status and duration for history
+        let (status_code, duration_ms) = match &result {
+            Ok(response) => (Some(response.status), Some(response.duration.as_millis() as u64)),
+            Err(_) => (None, None),
+        };
+
         // Convert result to RequestState
-        let state = result.to_request_state();
+        let request_state = result.to_request_state();
 
         // Update UI with result
-        let _ = update_tx.send(UiUpdate::State(state));
+        let _ = update_tx.send(UiUpdate::State(request_state));
 
         // Clear cancellation token
         *current_cancel = None;
+
+        // Return result for history tracking
+        return Some(RequestResult {
+            method,
+            url: resolved_url,
+            status_code,
+            duration_ms,
+        });
     }
+
+    None
 }
 
 /// Loads the workspace tree from disk.
@@ -649,6 +1435,116 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
             ui.set_url(url.into());
             ui.set_method_index(method);
             ui.set_request_body(body.into());
+        }
+
+        // Environment updates (Sprint 03)
+        UiUpdate::EnvironmentNames(names) => {
+            let model: ModelRc<SharedString> =
+                Rc::new(VecModel::from(names.into_iter().map(SharedString::from).collect::<Vec<_>>())).into();
+            ui.set_environment_names(model);
+        }
+
+        UiUpdate::CurrentEnvironmentIndex(index) => {
+            ui.set_current_environment_index(index);
+        }
+
+        UiUpdate::ResolvedUrl {
+            resolved,
+            has_unresolved,
+            unresolved_names,
+        } => {
+            ui.set_resolved_url(resolved.into());
+            ui.set_has_unresolved_variables(has_unresolved);
+            let unresolved_model: ModelRc<SharedString> =
+                Rc::new(VecModel::from(unresolved_names.into_iter().map(SharedString::from).collect::<Vec<_>>())).into();
+            ui.set_unresolved_variables(unresolved_model);
+        }
+
+        UiUpdate::EnvironmentList(envs) => {
+            let slint_envs: Vec<EnvironmentInfo> = envs
+                .into_iter()
+                .map(|env| EnvironmentInfo {
+                    id: env.id.into(),
+                    name: env.name.into(),
+                    variable_count: env.variable_count,
+                })
+                .collect();
+
+            let model: ModelRc<EnvironmentInfo> = Rc::new(VecModel::from(slint_envs)).into();
+            ui.set_environment_list(model);
+        }
+
+        UiUpdate::SelectedEnvironment {
+            index,
+            name,
+            variables,
+        } => {
+            ui.set_env_manager_selected_index(index);
+            ui.set_env_manager_selected_name(name.into());
+
+            let slint_vars: Vec<VariableRow> = variables
+                .into_iter()
+                .map(|var| VariableRow {
+                    name: var.name.into(),
+                    value: var.value.into(),
+                    enabled: var.enabled,
+                    is_secret: var.is_secret,
+                })
+                .collect();
+
+            let model: ModelRc<VariableRow> = Rc::new(VecModel::from(slint_vars)).into();
+            ui.set_env_manager_variables(model);
+        }
+
+        UiUpdate::ShowEnvironmentManager(show) => {
+            ui.set_show_environment_manager(show);
+        }
+
+        // Settings updates (Sprint 04)
+        UiUpdate::ThemeMode(dark_mode) => {
+            ui.global::<VortexPalette>().set_dark_mode(dark_mode);
+        }
+
+        UiUpdate::FontScale(scale) => {
+            ui.global::<VortexTypography>().set_scale_factor(scale);
+        }
+
+        UiUpdate::ShowSettings(show) => {
+            ui.set_show_settings(show);
+        }
+
+        UiUpdate::SettingsLoaded {
+            theme_index,
+            font_scale_index,
+            dark_mode,
+            font_scale_factor,
+        } => {
+            ui.set_theme_mode_index(theme_index);
+            ui.set_font_scale_index(font_scale_index);
+            ui.global::<VortexPalette>().set_dark_mode(dark_mode);
+            ui.global::<VortexTypography>().set_scale_factor(font_scale_factor);
+        }
+
+        // History updates (Sprint 04)
+        UiUpdate::HistoryItems(items) => {
+            let slint_items: Vec<HistoryItem> = items
+                .into_iter()
+                .map(|item| HistoryItem {
+                    id: item.id.into(),
+                    method: item.method.into(),
+                    url: item.url.into(),
+                    status_code: item.status_code,
+                    time_ago: item.time_ago.into(),
+                    duration: item.duration.into(),
+                })
+                .collect();
+
+            let model: ModelRc<HistoryItem> = Rc::new(VecModel::from(slint_items)).into();
+            ui.set_history_items(model);
+        }
+
+        UiUpdate::HistoryVisible(visible) => {
+            ui.set_history_visible(visible);
         }
     }
 }

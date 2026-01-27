@@ -2,7 +2,7 @@
 // Displays response data, loading state, or error messages
 
 import { TextEdit, ScrollView } from "std-widgets.slint";
-import { VortexPalette, VortexTypography, VortexSpacing } from "../theme.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
 
 // State enum values (must match Rust side)
 // 0 = Idle, 1 = Loading, 2 = Success, 3 = Error
@@ -149,7 +149,7 @@ export component ResponsePanel inherits Rectangle {
                         Rectangle {
                             width: 8px;
                             height: 8px;
-                            border-radius: 4px;
+                            border-radius: VortexShape.radius-sm;
                             background: root.status-color();
                         }
 
@@ -207,7 +207,7 @@ export component ResponsePanel inherits Rectangle {
                         width: 60px;
                         height: 24px;
                         background: copy-touch.has-hover ? VortexPalette.bg-hover : transparent;
-                        border-radius: 4px;
+                        border-radius: VortexShape.radius-sm;
 
                         Text {
                             text: "Copy";
@@ -227,7 +227,9 @@ export component ResponsePanel inherits Rectangle {
             // Response body
             Rectangle {
                 vertical-stretch: 1;
-                background: VortexPalette.bg-primary;
+                background: VortexPalette.bg-input;
+                border-width: 1px;
+                border-color: VortexPalette.border-default;
                 clip: true;
 
                 body-text := TextEdit {
@@ -296,7 +298,7 @@ export component ResponsePanel inherits Rectangle {
             // Suggestions
             if error-suggestions.length > 0: Rectangle {
                 background: VortexPalette.bg-tertiary;
-                border-radius: 8px;
+                border-radius: VortexShape.radius-sm;
 
                 VerticalLayout {
                     padding: VortexSpacing.md;
@@ -333,7 +335,7 @@ export component ResponsePanel inherits Rectangle {
                 width: 100px;
                 height: 32px;
                 background: VortexPalette.button-primary;
-                border-radius: 4px;
+                border-radius: VortexShape.radius-sm;
 
                 states [
                     hover when retry-touch.has-hover: {

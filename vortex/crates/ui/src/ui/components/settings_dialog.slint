@@ -1,0 +1,210 @@
+// Settings Dialog Component
+// Allows users to configure theme and font size preferences
+
+import { Button, ComboBox } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+export component SettingsDialog inherits Rectangle {
+    in property <bool> is-visible: false;
+    in-out property <int> theme-index: 1;      // 0=Light, 1=Dark, 2=System
+    in-out property <int> font-scale-index: 1; // 0=Small, 1=Medium, 2=Large
+
+    callback close-clicked();
+    callback theme-changed(int);
+    callback font-scale-changed(int);
+
+    // Full screen overlay
+    visible: is-visible;
+    background: transparent;
+
+    // Background overlay (click to close) - must be FIRST so dialog is on top
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        background: #00000080;
+
+        TouchArea {
+            clicked => { close-clicked(); }
+        }
+    }
+
+    // Center the dialog - must be AFTER background so it's on top
+    Rectangle {
+        width: 400px;
+        height: 320px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        background: VortexPalette.surface-container;
+        border-radius: VortexShape.radius-lg;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000040;
+        drop-shadow-offset-y: 8px;
+
+        // Block clicks on the dialog from closing
+        TouchArea { }
+
+        VerticalLayout {
+            padding: VortexSpacing.xl;
+            spacing: VortexSpacing.lg;
+
+            // Header
+            HorizontalLayout {
+                alignment: space-between;
+
+                Text {
+                    text: "Settings";
+                    color: VortexPalette.text-primary;
+                    font-size: VortexTypography.font-xl;
+                    font-weight: VortexTypography.weight-bold;
+                }
+
+                // Close button
+                Rectangle {
+                    width: 32px;
+                    height: 32px;
+                    background: transparent;
+                    border-radius: VortexShape.radius-sm;
+
+                    states [
+                        hover when close-touch.has-hover: {
+                            background: VortexPalette.bg-hover;
+                        }
+                    ]
+
+                    Text {
+                        text: "\u{2715}"; // X mark
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-lg;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    close-touch := TouchArea {
+                        clicked => { close-clicked(); }
+                    }
+                }
+            }
+
+            // Appearance section
+            Rectangle {
+                background: VortexPalette.surface-container-high;
+                border-radius: VortexShape.radius-md;
+
+                VerticalLayout {
+                    padding: VortexSpacing.md;
+                    spacing: VortexSpacing.md;
+
+                    Text {
+                        text: "Appearance";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-sm;
+                        font-weight: VortexTypography.weight-bold;
+                    }
+
+                    // Theme selector
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        Text {
+                            text: "Theme";
+                            color: VortexPalette.text-primary;
+                            font-size: VortexTypography.font-base;
+                            vertical-alignment: center;
+                        }
+
+                        ComboBox {
+                            width: 140px;
+                            model: ["Light", "Dark", "System"];
+                            current-index: theme-index;
+
+                            selected(current-value) => {
+                                theme-changed(self.current-index);
+                            }
+                        }
+                    }
+
+                    // Font size selector
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        Text {
+                            text: "Font Size";
+                            color: VortexPalette.text-primary;
+                            font-size: VortexTypography.font-base;
+                            vertical-alignment: center;
+                        }
+
+                        ComboBox {
+                            width: 140px;
+                            model: ["Small", "Medium", "Large"];
+                            current-index: font-scale-index;
+
+                            selected(current-value) => {
+                                font-scale-changed(self.current-index);
+                            }
+                        }
+                    }
+
+                    // Font preview
+                    Rectangle {
+                        height: 40px;
+                        background: VortexPalette.surface;
+                        border-radius: VortexShape.radius-sm;
+
+                        Text {
+                            text: "The quick brown fox jumps over the lazy dog";
+                            color: VortexPalette.text-primary;
+                            font-size: VortexTypography.font-base;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            // About section
+            Rectangle {
+                background: VortexPalette.surface-container-high;
+                border-radius: VortexShape.radius-md;
+
+                VerticalLayout {
+                    padding: VortexSpacing.md;
+                    spacing: VortexSpacing.sm;
+
+                    Text {
+                        text: "About";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-sm;
+                        font-weight: VortexTypography.weight-bold;
+                    }
+
+                    HorizontalLayout {
+                        spacing: VortexSpacing.sm;
+
+                        Text {
+                            text: "Vortex API Client";
+                            color: VortexPalette.text-primary;
+                            font-size: VortexTypography.font-base;
+                        }
+
+                        Text {
+                            text: "v0.1.0";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-base;
+                        }
+                    }
+
+                    Text {
+                        text: "A modern REST API client built with Rust and Slint";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-sm;
+                    }
+                }
+            }
+
+            Rectangle { vertical-stretch: 1; }
+        }
+    }
+}

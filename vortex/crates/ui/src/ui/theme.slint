@@ -1,28 +1,57 @@
-// Vortex Theme - Dark Mode
-// Based on VS Code dark theme colors
+// Vortex Theme - Clean Professional Design
+// Supports light and dark mode with font scaling
 
 export global VortexPalette {
-    // Backgrounds
-    out property <color> bg-primary: #1e1e1e;
-    out property <color> bg-secondary: #252526;
-    out property <color> bg-tertiary: #2d2d2d;
-    out property <color> bg-input: #3c3c3c;
-    out property <color> bg-hover: #094771;
-    out property <color> bg-selected: #094771;
+    // Theme mode toggle (can be set from Rust)
+    in-out property <bool> dark-mode: true;
 
-    // Text
-    out property <color> text-primary: #cccccc;
-    out property <color> text-secondary: #858585;
-    out property <color> text-accent: #4fc1ff;
-    out property <color> text-placeholder: #6b6b6b;
+    // Surface colors - clean neutral palette
+    out property <color> bg-primary: dark-mode ? #1a1a1a : #ffffff;
+    out property <color> bg-secondary: dark-mode ? #242424 : #f5f5f5;
+    out property <color> bg-tertiary: dark-mode ? #2e2e2e : #ebebeb;
+    out property <color> bg-input: dark-mode ? #383838 : #ffffff;
+    out property <color> bg-hover: dark-mode ? #3a3a3a : #e8e8e8;
+    out property <color> bg-selected: dark-mode ? #0d47a1 : #1976d2;
 
-    // Status colors
-    out property <color> status-success: #4ec9b0;
-    out property <color> status-info: #569cd6;
-    out property <color> status-warning: #ce9178;
-    out property <color> status-error: #f14c4c;
+    // Surface containers
+    out property <color> surface: dark-mode ? #1a1a1a : #ffffff;
+    out property <color> surface-container: dark-mode ? #242424 : #f5f5f5;
+    out property <color> surface-container-high: dark-mode ? #2e2e2e : #ebebeb;
+    out property <color> surface-container-highest: dark-mode ? #383838 : #e0e0e0;
 
-    // Method colors
+    // Primary colors - blue accent
+    out property <color> primary: dark-mode ? #82b1ff : #1976d2;
+    out property <color> on-primary: dark-mode ? #002f6c : #ffffff;
+    out property <color> primary-container: dark-mode ? #004ba0 : #bbdefb;
+    out property <color> on-primary-container: dark-mode ? #d1e4ff : #002f6c;
+
+    // Secondary colors - gray
+    out property <color> secondary: dark-mode ? #b0bec5 : #546e7a;
+    out property <color> on-secondary: dark-mode ? #263238 : #ffffff;
+    out property <color> secondary-container: dark-mode ? #37474f : #cfd8dc;
+    out property <color> on-secondary-container: dark-mode ? #eceff1 : #263238;
+
+    // Tertiary colors - teal accent
+    out property <color> tertiary: dark-mode ? #80cbc4 : #00796b;
+    out property <color> on-tertiary: dark-mode ? #004d40 : #ffffff;
+    out property <color> tertiary-container: dark-mode ? #00695c : #b2dfdb;
+    out property <color> on-tertiary-container: dark-mode ? #b2dfdb : #004d40;
+
+    // Text colors
+    out property <color> text-primary: dark-mode ? #e0e0e0 : #212121;
+    out property <color> text-secondary: dark-mode ? #9e9e9e : #757575;
+    out property <color> text-accent: dark-mode ? #82b1ff : #1976d2;
+    out property <color> text-placeholder: dark-mode ? #757575 : #9e9e9e;
+    out property <color> on-surface: dark-mode ? #e0e0e0 : #212121;
+    out property <color> on-surface-variant: dark-mode ? #9e9e9e : #757575;
+
+    // Status colors (semantic)
+    out property <color> status-success: dark-mode ? #81c784 : #388e3c;
+    out property <color> status-info: dark-mode ? #64b5f6 : #1976d2;
+    out property <color> status-warning: dark-mode ? #ffb74d : #f57c00;
+    out property <color> status-error: dark-mode ? #e57373 : #d32f2f;
+
+    // HTTP Method colors (consistent across themes)
     out property <color> method-get: #61affe;
     out property <color> method-post: #49cc90;
     out property <color> method-put: #fca130;
@@ -31,22 +60,31 @@ export global VortexPalette {
     out property <color> method-head: #9012fe;
     out property <color> method-options: #0d5aa7;
 
-    // Borders
-    out property <color> border-default: #3c3c3c;
-    out property <color> border-focus: #007acc;
+    // Borders and outlines - neutral gray
+    out property <color> border-default: dark-mode ? #424242 : #bdbdbd;
+    out property <color> border-focus: dark-mode ? #82b1ff : #1976d2;
+    out property <color> outline: dark-mode ? #757575 : #9e9e9e;
+    out property <color> outline-variant: dark-mode ? #424242 : #e0e0e0;
 
-    // Buttons
-    out property <color> button-primary: #0e639c;
-    out property <color> button-primary-hover: #1177bb;
+    // Button colors - blue accent
+    out property <color> button-primary: dark-mode ? #82b1ff : #1976d2;
+    out property <color> button-primary-hover: dark-mode ? #a4c8ff : #1565c0;
+    out property <color> button-on-primary: #ffffff;
 }
 
 export global VortexTypography {
-    out property <length> font-xs: 11px;
-    out property <length> font-sm: 12px;
-    out property <length> font-base: 13px;
-    out property <length> font-lg: 14px;
-    out property <length> font-xl: 16px;
+    // Font scale factor (0.85=small, 1.0=medium, 1.15=large)
+    in-out property <float> scale-factor: 1.0;
 
+    // Scaled font sizes
+    out property <length> font-xs: 11px * scale-factor;
+    out property <length> font-sm: 12px * scale-factor;
+    out property <length> font-base: 14px * scale-factor;
+    out property <length> font-lg: 16px * scale-factor;
+    out property <length> font-xl: 18px * scale-factor;
+    out property <length> font-xxl: 22px * scale-factor;
+
+    // Font weights
     out property <int> weight-normal: 400;
     out property <int> weight-medium: 500;
     out property <int> weight-bold: 600;
@@ -58,4 +96,14 @@ export global VortexSpacing {
     out property <length> md: 12px;
     out property <length> lg: 16px;
     out property <length> xl: 24px;
+    out property <length> xxl: 32px;
+}
+
+export global VortexShape {
+    // MD3 Expressive shapes - more rounded
+    out property <length> radius-sm: 8px;
+    out property <length> radius-md: 12px;
+    out property <length> radius-lg: 16px;
+    out property <length> radius-xl: 28px;
+    out property <length> radius-full: 9999px;
 }

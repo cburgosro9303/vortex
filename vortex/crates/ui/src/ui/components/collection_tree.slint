@@ -1,6 +1,7 @@
 // Collection tree view for navigating requests and folders.
 
 import { Button, VerticalBox, HorizontalBox, ScrollView } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
 
 // Represents an item in the collection tree (request or folder)
 export struct TreeItem {
@@ -22,14 +23,17 @@ export component TreeItemRow inherits Rectangle {
     callback toggle-expanded();
     callback context-menu(/* x */ length, /* y */ length);
 
-    // Colors
-    property <color> text-color: selected ? #1a1a1a : #e0e0e0;
-    property <color> icon-color: selected ? #333333 : #888888;
+    min-height: 36px;
+    background: selected ? VortexPalette.bg-selected : transparent;
+    border-radius: VortexShape.radius-sm;
 
-    min-height: 32px;
-    background: selected ? #3d5a80 : transparent;
+    states [
+        hover when touch.has-hover && !selected: {
+            background: VortexPalette.bg-hover;
+        }
+    ]
 
-    TouchArea {
+    touch := TouchArea {
         clicked => { root.clicked(); }
         double-clicked => { root.double-clicked(); }
         pointer-event(event) => {
@@ -40,9 +44,9 @@ export component TreeItemRow inherits Rectangle {
     }
 
     HorizontalBox {
-        padding-left: (item.depth * 16px) + 8px;
-        padding-right: 8px;
-        spacing: 8px;
+        padding-left: (item.depth * 16px) + VortexSpacing.sm;
+        padding-right: VortexSpacing.sm;
+        spacing: VortexSpacing.sm;
         alignment: start;
 
         // Expand/collapse button for folders
@@ -51,9 +55,9 @@ export component TreeItemRow inherits Rectangle {
             height: 20px;
 
             Text {
-                text: item.expanded ? "v" : ">";
-                font-size: 12px;
-                color: root.text-color;
+                text: item.expanded ? "\u{25BC}" : "\u{25B6}"; // Down/right triangle
+                font-size: VortexTypography.font-xs;
+                color: VortexPalette.text-secondary;
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }
@@ -66,19 +70,21 @@ export component TreeItemRow inherits Rectangle {
         // Method badge for requests
         if item.item-type == "request": Rectangle {
             width: 48px;
-            height: 20px;
-            border-radius: 4px;
-            background: item.method == "GET" ? #4caf50 :
-                       item.method == "POST" ? #2196f3 :
-                       item.method == "PUT" ? #ff9800 :
-                       item.method == "PATCH" ? #9c27b0 :
-                       item.method == "DELETE" ? #f44336 :
-                       #757575;
+            height: 22px;
+            border-radius: VortexShape.radius-sm;
+            background: item.method == "GET" ? VortexPalette.method-get :
+                       item.method == "POST" ? VortexPalette.method-post :
+                       item.method == "PUT" ? VortexPalette.method-put :
+                       item.method == "PATCH" ? VortexPalette.method-patch :
+                       item.method == "DELETE" ? VortexPalette.method-delete :
+                       item.method == "HEAD" ? VortexPalette.method-head :
+                       item.method == "OPTIONS" ? VortexPalette.method-options :
+                       VortexPalette.outline;
 
             Text {
                 text: item.method;
-                font-size: 10px;
-                font-weight: 600;
+                font-size: VortexTypography.font-xs;
+                font-weight: VortexTypography.weight-bold;
                 color: white;
                 horizontal-alignment: center;
                 vertical-alignment: center;
@@ -87,23 +93,25 @@ export component TreeItemRow inherits Rectangle {
 
         // Folder icon
         if item.item-type == "folder": Text {
-            text: "[ ]";
-            font-size: 14px;
-            color: #ffc107;
+            text: "\u{25A1}"; // White square (folder representation)
+            font-size: VortexTypography.font-base;
+            color: VortexPalette.status-warning;
+            vertical-alignment: center;
         }
 
         // Collection icon
         if item.item-type == "collection": Text {
-            text: "{ }";
-            font-size: 14px;
-            color: #2196f3;
+            text: "\u{25C6}"; // Diamond (collection representation)
+            font-size: VortexTypography.font-base;
+            color: VortexPalette.primary;
+            vertical-alignment: center;
         }
 
         // Item name
         Text {
             text: item.name;
-            font-size: 13px;
-            color: selected ? white : #e0e0e0;
+            font-size: VortexTypography.font-sm;
+            color: selected ? VortexPalette.on-primary-container : VortexPalette.text-primary;
             overflow: elide;
             vertical-alignment: center;
         }
@@ -126,6 +134,7 @@ export component CollectionTreeView inherits Rectangle {
         VerticalBox {
             alignment: start;
             spacing: 2px;
+            padding: VortexSpacing.xs;
 
             for item in items: TreeItemRow {
                 item: item;

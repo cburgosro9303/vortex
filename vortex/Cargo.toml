@@ -43,6 +43,8 @@ reqwest = { version = "0.13.1", features = ["json", "rustls","http2"], default-f
 uuid = { version = "1.20.0", features = ["v4", "v7", "serde"] }
 chrono = { version = "0.4.43", features = ["serde"] }
 url = { version = "2.5.8", features = ["serde"] }
+rand = "0.9"
+async-trait = "0.1"
 
 # Testing
 pretty_assertions = "1.4.1"

@@ -1,0 +1,152 @@
+// URL Bar with Variable Preview
+// Shows both the raw URL and the resolved preview
+
+import { LineEdit } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing } from "../theme.slint";
+import { MethodSelector } from "method_selector.slint";
+
+export component UrlBarWithPreview inherits Rectangle {
+    in-out property <string> url: "";
+    in-out property <int> method-index: 0;
+    in property <bool> is-loading: false;
+    in property <[string]> methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+
+    // Variable resolution properties
+    in property <string> resolved-url: "";
+    in property <bool> has-unresolved-variables: false;
+    in property <[string]> unresolved-variables: [];
+    in property <bool> show-preview: false; // Show preview when URL has variables
+
+    callback send-clicked();
+    callback cancel-clicked();
+    callback method-changed(string);
+    callback url-changed(string);
+
+    height: show-preview && resolved-url != url ? 72px : 48px;
+    background: VortexPalette.bg-secondary;
+
+    VerticalLayout {
+        spacing: 2px;
+
+        // Main URL bar
+        HorizontalLayout {
+            padding: VortexSpacing.sm;
+            spacing: VortexSpacing.sm;
+
+            MethodSelector {
+                current-index <=> method-index;
+                methods: root.methods;
+                method-changed(m) => { root.method-changed(m); }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                background: VortexPalette.bg-input;
+                border-radius: 4px;
+                border-width: 1px;
+                border-color: url-input.has-focus ? VortexPalette.border-focus :
+                              has-unresolved-variables ? VortexPalette.status-warning : VortexPalette.border-default;
+
+                url-input := LineEdit {
+                    text <=> url;
+                    placeholder-text: "Enter URL (e.g., https://{{host}}/api/users)";
+                    font-size: VortexTypography.font-base;
+
+                    accepted => {
+                        if !is-loading {
+                            send-clicked();
+                        }
+                    }
+
+                    edited => {
+                        url-changed(self.text);
+                    }
+                }
+            }
+
+            if !is-loading: Rectangle {
+                width: 80px;
+                height: 32px;
+                background: has-unresolved-variables ? VortexPalette.status-warning : VortexPalette.button-primary;
+                border-radius: 4px;
+
+                states [
+                    hover when send-touch.has-hover: {
+                        background: has-unresolved-variables ? #d97706 : VortexPalette.button-primary-hover;
+                    }
+                ]
+
+                Text {
+                    text: "Send";
+                    color: white;
+                    font-size: VortexTypography.font-base;
+                    font-weight: VortexTypography.weight-medium;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                send-touch := TouchArea {
+                    clicked => {
+                        send-clicked();
+                    }
+                }
+            }
+
+            if is-loading: Rectangle {
+                width: 80px;
+                height: 32px;
+                background: VortexPalette.status-error;
+                border-radius: 4px;
+
+                states [
+                    hover when cancel-touch.has-hover: {
+                        background: #d43d3d;
+                    }
+                ]
+
+                Text {
+                    text: "Cancel";
+                    color: white;
+                    font-size: VortexTypography.font-base;
+                    font-weight: VortexTypography.weight-medium;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                cancel-touch := TouchArea {
+                    clicked => {
+                        cancel-clicked();
+                    }
+                }
+            }
+        }
+
+        // Resolved URL preview
+        if show-preview && resolved-url != url: Rectangle {
+            height: 24px;
+            background: VortexPalette.bg-tertiary;
+
+            HorizontalLayout {
+                padding-left: VortexSpacing.sm;
+                padding-right: VortexSpacing.sm;
+                spacing: VortexSpacing.sm;
+
+                Text {
+                    text: has-unresolved-variables ? "\u{26A0}" : "\u{2192}"; // Warning or arrow
+                    color: has-unresolved-variables ? VortexPalette.status-warning : VortexPalette.text-secondary;
+                    font-size: VortexTypography.font-sm;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: resolved-url;
+                    color: has-unresolved-variables ? VortexPalette.status-warning : VortexPalette.text-secondary;
+                    font-size: VortexTypography.font-sm;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+            }
+        }
+    }
+}

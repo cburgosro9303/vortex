@@ -1,14 +1,26 @@
 // Vortex API Client - Main Window
 // Sprint 01: MVP Request Execution + Base UI
 // Sprint 02: Persistence and Collections
+// Sprint 03: Environments and Variables
+// Sprint 04: Settings and Theme
 
-import { VerticalBox, HorizontalBox, TextEdit, ScrollView, LineEdit, Button } from "std-widgets.slint";
-import { VortexPalette, VortexTypography, VortexSpacing } from "theme.slint";
+import { VerticalBox, HorizontalBox, TextEdit, ScrollView, LineEdit, Button, ComboBox } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "theme.slint";
+export { VortexPalette, VortexTypography, VortexSpacing, VortexShape }
 import { UrlBar } from "components/url_bar.slint";
 import { ResponsePanel } from "components/response_panel.slint";
 import { TreeItem, CollectionTreeView } from "components/collection_tree.slint";
 import { WorkspaceSelector } from "components/file_dialog.slint";
 import { CollectionToolbar } from "components/save_open_buttons.slint";
+import { EnvironmentSelector } from "components/environment_selector.slint";
+import { EnvironmentManager, EnvironmentInfo } from "components/environment_manager.slint";
+import { VariableRow } from "components/variables_editor.slint";
+import { SettingsDialog } from "components/settings_dialog.slint";
+import { HistoryPanel, HistoryItem } from "components/history_panel.slint";
+
+export { HistoryItem }
+
+export { EnvironmentInfo, VariableRow }
 
 export component MainWindow inherits Window {
     title: "Vortex API Client";
@@ -68,6 +80,53 @@ export component MainWindow inherits Window {
     in-out property <bool> has-unsaved-changes: false;
     in-out property <bool> is-saving: false;
 
+    // Environment state (Sprint 03)
+    in-out property <[string]> environment-names: [];
+    in-out property <int> current-environment-index: 0;
+    in-out property <string> current-environment-name: "No Environment";
+    in-out property <string> resolved-url: "";
+    in-out property <bool> has-unresolved-variables: false;
+    in-out property <[string]> unresolved-variables: [];
+    in-out property <bool> show-environment-manager: false;
+    in-out property <[EnvironmentInfo]> environment-list: [];
+    in-out property <int> env-manager-selected-index: -1;
+    in-out property <string> env-manager-selected-name: "";
+    in-out property <[VariableRow]> env-manager-variables: [];
+
+    // Environment callbacks (Sprint 03)
+    callback environment-changed(int);
+    callback manage-environments-clicked();
+    callback create-environment(string);
+    callback delete-environment(int);
+    callback select-env-for-editing(int);
+    callback save-environment();
+    callback add-env-variable();
+    callback delete-env-variable(int);
+    callback env-variable-changed(int, VariableRow);
+    callback url-changed(string);
+
+    // Settings state (Sprint 04)
+    in-out property <bool> show-settings: false;
+    in-out property <int> theme-mode-index: 1;  // 0=Light, 1=Dark, 2=System
+    in-out property <int> font-scale-index: 1;  // 0=Small, 1=Medium, 2=Large
+
+    // Settings callbacks (Sprint 04)
+    callback toggle-theme();
+    callback open-settings();
+    callback close-settings();
+    callback theme-mode-changed(int);
+    callback font-scale-changed(int);
+
+    // History state (Sprint 04)
+    in-out property <[HistoryItem]> history-items: [];
+    in-out property <bool> history-visible: true;
+    in-out property <string> history-selected-id: "";
+
+    // History callbacks (Sprint 04)
+    callback history-item-clicked(HistoryItem);
+    callback clear-history();
+    callback toggle-history-visibility();
+
     VerticalLayout {
         spacing: 0;
 
@@ -90,7 +149,119 @@ export component MainWindow inherits Window {
                     vertical-alignment: center;
                 }
 
+                Rectangle { width: VortexSpacing.sm; }
+
+                // Environment selector in title bar (closer to title)
+                if workspace-path != "": HorizontalLayout {
+                    spacing: VortexSpacing.xs;
+
+                    Text {
+                        text: "Env:";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-sm;
+                        vertical-alignment: center;
+                    }
+
+                    ComboBox {
+                        width: 160px;
+                        model: environment-names.length > 0 ? environment-names : ["No Environment"];
+                        current-index: current-environment-index;
+                        enabled: environment-names.length > 0;
+
+                        selected(current-value) => {
+                            environment-changed(self.current-index);
+                        }
+                    }
+
+                    Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        background: VortexPalette.bg-tertiary;
+                        border-radius: VortexShape.radius-sm;
+
+                        states [
+                            hover when manage-env-touch.has-hover: {
+                                background: VortexPalette.bg-hover;
+                            }
+                        ]
+
+                        Text {
+                            text: "\u{2699}"; // Gear icon
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-lg;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        manage-env-touch := TouchArea {
+                            clicked => {
+                                manage-environments-clicked();
+                            }
+                        }
+                    }
+                }
+
                 Rectangle { horizontal-stretch: 1; }
+
+                // Theme toggle button
+                Rectangle {
+                    width: 32px;
+                    height: 28px;
+                    background: VortexPalette.bg-tertiary;
+                    border-radius: VortexShape.radius-sm;
+
+                    states [
+                        hover when theme-toggle-touch.has-hover: {
+                            background: VortexPalette.bg-hover;
+                        }
+                    ]
+
+                    Text {
+                        text: VortexPalette.dark-mode ? "\u{263E}" : "\u{2600}"; // Moon or Sun
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-lg;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    theme-toggle-touch := TouchArea {
+                        clicked => {
+                            toggle-theme();
+                        }
+                    }
+                }
+
+                Rectangle { width: VortexSpacing.xs; }
+
+                // Settings button
+                Rectangle {
+                    width: 32px;
+                    height: 28px;
+                    background: VortexPalette.bg-tertiary;
+                    border-radius: VortexShape.radius-sm;
+
+                    states [
+                        hover when settings-touch.has-hover: {
+                            background: VortexPalette.bg-hover;
+                        }
+                    ]
+
+                    Text {
+                        text: "\u{2699}"; // Gear icon
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-lg;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    settings-touch := TouchArea {
+                        clicked => {
+                            open-settings();
+                        }
+                    }
+                }
+
+                Rectangle { width: VortexSpacing.sm; }
 
                 Text {
                     text: "v0.1.0";
@@ -217,10 +388,21 @@ export component MainWindow inherits Window {
                         }
                     }
 
+                    // History panel
+                    HistoryPanel {
+                        items: history-items;
+                        is-visible: history-visible;
+                        selected-id: history-selected-id;
+
+                        item-clicked(item) => { history-item-clicked(item); }
+                        clear-history => { root.clear-history(); }
+                        toggle-visibility => { history-visible = !history-visible; }
+                    }
+
                     // Save indicator
                     if has-unsaved-changes: Rectangle {
                         height: 32px;
-                        background: #fff3e0;
+                        background: VortexPalette.dark-mode ? #4a3000 : #fff3e0;
 
                         HorizontalLayout {
                             padding: VortexSpacing.sm;
@@ -228,7 +410,7 @@ export component MainWindow inherits Window {
 
                             Text {
                                 text: "Unsaved changes";
-                                color: #e65100;
+                                color: VortexPalette.dark-mode ? #fdd663 : #e65100;
                                 font-size: VortexTypography.font-sm;
                                 vertical-alignment: center;
                             }
@@ -251,14 +433,60 @@ export component MainWindow inherits Window {
                 VerticalLayout {
                     spacing: 0;
 
-                    // URL Bar - fixed height
-                    UrlBar {
-                        url <=> root.url;
-                        method-index <=> root.method-index;
-                        is-loading: response-state == 1;
+                    // URL Bar with variable preview
+                    Rectangle {
+                        height: has-unresolved-variables || (resolved-url != url && resolved-url != "") ? 72px : 48px;
+                        background: VortexPalette.bg-secondary;
 
-                        send-clicked => { send-request(); }
-                        cancel-clicked => { cancel-request(); }
+                        VerticalLayout {
+                            spacing: 2px;
+
+                            // Main URL bar
+                            UrlBar {
+                                url <=> root.url;
+                                method-index <=> root.method-index;
+                                is-loading: response-state == 1;
+
+                                send-clicked => { send-request(); }
+                                cancel-clicked => { cancel-request(); }
+                                url-changed(new-url) => { root.url-changed(new-url); }
+                            }
+
+                            // Resolved URL preview
+                            if resolved-url != url && resolved-url != "": Rectangle {
+                                height: 24px;
+                                background: VortexPalette.bg-tertiary;
+
+                                HorizontalLayout {
+                                    padding-left: VortexSpacing.sm;
+                                    padding-right: VortexSpacing.sm;
+                                    spacing: VortexSpacing.sm;
+
+                                    Text {
+                                        text: has-unresolved-variables ? "\u{26A0}" : "\u{2192}"; // Warning or arrow
+                                        color: has-unresolved-variables ? VortexPalette.status-warning : VortexPalette.text-secondary;
+                                        font-size: VortexTypography.font-sm;
+                                        vertical-alignment: center;
+                                    }
+
+                                    Text {
+                                        text: resolved-url;
+                                        color: has-unresolved-variables ? VortexPalette.status-warning : VortexPalette.text-secondary;
+                                        font-size: VortexTypography.font-sm;
+                                        overflow: elide;
+                                        vertical-alignment: center;
+                                        horizontal-stretch: 1;
+                                    }
+
+                                    if has-unresolved-variables: Text {
+                                        text: "(" + unresolved-variables.length + " unresolved)";
+                                        color: VortexPalette.status-warning;
+                                        font-size: VortexTypography.font-xs;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     // Request body editor - fixed height, visibility controlled
@@ -283,7 +511,7 @@ export component MainWindow inherits Window {
                             Rectangle {
                                 vertical-stretch: 1;
                                 background: VortexPalette.bg-input;
-                                border-radius: 4px;
+                                border-radius: VortexShape.radius-sm;
                                 border-width: 1px;
                                 border-color: body-editor.has-focus ? VortexPalette.border-focus : VortexPalette.border-default;
                                 clip: true;
@@ -321,6 +549,41 @@ export component MainWindow inherits Window {
                     }
                 }
             }
+        }
+    }
+
+    // Environment Manager Dialog (overlay)
+    EnvironmentManager {
+        is-visible: show-environment-manager;
+        environments: environment-list;
+        selected-index: env-manager-selected-index;
+        selected-name: env-manager-selected-name;
+        selected-variables: env-manager-variables;
+
+        close-clicked => { show-environment-manager = false; }
+        create-environment(name) => { create-environment(name); }
+        delete-environment(idx) => { delete-environment(idx); }
+        select-environment(idx) => { select-env-for-editing(idx); }
+        save-environment => { save-environment(); }
+        add-variable => { add-env-variable(); }
+        delete-variable(idx) => { delete-env-variable(idx); }
+        variable-changed(idx, var) => { env-variable-changed(idx, var); }
+    }
+
+    // Settings Dialog (overlay)
+    SettingsDialog {
+        is-visible: show-settings;
+        theme-index: theme-mode-index;
+        font-scale-index: font-scale-index;
+
+        close-clicked => { show-settings = false; }
+        theme-changed(idx) => {
+            theme-mode-index = idx;
+            theme-mode-changed(idx);
+        }
+        font-scale-changed(idx) => {
+            font-scale-index = idx;
+            font-scale-changed(idx);
         }
     }
 }
