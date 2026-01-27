@@ -1,0 +1,368 @@
+// Response Panel Component
+// Displays response data, loading state, or error messages
+
+import { TextEdit, ScrollView } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing } from "../theme.slint";
+
+// State enum values (must match Rust side)
+// 0 = Idle, 1 = Loading, 2 = Success, 3 = Error
+
+export component ResponsePanel inherits Rectangle {
+    // State: 0=Idle, 1=Loading, 2=Success, 3=Error
+    in property <int> state: 0;
+
+    // Response data (for Success state)
+    in property <int> status-code: 0;
+    in property <string> status-text: "";
+    in property <string> response-body: "";
+    in property <string> duration: "";
+    in property <string> size: "";
+
+    // Error data (for Error state)
+    in property <string> error-title: "";
+    in property <string> error-message: "";
+    in property <[string]> error-suggestions: [];
+
+    // Loading data
+    in property <string> elapsed-time: "0ms";
+
+    callback retry-clicked();
+    callback copy-body-clicked();
+
+    background: VortexPalette.bg-secondary;
+    min-height: 200px;
+
+    // All states are always present, visibility controlled by opacity
+    // This prevents layout recalculation when state changes
+
+    // Idle state - show placeholder
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        opacity: state == 0 ? 1 : 0;
+        visible: state == 0;
+
+        VerticalLayout {
+            alignment: center;
+            spacing: VortexSpacing.md;
+
+            Text {
+                text: "No Response";
+                color: VortexPalette.text-secondary;
+                font-size: VortexTypography.font-xl;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "Enter a URL and click Send to make a request";
+                color: VortexPalette.text-secondary;
+                font-size: VortexTypography.font-base;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "Press Enter to send";
+                color: VortexPalette.text-placeholder;
+                font-size: VortexTypography.font-sm;
+                horizontal-alignment: center;
+            }
+        }
+    }
+
+    // Loading state - show spinner/progress
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        opacity: state == 1 ? 1 : 0;
+        visible: state == 1;
+
+        VerticalLayout {
+            alignment: center;
+            spacing: VortexSpacing.lg;
+
+            // Simple loading indicator
+            Rectangle {
+                width: 48px;
+                height: 48px;
+                border-radius: 24px;
+                border-width: 3px;
+                border-color: VortexPalette.button-primary;
+
+                // Spinner dot
+                Rectangle {
+                    width: 12px;
+                    height: 12px;
+                    x: 18px;
+                    y: -3px;
+                    background: VortexPalette.button-primary;
+                    border-radius: 6px;
+                }
+            }
+
+            Text {
+                text: "Sending request...";
+                color: VortexPalette.text-primary;
+                font-size: VortexTypography.font-lg;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: elapsed-time;
+                color: VortexPalette.text-secondary;
+                font-size: VortexTypography.font-base;
+                horizontal-alignment: center;
+            }
+        }
+    }
+
+    // Success state - show response
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        opacity: state == 2 ? 1 : 0;
+        visible: state == 2;
+
+        VerticalLayout {
+            spacing: 0;
+
+            // Status bar
+            Rectangle {
+                height: 40px;
+                background: VortexPalette.bg-tertiary;
+                border-width: 1px;
+                border-color: VortexPalette.border-default;
+
+                HorizontalLayout {
+                    padding: VortexSpacing.sm;
+                    spacing: VortexSpacing.lg;
+
+                    // Status indicator
+                    HorizontalLayout {
+                        spacing: VortexSpacing.xs;
+
+                        Rectangle {
+                            width: 8px;
+                            height: 8px;
+                            border-radius: 4px;
+                            background: root.status-color();
+                        }
+
+                        Text {
+                            text: status-code + " " + status-text;
+                            color: root.status-color();
+                            font-size: VortexTypography.font-base;
+                            font-weight: VortexTypography.weight-bold;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Duration
+                    HorizontalLayout {
+                        spacing: VortexSpacing.xs;
+
+                        Text {
+                            text: "Time:";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-sm;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: duration;
+                            color: VortexPalette.text-primary;
+                            font-size: VortexTypography.font-sm;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Size
+                    HorizontalLayout {
+                        spacing: VortexSpacing.xs;
+
+                        Text {
+                            text: "Size:";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-sm;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: size;
+                            color: VortexPalette.text-primary;
+                            font-size: VortexTypography.font-sm;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Rectangle { horizontal-stretch: 1; }
+
+                    // Copy button
+                    Rectangle {
+                        width: 60px;
+                        height: 24px;
+                        background: copy-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                        border-radius: 4px;
+
+                        Text {
+                            text: "Copy";
+                            color: VortexPalette.text-accent;
+                            font-size: VortexTypography.font-sm;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        copy-touch := TouchArea {
+                            clicked => { copy-body-clicked(); }
+                        }
+                    }
+                }
+            }
+
+            // Response body
+            Rectangle {
+                vertical-stretch: 1;
+                background: VortexPalette.bg-primary;
+                clip: true;
+
+                body-text := TextEdit {
+                    x: 8px;
+                    y: 8px;
+                    width: parent.width - 16px;
+                    height: parent.height - 16px;
+                    text: response-body;
+                    read-only: true;
+                    font-size: VortexTypography.font-base;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+
+    // Error state - show error details
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        opacity: state == 3 ? 1 : 0;
+        visible: state == 3;
+
+        VerticalLayout {
+            alignment: center;
+            spacing: VortexSpacing.lg;
+            padding: VortexSpacing.xl;
+
+            // Error icon
+            Rectangle {
+                width: 48px;
+                height: 48px;
+                border-radius: 24px;
+                background: #f14c4c20;
+
+                Text {
+                    text: "!";
+                    color: VortexPalette.status-error;
+                    font-size: 24px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            // Error title
+            Text {
+                text: error-title;
+                color: VortexPalette.status-error;
+                font-size: VortexTypography.font-xl;
+                font-weight: VortexTypography.weight-bold;
+                horizontal-alignment: center;
+            }
+
+            // Error message
+            Text {
+                text: error-message;
+                color: VortexPalette.text-primary;
+                font-size: VortexTypography.font-base;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            // Suggestions
+            if error-suggestions.length > 0: Rectangle {
+                background: VortexPalette.bg-tertiary;
+                border-radius: 8px;
+
+                VerticalLayout {
+                    padding: VortexSpacing.md;
+                    spacing: VortexSpacing.sm;
+
+                    Text {
+                        text: "Suggestions:";
+                        color: VortexPalette.text-secondary;
+                        font-size: VortexTypography.font-sm;
+                        font-weight: VortexTypography.weight-medium;
+                    }
+
+                    for suggestion in error-suggestions: HorizontalLayout {
+                        spacing: VortexSpacing.sm;
+
+                        Text {
+                            text: "-";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-base;
+                        }
+
+                        Text {
+                            text: suggestion;
+                            color: VortexPalette.text-primary;
+                            font-size: VortexTypography.font-base;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+
+            // Retry button
+            Rectangle {
+                width: 100px;
+                height: 32px;
+                background: VortexPalette.button-primary;
+                border-radius: 4px;
+
+                states [
+                    hover when retry-touch.has-hover: {
+                        background: VortexPalette.button-primary-hover;
+                    }
+                ]
+
+                Text {
+                    text: "Retry";
+                    color: white;
+                    font-size: VortexTypography.font-base;
+                    font-weight: VortexTypography.weight-medium;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                retry-touch := TouchArea {
+                    clicked => { retry-clicked(); }
+                }
+            }
+        }
+    }
+
+    // Helper function for status color
+    pure function status-color() -> color {
+        if status-code >= 200 && status-code < 300 { return VortexPalette.status-success; }
+        if status-code >= 300 && status-code < 400 { return VortexPalette.status-info; }
+        if status-code >= 400 && status-code < 500 { return VortexPalette.status-warning; }
+        if status-code >= 500 { return VortexPalette.status-error; }
+        return VortexPalette.text-secondary;
+    }
+}

@@ -9,5 +9,7 @@ pub mod environment;
 pub mod error;
 pub mod request;
 pub mod response;
+pub mod state;
 
 pub use error::{DomainError, DomainResult};
+pub use state::{RequestErrorKind, RequestState};

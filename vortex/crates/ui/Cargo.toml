@@ -8,7 +8,10 @@ build = "build.rs"
 
 [dependencies]
 vortex-domain = { workspace = true }
+vortex-application = { workspace = true }
+vortex-infrastructure = { workspace = true }
 slint = { workspace = true }
+tokio = { workspace = true }
 
 [build-dependencies]
 slint-build = "1.14.1"

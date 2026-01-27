@@ -37,7 +37,7 @@ thiserror = "2.0.18"
 slint = "1.14.1"
 
 # HTTP Client (for future use)
-reqwest = { version = "0.13.1", features = ["json", "rustls-tls"], default-features = false }
+reqwest = { version = "0.13.1", features = ["json", "rustls","http2"], default-features = false }
 
 # Utilities
 uuid = { version = "1.20.0", features = ["v7", "serde"] }

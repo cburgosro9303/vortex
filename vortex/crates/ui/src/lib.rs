@@ -8,8 +8,10 @@
 #![allow(clippy::panic)]
 
 mod app_window;
+pub mod bridge;
 
 pub use app_window::AppWindow;
+pub use bridge::{UiCommand, UiUpdate};
 
 // Include the generated Slint code
 slint::include_modules!();
