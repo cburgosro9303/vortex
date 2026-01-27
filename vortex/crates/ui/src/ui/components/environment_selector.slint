@@ -1,0 +1,67 @@
+// Environment Selector Component
+// Dropdown for selecting the active environment
+
+import { ComboBox, Button } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+export component EnvironmentSelector inherits Rectangle {
+    in property <[string]> environments: ["Development", "Staging", "Production"];
+    in-out property <int> current-index: 0;
+    in property <bool> enabled: true;
+
+    callback environment-changed(int);
+    callback manage-environments-clicked();
+
+    height: 32px;
+    min-width: 200px;
+
+    HorizontalLayout {
+        spacing: VortexSpacing.xs;
+
+        Rectangle {
+            horizontal-stretch: 1;
+            background: VortexPalette.bg-input;
+            border-radius: VortexShape.radius-sm;
+            border-width: 1px;
+            border-color: VortexPalette.border-default;
+
+            ComboBox {
+                model: environments;
+                current-index <=> root.current-index;
+                enabled: root.enabled && environments.length > 0;
+
+                selected(current-value) => {
+                    environment-changed(self.current-index);
+                }
+            }
+        }
+
+        Rectangle {
+            width: 28px;
+            height: 28px;
+            background: VortexPalette.bg-tertiary;
+            border-radius: VortexShape.radius-sm;
+
+            states [
+                hover when manage-touch.has-hover: {
+                    background: VortexPalette.bg-hover;
+                }
+            ]
+
+            Text {
+                text: "\u{2699}"; // Gear icon
+                color: VortexPalette.text-secondary;
+                font-size: VortexTypography.font-lg;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            manage-touch := TouchArea {
+                enabled: root.enabled;
+                clicked => {
+                    manage-environments-clicked();
+                }
+            }
+        }
+    }
+}

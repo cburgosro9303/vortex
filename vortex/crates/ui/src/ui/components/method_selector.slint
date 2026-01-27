@@ -1,7 +1,7 @@
 // Method Selector Component
 // Dropdown for selecting HTTP methods with color coding
 
-import { VortexPalette, VortexTypography, VortexSpacing } from "../theme.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
 
 export component MethodSelector inherits Rectangle {
     in-out property <int> current-index: 0;
@@ -14,7 +14,7 @@ export component MethodSelector inherits Rectangle {
 
     Rectangle {
         background: VortexPalette.bg-input;
-        border-radius: 4px;
+        border-radius: VortexShape.radius-sm;
         border-width: 1px;
         border-color: VortexPalette.border-default;
 
@@ -51,11 +51,11 @@ export component MethodSelector inherits Rectangle {
 
         Rectangle {
             background: VortexPalette.bg-secondary;
-            border-radius: 4px;
+            border-radius: VortexShape.radius-sm;
             border-width: 1px;
             border-color: VortexPalette.border-default;
             drop-shadow-blur: 8px;
-            drop-shadow-color: #00000080;
+            drop-shadow-color: #00000040;
 
             VerticalLayout {
                 for method[index] in methods: Rectangle {

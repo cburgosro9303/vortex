@@ -2,7 +2,7 @@
 // Contains method selector, URL input, and Send/Cancel button
 
 import { LineEdit } from "std-widgets.slint";
-import { VortexPalette, VortexTypography, VortexSpacing } from "../theme.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
 import { MethodSelector } from "method_selector.slint";
 
 export component UrlBar inherits Rectangle {
@@ -32,11 +32,15 @@ export component UrlBar inherits Rectangle {
         Rectangle {
             horizontal-stretch: 1;
             background: VortexPalette.bg-input;
-            border-radius: 4px;
+            border-radius: VortexShape.radius-sm;
             border-width: 1px;
             border-color: url-input.has-focus ? VortexPalette.border-focus : VortexPalette.border-default;
 
             url-input := LineEdit {
+                width: parent.width - 2px;
+                height: parent.height - 2px;
+                x: 1px;
+                y: 1px;
                 text <=> url;
                 placeholder-text: "Enter URL (e.g., https://api.example.com/users)";
                 font-size: VortexTypography.font-base;
@@ -57,7 +61,7 @@ export component UrlBar inherits Rectangle {
             width: 80px;
             height: 32px;
             background: VortexPalette.button-primary;
-            border-radius: 4px;
+            border-radius: VortexShape.radius-sm;
 
             states [
                 hover when send-touch.has-hover: {
@@ -85,7 +89,7 @@ export component UrlBar inherits Rectangle {
             width: 80px;
             height: 32px;
             background: VortexPalette.status-error;
-            border-radius: 4px;
+            border-radius: VortexShape.radius-sm;
 
             states [
                 hover when cancel-touch.has-hover: {

@@ -42,6 +42,69 @@ pub enum UiCommand {
 
     /// User toggled a folder expansion.
     ToggleFolder { id: String },
+
+    // --- Environment Commands (Sprint 03) ---
+    /// User changed the selected environment.
+    EnvironmentChanged { index: i32 },
+
+    /// User clicked manage environments button.
+    ManageEnvironments,
+
+    /// User wants to create a new environment.
+    CreateEnvironment { name: String },
+
+    /// User wants to delete an environment.
+    DeleteEnvironment { index: i32 },
+
+    /// User selected an environment for editing.
+    SelectEnvironmentForEditing { index: i32 },
+
+    /// User wants to save environment changes.
+    SaveEnvironment,
+
+    /// User added a variable to the environment.
+    AddEnvironmentVariable,
+
+    /// User deleted a variable from the environment.
+    DeleteEnvironmentVariable { index: i32 },
+
+    /// User changed a variable value.
+    EnvironmentVariableChanged {
+        index: i32,
+        name: String,
+        value: String,
+        enabled: bool,
+        is_secret: bool,
+    },
+
+    /// User changed the URL (for variable preview).
+    UrlChanged { url: String },
+
+    // --- Settings Commands (Sprint 04) ---
+    /// User toggled the theme (light/dark).
+    ToggleTheme,
+
+    /// User changed theme mode (0=Light, 1=Dark, 2=System).
+    SetThemeMode { index: i32 },
+
+    /// User changed font scale (0=Small, 1=Medium, 2=Large).
+    SetFontScale { index: i32 },
+
+    /// User wants to open settings dialog.
+    OpenSettings,
+
+    /// User wants to close settings dialog.
+    CloseSettings,
+
+    // --- History Commands (Sprint 04) ---
+    /// User clicked a history item to reload it.
+    LoadHistoryItem { id: String },
+
+    /// User wants to clear history.
+    ClearHistory,
+
+    /// User toggled history visibility.
+    ToggleHistoryVisibility,
 }
 
 /// A tree item for UI display.
@@ -54,6 +117,34 @@ pub struct TreeItemData {
     pub depth: i32,
     pub expanded: bool,
     pub path: String,
+}
+
+/// Environment variable data for UI.
+#[derive(Debug, Clone)]
+pub struct VariableData {
+    pub name: String,
+    pub value: String,
+    pub enabled: bool,
+    pub is_secret: bool,
+}
+
+/// Environment info for the list.
+#[derive(Debug, Clone)]
+pub struct EnvironmentData {
+    pub id: String,
+    pub name: String,
+    pub variable_count: i32,
+}
+
+/// History item for UI display.
+#[derive(Debug, Clone)]
+pub struct HistoryItemData {
+    pub id: String,
+    pub method: String,
+    pub url: String,
+    pub status_code: i32,
+    pub time_ago: String,
+    pub duration: String,
 }
 
 /// Updates sent from async runtime to the UI.
@@ -83,4 +174,56 @@ pub enum UiUpdate {
         method: i32,
         body: String,
     },
+
+    // --- Environment Updates (Sprint 03) ---
+    /// Update the list of environment names.
+    EnvironmentNames(Vec<String>),
+
+    /// Update the current environment index.
+    CurrentEnvironmentIndex(i32),
+
+    /// Update the resolved URL preview.
+    ResolvedUrl {
+        resolved: String,
+        has_unresolved: bool,
+        unresolved_names: Vec<String>,
+    },
+
+    /// Update the environment list for the manager.
+    EnvironmentList(Vec<EnvironmentData>),
+
+    /// Update the selected environment for editing.
+    SelectedEnvironment {
+        index: i32,
+        name: String,
+        variables: Vec<VariableData>,
+    },
+
+    /// Toggle the environment manager dialog.
+    ShowEnvironmentManager(bool),
+
+    // --- Settings Updates (Sprint 04) ---
+    /// Update theme mode (true = dark mode).
+    ThemeMode(bool),
+
+    /// Update font scale factor.
+    FontScale(f32),
+
+    /// Toggle the settings dialog.
+    ShowSettings(bool),
+
+    /// Settings loaded from disk.
+    SettingsLoaded {
+        theme_index: i32,
+        font_scale_index: i32,
+        dark_mode: bool,
+        font_scale_factor: f32,
+    },
+
+    // --- History Updates (Sprint 04) ---
+    /// Update the history items list.
+    HistoryItems(Vec<HistoryItemData>),
+
+    /// Toggle history panel visibility.
+    HistoryVisible(bool),
 }
