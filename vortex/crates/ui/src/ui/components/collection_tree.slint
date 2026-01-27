@@ -1,0 +1,146 @@
+// Collection tree view for navigating requests and folders.
+
+import { Button, VerticalBox, HorizontalBox, ScrollView } from "std-widgets.slint";
+
+// Represents an item in the collection tree (request or folder)
+export struct TreeItem {
+    id: string,
+    name: string,
+    item-type: string,  // "request", "folder", "collection"
+    method: string,     // HTTP method for requests, empty for folders
+    depth: int,         // Nesting level for indentation
+    expanded: bool,     // For folders: whether children are visible
+    path: string,       // File path
+}
+
+export component TreeItemRow inherits Rectangle {
+    in property <TreeItem> item;
+    in property <bool> selected: false;
+
+    callback clicked();
+    callback double-clicked();
+    callback toggle-expanded();
+    callback context-menu(/* x */ length, /* y */ length);
+
+    // Colors
+    property <color> text-color: selected ? #1a1a1a : #e0e0e0;
+    property <color> icon-color: selected ? #333333 : #888888;
+
+    min-height: 32px;
+    background: selected ? #3d5a80 : transparent;
+
+    TouchArea {
+        clicked => { root.clicked(); }
+        double-clicked => { root.double-clicked(); }
+        pointer-event(event) => {
+            if event.button == PointerEventButton.right {
+                root.context-menu(self.mouse-x, self.mouse-y);
+            }
+        }
+    }
+
+    HorizontalBox {
+        padding-left: (item.depth * 16px) + 8px;
+        padding-right: 8px;
+        spacing: 8px;
+        alignment: start;
+
+        // Expand/collapse button for folders
+        if item.item-type == "folder" || item.item-type == "collection": Rectangle {
+            width: 20px;
+            height: 20px;
+
+            Text {
+                text: item.expanded ? "v" : ">";
+                font-size: 12px;
+                color: root.text-color;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => { root.toggle-expanded(); }
+            }
+        }
+
+        // Method badge for requests
+        if item.item-type == "request": Rectangle {
+            width: 48px;
+            height: 20px;
+            border-radius: 4px;
+            background: item.method == "GET" ? #4caf50 :
+                       item.method == "POST" ? #2196f3 :
+                       item.method == "PUT" ? #ff9800 :
+                       item.method == "PATCH" ? #9c27b0 :
+                       item.method == "DELETE" ? #f44336 :
+                       #757575;
+
+            Text {
+                text: item.method;
+                font-size: 10px;
+                font-weight: 600;
+                color: white;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        // Folder icon
+        if item.item-type == "folder": Text {
+            text: "[ ]";
+            font-size: 14px;
+            color: #ffc107;
+        }
+
+        // Collection icon
+        if item.item-type == "collection": Text {
+            text: "{ }";
+            font-size: 14px;
+            color: #2196f3;
+        }
+
+        // Item name
+        Text {
+            text: item.name;
+            font-size: 13px;
+            color: selected ? white : #e0e0e0;
+            overflow: elide;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component CollectionTreeView inherits Rectangle {
+    in property <[TreeItem]> items;
+    in-out property <string> selected-id;
+
+    callback item-selected(TreeItem);
+    callback item-double-clicked(TreeItem);
+    callback toggle-folder(TreeItem);
+    callback create-request(TreeItem /* parent */);
+    callback create-folder(TreeItem /* parent */);
+    callback delete-item(TreeItem);
+    callback rename-item(TreeItem);
+
+    ScrollView {
+        VerticalBox {
+            alignment: start;
+            spacing: 2px;
+
+            for item in items: TreeItemRow {
+                item: item;
+                selected: item.id == selected-id;
+                clicked => {
+                    selected-id = item.id;
+                    root.item-selected(item);
+                }
+                double-clicked => {
+                    root.item-double-clicked(item);
+                }
+                toggle-expanded => {
+                    root.toggle-folder(item);
+                }
+            }
+        }
+    }
+}

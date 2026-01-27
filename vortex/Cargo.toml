@@ -24,7 +24,7 @@ vortex-infrastructure = { path = "crates/infrastructure" }
 vortex-ui = { path = "crates/ui" }
 
 # Async runtime
-tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros", "time", "sync"] }
+tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros", "time", "sync", "fs"] }
 
 # Serialization
 serde = { version = "1.0.228", features = ["derive"] }
@@ -40,12 +40,13 @@ slint = "1.14.1"
 reqwest = { version = "0.13.1", features = ["json", "rustls","http2"], default-features = false }
 
 # Utilities
-uuid = { version = "1.20.0", features = ["v7", "serde"] }
+uuid = { version = "1.20.0", features = ["v4", "v7", "serde"] }
 chrono = { version = "0.4.43", features = ["serde"] }
 url = { version = "2.5.8", features = ["serde"] }
 
 # Testing
 pretty_assertions = "1.4.1"
+tempfile = "3.24.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
