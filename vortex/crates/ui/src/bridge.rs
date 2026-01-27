@@ -168,6 +168,49 @@ pub enum UiCommand {
 
     /// Cancel pending deletion.
     CancelDelete,
+
+    // --- Sprint 06: Tab Commands ---
+    /// User clicked on a tab.
+    TabClicked { id: String },
+
+    /// User clicked close on a tab.
+    TabCloseClicked { id: String },
+
+    /// User clicked new tab button.
+    NewTabClicked,
+
+    // --- Sprint 06: Quick Search Commands ---
+    /// Open quick search dialog.
+    OpenQuickSearch,
+
+    /// Close quick search dialog.
+    CloseQuickSearch,
+
+    /// Search query changed.
+    SearchQueryChanged { query: String },
+
+    /// User clicked on a search result.
+    SearchResultClicked { id: String, path: String },
+
+    // --- Sprint 06: Import/Export Commands ---
+    /// Import a Postman collection.
+    ImportCollection,
+
+    /// Export the current collection.
+    ExportCollection,
+
+    /// Export current request as cURL command.
+    ExportAsCurl,
+
+    // --- Sprint 06: JSON Format Commands ---
+    /// Format the response body.
+    FormatResponseBody,
+
+    /// Format the request body.
+    FormatRequestBody { body: String },
+
+    /// Copy the formatted response body.
+    CopyFormattedResponse,
 }
 
 /// A tree item for UI display.
@@ -257,6 +300,99 @@ impl Default for AuthData {
             api_key_location: 0,
         }
     }
+}
+
+/// Tab data for UI (Sprint 06).
+#[derive(Debug, Clone)]
+pub struct TabData {
+    pub id: String,
+    pub name: String,
+    pub method: String,
+    pub has_unsaved_changes: bool,
+}
+
+/// Tab state containing full request data for restoration.
+#[derive(Debug, Clone)]
+pub struct TabState {
+    pub id: String,
+    pub name: String,
+    pub method: i32,
+    pub url: String,
+    pub body: String,
+    pub headers: Vec<HeaderData>,
+    pub query_params: Vec<QueryParamData>,
+    pub auth: AuthData,
+    pub has_unsaved_changes: bool,
+    pub file_path: Option<String>,
+    // Response state
+    pub response_state: i32,  // 0=Idle, 1=Loading, 2=Success, 3=Error
+    pub response_body: String,
+    pub status_code: i32,
+    pub status_text: String,
+    pub duration: String,
+    pub size: String,
+    pub response_headers: Vec<ResponseHeaderData>,
+    pub error_title: String,
+    pub error_message: String,
+}
+
+impl TabState {
+    /// Creates a new empty tab state.
+    pub fn new_empty() -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: "New Request".to_string(),
+            method: 0,
+            url: String::new(),
+            body: String::new(),
+            headers: Vec::new(),
+            query_params: Vec::new(),
+            auth: AuthData::default(),
+            has_unsaved_changes: false,
+            file_path: None,
+            // Response defaults
+            response_state: 0,
+            response_body: String::new(),
+            status_code: 0,
+            status_text: String::new(),
+            duration: String::new(),
+            size: String::new(),
+            response_headers: Vec::new(),
+            error_title: String::new(),
+            error_message: String::new(),
+        }
+    }
+
+    /// Converts to TabData for UI display.
+    pub fn to_tab_data(&self) -> TabData {
+        let method_str = match self.method {
+            0 => "GET",
+            1 => "POST",
+            2 => "PUT",
+            3 => "PATCH",
+            4 => "DELETE",
+            5 => "HEAD",
+            6 => "OPTIONS",
+            _ => "GET",
+        };
+        TabData {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            method: method_str.to_string(),
+            has_unsaved_changes: self.has_unsaved_changes,
+        }
+    }
+}
+
+/// Search result data for UI (Sprint 06).
+#[derive(Debug, Clone)]
+pub struct SearchResultData {
+    pub id: String,
+    pub name: String,
+    pub method: String,
+    pub url: String,
+    pub collection_name: String,
+    pub path: String,
 }
 
 /// Updates sent from async runtime to the UI.
@@ -379,5 +515,49 @@ pub enum UiUpdate {
         headers: Vec<HeaderData>,
         query_params: Vec<QueryParamData>,
         auth: AuthData,
+    },
+
+    // --- Sprint 06: Tab Updates ---
+    /// Update the list of open tabs.
+    TabsUpdated(Vec<TabData>),
+
+    /// Update the active tab ID.
+    ActiveTabChanged(String),
+
+    // --- Sprint 06: Quick Search Updates ---
+    /// Update search results.
+    SearchResults(Vec<SearchResultData>),
+
+    /// Show/hide quick search dialog.
+    ShowQuickSearch(bool),
+
+    // --- Sprint 06: Import/Export Updates ---
+    /// Collection import completed successfully.
+    ImportComplete { collection_name: String },
+
+    /// Collection export completed successfully.
+    ExportComplete { path: String },
+
+    /// cURL export completed - copy to clipboard.
+    CurlExport(String),
+
+    // --- Sprint 06: JSON Format Updates ---
+    /// Update response body with formatted JSON.
+    FormattedResponseBody(String),
+
+    /// Update request body with formatted JSON.
+    FormattedRequestBody(String),
+
+    /// Restore response state when switching tabs.
+    RestoreResponseState {
+        state: i32,  // 0=Idle, 1=Loading, 2=Success, 3=Error
+        body: String,
+        status_code: i32,
+        status_text: String,
+        duration: String,
+        size: String,
+        headers: Vec<ResponseHeaderData>,
+        error_title: String,
+        error_message: String,
     },
 }

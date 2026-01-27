@@ -1,0 +1,184 @@
+// Request Tabs Component
+// Displays open request tabs with method badges and close buttons
+
+import { ScrollView } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+// Represents an open request tab
+export struct RequestTab {
+    id: string,
+    name: string,
+    method: string,
+    has-unsaved-changes: bool,
+}
+
+// Individual tab component
+component TabItem inherits Rectangle {
+    in property <RequestTab> tab;
+    in property <bool> is-active: false;
+
+    callback clicked();
+    callback close-clicked();
+
+    min-width: 140px;
+    max-width: 200px;
+    height: 32px;
+    background: is-active ? VortexPalette.bg-primary : VortexPalette.bg-tertiary;
+    border-radius: VortexShape.radius-sm;
+    border-width: is-active ? 0 : 1px;
+    border-color: VortexPalette.border-default;
+
+    // Active tab indicator at top
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: 2px;
+        background: is-active ? VortexPalette.primary : transparent;
+        border-radius: VortexShape.radius-sm;
+    }
+
+    states [
+        hover when tab-touch.has-hover && !is-active: {
+            background: VortexPalette.bg-hover;
+        }
+    ]
+
+    tab-touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: VortexSpacing.sm;
+        padding-right: VortexSpacing.xs;
+        spacing: VortexSpacing.xs;
+        alignment: start;
+
+        // Method badge
+        Rectangle {
+            width: 36px;
+            height: 18px;
+            border-radius: 4px;
+            background: tab.method == "GET" ? VortexPalette.method-get :
+                       tab.method == "POST" ? VortexPalette.method-post :
+                       tab.method == "PUT" ? VortexPalette.method-put :
+                       tab.method == "PATCH" ? VortexPalette.method-patch :
+                       tab.method == "DELETE" ? VortexPalette.method-delete :
+                       tab.method == "HEAD" ? VortexPalette.method-head :
+                       tab.method == "OPTIONS" ? VortexPalette.method-options :
+                       VortexPalette.outline;
+
+            Text {
+                text: tab.method == "DELETE" ? "DEL" :
+                      tab.method == "OPTIONS" ? "OPT" : tab.method;
+                font-size: 9px;
+                font-weight: VortexTypography.weight-bold;
+                color: white;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        // Tab name with unsaved indicator
+        HorizontalLayout {
+            horizontal-stretch: 1;
+            spacing: 2px;
+
+            // Unsaved changes indicator (dot)
+            if tab.has-unsaved-changes: Rectangle {
+                width: 8px;
+                height: self.width;
+                background: VortexPalette.status-warning;
+                border-radius: 4px;
+            }
+
+            Text {
+                text: tab.name;
+                font-size: VortexTypography.font-sm;
+                color: is-active ? VortexPalette.text-primary : VortexPalette.text-secondary;
+                overflow: elide;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+        }
+
+        // Close button
+        Rectangle {
+            width: 20px;
+            height: 20px;
+            background: close-touch.has-hover ? VortexPalette.bg-hover : transparent;
+            border-radius: 4px;
+
+            Text {
+                text: "\u{2715}"; // X mark
+                font-size: VortexTypography.font-xs;
+                color: close-touch.has-hover ? VortexPalette.text-primary : VortexPalette.text-secondary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            close-touch := TouchArea {
+                clicked => { root.close-clicked(); }
+            }
+        }
+    }
+}
+
+// Tab bar component
+export component RequestTabBar inherits Rectangle {
+    in property <[RequestTab]> tabs: [];
+    in property <string> active-tab-id: "";
+
+    callback tab-clicked(string /* id */);
+    callback tab-close-clicked(string /* id */);
+    callback new-tab-clicked();
+
+    height: tabs.length > 0 ? 40px : 0;
+    background: VortexPalette.bg-secondary;
+    border-width: tabs.length > 0 ? 1px : 0;
+    border-color: VortexPalette.border-default;
+
+    HorizontalLayout {
+        padding: VortexSpacing.xs;
+        spacing: VortexSpacing.xs;
+
+        // Tab scroll area
+        ScrollView {
+            horizontal-stretch: 1;
+
+            HorizontalLayout {
+                spacing: VortexSpacing.xs;
+                alignment: start;
+
+                for tab in tabs: TabItem {
+                    tab: tab;
+                    is-active: tab.id == active-tab-id;
+
+                    clicked => { root.tab-clicked(tab.id); }
+                    close-clicked => { root.tab-close-clicked(tab.id); }
+                }
+            }
+        }
+
+        // New tab button
+        Rectangle {
+            width: 28px;
+            height: 28px;
+            background: new-tab-touch.has-hover ? VortexPalette.bg-hover : transparent;
+            border-radius: VortexShape.radius-sm;
+
+            Text {
+                text: "+";
+                font-size: VortexTypography.font-lg;
+                font-weight: VortexTypography.weight-bold;
+                color: new-tab-touch.has-hover ? VortexPalette.text-primary : VortexPalette.text-secondary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            new-tab-touch := TouchArea {
+                clicked => { new-tab-clicked(); }
+            }
+        }
+    }
+}
