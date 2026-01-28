@@ -1,0 +1,408 @@
+// Import Dialog Component
+// Provides a modal dialog for importing Postman collections and environments
+
+import { VortexPalette, VortexSpacing, VortexTypography, VortexShape } from "../theme.slint";
+
+// Warning item for the warnings list
+export struct ImportWarningItem {
+    path: string,
+    message: string,
+    severity: string, // "info", "warning", "error"
+}
+
+// Preview data for the import
+export struct ImportPreviewData {
+    format: string,
+    collection-name: string,
+    environment-name: string,
+    request-count: int,
+    folder-count: int,
+    variable-count: int,
+}
+
+// Import state enum
+export enum ImportState {
+    idle,
+    validating,
+    previewing,
+    importing,
+    complete,
+    error,
+}
+
+export component ImportDialog inherits Rectangle {
+    in property <bool> is-visible: false;
+    in-out property <ImportState> state: ImportState.idle;
+    in-out property <string> selected-file: "";
+    in-out property <ImportPreviewData> preview;
+    in-out property <[ImportWarningItem]> warnings: [];
+    in-out property <string> error-message: "";
+    in-out property <float> progress: 0.0;
+    in-out property <string> success-message: "";
+
+    callback browse-file();
+    callback validate-file();
+    callback start-import();
+    callback cancel-import();
+
+    // Backdrop
+    if is-visible: Rectangle {
+        background: #00000080;
+        width: 100%;
+        height: 100%;
+
+        TouchArea {
+            clicked => { cancel-import(); }
+        }
+
+        // Dialog container
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 500px;
+            height: min(600px, parent.height - 80px);
+            background: VortexPalette.surface;
+            border-radius: VortexShape.radius-xl;
+            border-width: 1px;
+            border-color: VortexPalette.border-default;
+            clip: true;
+
+            TouchArea {
+                // Prevent clicks from closing dialog
+            }
+
+            VerticalLayout {
+                padding: VortexSpacing.lg;
+                spacing: VortexSpacing.md;
+
+                // Header
+                HorizontalLayout {
+                    alignment: space-between;
+
+                    Text {
+                        text: "Import";
+                        font-size: VortexTypography.font-lg;
+                        font-weight: 600;
+                        color: VortexPalette.text-primary;
+                    }
+
+                    Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        border-radius: VortexShape.radius-sm;
+                        background: close-touch.has-hover ? VortexPalette.bg-hover : transparent;
+
+                        Text {
+                            text: "x";
+                            font-size: VortexTypography.font-md;
+                            color: VortexPalette.text-muted;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        close-touch := TouchArea {
+                            clicked => { cancel-import(); }
+                        }
+                    }
+                }
+
+                // File selection row
+                HorizontalLayout {
+                    spacing: VortexSpacing.sm;
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        height: 36px;
+                        border-radius: VortexShape.radius-md;
+                        border-width: 1px;
+                        border-color: VortexPalette.border-default;
+                        background: VortexPalette.bg-input;
+
+                        HorizontalLayout {
+                            padding-left: VortexSpacing.sm;
+                            padding-right: VortexSpacing.sm;
+
+                            Text {
+                                text: selected-file != "" ? selected-file : "No file selected";
+                                color: selected-file != "" ? VortexPalette.text-primary : VortexPalette.text-muted;
+                                font-size: VortexTypography.font-base;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 80px;
+                        height: 36px;
+                        border-radius: VortexShape.radius-md;
+                        background: browse-touch.has-hover ? VortexPalette.bg-hover : VortexPalette.bg-tertiary;
+
+                        Text {
+                            text: "Browse";
+                            font-size: VortexTypography.font-base;
+                            color: VortexPalette.text-primary;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        browse-touch := TouchArea {
+                            clicked => { browse-file(); }
+                        }
+                    }
+                }
+
+                // Preview section (visible after validation)
+                if state == ImportState.previewing || state == ImportState.importing || state == ImportState.complete: Rectangle {
+                    border-width: 1px;
+                    border-color: VortexPalette.border-default;
+                    border-radius: VortexShape.radius-lg;
+                    background: VortexPalette.bg-tertiary;
+
+                    VerticalLayout {
+                        padding: VortexSpacing.md;
+                        spacing: VortexSpacing.sm;
+
+                        Text {
+                            text: "Import Preview";
+                            font-weight: 600;
+                            font-size: VortexTypography.font-base;
+                            color: VortexPalette.text-primary;
+                        }
+
+                        Text {
+                            text: "Format: " + preview.format;
+                            font-size: VortexTypography.font-sm;
+                            color: VortexPalette.text-muted;
+                        }
+
+                        if preview.collection-name != "": Text {
+                            text: "Collection: " + preview.collection-name;
+                            font-size: VortexTypography.font-sm;
+                            color: VortexPalette.text-primary;
+                        }
+
+                        if preview.environment-name != "": Text {
+                            text: "Environment: " + preview.environment-name;
+                            font-size: VortexTypography.font-sm;
+                            color: VortexPalette.text-primary;
+                        }
+
+                        HorizontalLayout {
+                            spacing: VortexSpacing.lg;
+
+                            Text {
+                                text: "Requests: " + preview.request-count;
+                                font-size: VortexTypography.font-sm;
+                                color: VortexPalette.text-muted;
+                            }
+                            Text {
+                                text: "Folders: " + preview.folder-count;
+                                font-size: VortexTypography.font-sm;
+                                color: VortexPalette.text-muted;
+                            }
+                            Text {
+                                text: "Variables: " + preview.variable-count;
+                                font-size: VortexTypography.font-sm;
+                                color: VortexPalette.text-muted;
+                            }
+                        }
+                    }
+                }
+
+                // Warnings list (scrollable)
+                if warnings.length > 0: Rectangle {
+                    border-width: 1px;
+                    border-color: VortexPalette.status-warning;
+                    border-radius: VortexShape.radius-lg;
+                    background: VortexPalette.status-warning-subtle;
+                    min-height: 80px;
+                    max-height: 120px;
+
+                    VerticalLayout {
+                        padding: VortexSpacing.sm;
+                        spacing: VortexSpacing.xs;
+
+                        Text {
+                            text: "Warnings (" + warnings.length + ")";
+                            font-weight: 600;
+                            font-size: VortexTypography.font-sm;
+                            color: VortexPalette.status-warning;
+                        }
+
+                        Flickable {
+                            viewport-height: warnings.length * 24px;
+
+                            VerticalLayout {
+                                spacing: 2px;
+
+                                for warning in warnings: HorizontalLayout {
+                                    height: 22px;
+                                    spacing: VortexSpacing.xs;
+
+                                    Rectangle {
+                                        width: 8px;
+                                        height: 8px;
+                                        y: 7px;
+                                        border-radius: 4px;
+                                        background: warning.severity == "error" ? VortexPalette.status-error :
+                                                   warning.severity == "warning" ? VortexPalette.status-warning : VortexPalette.status-info;
+                                    }
+
+                                    Text {
+                                        text: warning.path + ": " + warning.message;
+                                        font-size: VortexTypography.font-xs;
+                                        color: VortexPalette.text-muted;
+                                        overflow: elide;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Validating indicator
+                if state == ImportState.validating: HorizontalLayout {
+                    alignment: center;
+                    spacing: VortexSpacing.sm;
+
+                    Text {
+                        text: "Validating...";
+                        font-size: VortexTypography.font-base;
+                        color: VortexPalette.text-muted;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Progress indicator
+                if state == ImportState.importing: VerticalLayout {
+                    spacing: VortexSpacing.xs;
+
+                    Text {
+                        text: "Importing...";
+                        font-size: VortexTypography.font-base;
+                        color: VortexPalette.text-primary;
+                        horizontal-alignment: center;
+                    }
+
+                    Rectangle {
+                        height: 6px;
+                        border-radius: 3px;
+                        background: VortexPalette.bg-tertiary;
+
+                        Rectangle {
+                            width: parent.width * progress;
+                            height: 100%;
+                            border-radius: 3px;
+                            background: VortexPalette.accent;
+                        }
+                    }
+                }
+
+                // Error message
+                if state == ImportState.error: Rectangle {
+                    border-width: 1px;
+                    border-color: VortexPalette.status-error;
+                    border-radius: VortexShape.radius-lg;
+                    background: VortexPalette.status-error-subtle;
+                    min-height: 48px;
+
+                    HorizontalLayout {
+                        padding: VortexSpacing.sm;
+
+                        Text {
+                            text: error-message;
+                            font-size: VortexTypography.font-sm;
+                            color: VortexPalette.status-error;
+                            wrap: word-wrap;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Success message
+                if state == ImportState.complete: Rectangle {
+                    border-width: 1px;
+                    border-color: VortexPalette.status-success;
+                    border-radius: VortexShape.radius-lg;
+                    background: VortexPalette.status-success-subtle;
+                    min-height: 48px;
+
+                    HorizontalLayout {
+                        padding: VortexSpacing.sm;
+
+                        Text {
+                            text: success-message != "" ? success-message : "Import completed successfully!";
+                            font-size: VortexTypography.font-base;
+                            color: VortexPalette.status-success;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Spacer
+                Rectangle {
+                    vertical-stretch: 1;
+                }
+
+                // Action buttons
+                HorizontalLayout {
+                    spacing: VortexSpacing.sm;
+                    alignment: end;
+
+                    // Cancel button
+                    Rectangle {
+                        width: 80px;
+                        height: 36px;
+                        border-radius: VortexShape.radius-md;
+                        background: cancel-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                        border-width: 1px;
+                        border-color: VortexPalette.border-default;
+
+                        Text {
+                            text: "Cancel";
+                            font-size: VortexTypography.font-base;
+                            color: VortexPalette.text-primary;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        cancel-touch := TouchArea {
+                            clicked => { cancel-import(); }
+                        }
+                    }
+
+                    // Import/Close button
+                    Rectangle {
+                        width: 100px;
+                        height: 36px;
+                        border-radius: VortexShape.radius-md;
+                        background: import-touch.has-hover ? VortexPalette.accent-hover : VortexPalette.accent;
+                        opacity: (selected-file == "" || state == ImportState.importing || state == ImportState.validating) ? 0.5 : 1.0;
+
+                        Text {
+                            text: state == ImportState.complete ? "Close" : "Import";
+                            font-size: VortexTypography.font-base;
+                            font-weight: 500;
+                            color: VortexPalette.text-inverse;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        import-touch := TouchArea {
+                            enabled: selected-file != "" && state != ImportState.importing && state != ImportState.validating;
+                            clicked => {
+                                if state == ImportState.complete {
+                                    cancel-import();
+                                } else {
+                                    start-import();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

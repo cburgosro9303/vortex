@@ -23,7 +23,7 @@ use vortex_domain::{
 use vortex_domain::{FontScale, HistoryEntry, HistoryHeader, HistoryParam, HistoryAuth, RequestHistory, ThemeMode, UserSettings};
 use vortex_infrastructure::{
     FileEnvironmentRepository, FileSystemWorkspaceRepository, HistoryRepository,
-    ReqwestHttpClient, SettingsRepository, TokioFileSystem, from_json,
+    PostmanImporter, ReqwestHttpClient, SettingsRepository, TokioFileSystem, from_json,
 };
 
 use crate::MainWindow;
@@ -39,9 +39,13 @@ use crate::HeaderRow;
 // Sprint 06: Tab and Search types
 use crate::RequestTab;
 use crate::SearchResult;
+// Sprint 04: Import Dialog types
+use crate::ImportPreviewData;
+use crate::ImportWarningItem;
+use crate::ImportState;
 use crate::bridge::{
-    AuthData, EnvironmentData, HeaderData, HistoryItemData, QueryParamData, SearchResultData,
-    TabData, TabState, TreeItemData, UiCommand, UiUpdate, VariableData,
+    AuthData, EnvironmentData, HeaderData, HistoryItemData, ImportWarningData, QueryParamData,
+    SearchResultData, TabData, TabState, TreeItemData, UiCommand, UiUpdate, VariableData,
 };
 
 /// Application window wrapper with business logic bindings.
@@ -136,6 +140,11 @@ impl AppWindow {
         let cmd_tx_export = cmd_tx.clone();
         let cmd_tx_export_curl = cmd_tx.clone();
         let cmd_tx_import_env = cmd_tx.clone();
+
+        // Sprint 04: Import Dialog command senders
+        let cmd_tx_import_browse = cmd_tx.clone();
+        let cmd_tx_import_start = cmd_tx.clone();
+        let cmd_tx_import_cancel = cmd_tx.clone();
 
         // Sprint 06: JSON format command senders
         let cmd_tx_format = cmd_tx.clone();
@@ -447,6 +456,23 @@ impl AppWindow {
 
         window.on_export_as_curl(move || {
             let _ = cmd_tx_export_curl.send(UiCommand::ExportAsCurl);
+        });
+
+        // Sprint 04: Import Dialog callbacks
+        window.on_import_browse_file(move || {
+            let _ = cmd_tx_import_browse.send(UiCommand::ImportBrowseFile);
+        });
+
+        let ui_weak_import_start = ui_weak.clone();
+        window.on_import_start(move || {
+            if let Some(ui) = ui_weak_import_start.upgrade() {
+                let file_path = ui.get_import_selected_file().to_string();
+                let _ = cmd_tx_import_start.send(UiCommand::ImportStart { file_path });
+            }
+        });
+
+        window.on_import_cancel(move || {
+            let _ = cmd_tx_import_cancel.send(UiCommand::ImportCancel);
         });
 
         // Sprint 06: JSON format callbacks
@@ -2170,6 +2196,112 @@ fn run_async_runtime(
                         });
                     }
                 }
+
+                // --- Sprint 04: Import Dialog Commands ---
+                UiCommand::ImportBrowseFile => {
+                    let tx = update_tx.clone();
+                    std::thread::spawn(move || {
+                        if let Some(path) = rfd::FileDialog::new()
+                            .set_title("Select Postman File to Import")
+                            .add_filter("JSON files", &["json"])
+                            .pick_file()
+                        {
+                            let _ = tx.send(UiUpdate::ImportFileSelected {
+                                file_path: path.display().to_string(),
+                            });
+                        }
+                    });
+                }
+
+                UiCommand::ImportStart { file_path } => {
+                    if let Some(ref ws_path) = state.workspace_path.clone() {
+                        let ws = ws_path.clone();
+                        let tx = update_tx.clone();
+                        let cmd_tx_refresh = cmd_tx.clone();
+                        let file = file_path.clone();
+
+                        std::thread::spawn(move || {
+                            // Read file
+                            let content = match std::fs::read_to_string(&file) {
+                                Ok(c) => c,
+                                Err(e) => {
+                                    let _ = tx.send(UiUpdate::ImportError {
+                                        message: format!("Failed to read file: {}", e),
+                                    });
+                                    return;
+                                }
+                            };
+
+                            // Create importer and preview
+                            let importer = PostmanImporter::new();
+
+                            // Validate and preview first
+                            let validation = importer.validate_file(&content);
+                            if !validation.is_valid {
+                                let _ = tx.send(UiUpdate::ImportError {
+                                    message: validation.issues.join(", "),
+                                });
+                                return;
+                            }
+
+                            // Preview
+                            match importer.preview(&content) {
+                                Ok(preview) => {
+                                    let warnings: Vec<ImportWarningData> = preview.warnings.iter()
+                                        .map(|w| ImportWarningData {
+                                            path: w.path.clone(),
+                                            message: w.message.clone(),
+                                            severity: w.severity.to_string(),
+                                        })
+                                        .collect();
+
+                                    let _ = tx.send(UiUpdate::ImportPreview {
+                                        format: preview.format,
+                                        collection_name: preview.collection_name,
+                                        environment_name: preview.environment_name,
+                                        request_count: preview.request_count,
+                                        folder_count: preview.folder_count,
+                                        variable_count: preview.variable_count,
+                                        warnings,
+                                    });
+                                }
+                                Err(e) => {
+                                    let _ = tx.send(UiUpdate::ImportError {
+                                        message: e.to_string(),
+                                    });
+                                    return;
+                                }
+                            }
+
+                            // Perform import
+                            let _ = tx.send(UiUpdate::ImportProgress(0.5));
+
+                            match importer.import_collection(&content, &ws) {
+                                Ok(result) => {
+                                    let _ = tx.send(UiUpdate::ImportProgress(1.0));
+                                    let _ = tx.send(UiUpdate::ImportDialogComplete {
+                                        name: result.name,
+                                        requests_imported: result.requests_imported,
+                                        folders_imported: result.folders_imported,
+                                        variables_imported: result.variables_imported,
+                                    });
+                                    // Refresh tree and environments
+                                    let _ = cmd_tx_refresh.send(UiCommand::RefreshTree);
+                                    let _ = cmd_tx_refresh.send(UiCommand::RefreshEnvironments);
+                                }
+                                Err(e) => {
+                                    let _ = tx.send(UiUpdate::ImportError {
+                                        message: e.to_string(),
+                                    });
+                                }
+                            }
+                        });
+                    }
+                }
+
+                UiCommand::ImportCancel => {
+                    // Nothing to do - UI handles closing the dialog
+                }
             }
         }
     });
@@ -3008,6 +3140,69 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         UiUpdate::ImportComplete { collection_name } => {
             // Show success - could also refresh tree
             eprintln!("Imported collection: {}", collection_name);
+        }
+
+        // --- Sprint 04: Import Dialog Updates ---
+        UiUpdate::ImportFileSelected { file_path } => {
+            ui.set_import_selected_file(file_path.into());
+            ui.set_import_state(ImportState::Validating);
+        }
+
+        UiUpdate::ImportPreview {
+            format,
+            collection_name,
+            environment_name,
+            request_count,
+            folder_count,
+            variable_count,
+            warnings,
+        } => {
+            // Set preview data
+            ui.set_import_preview(ImportPreviewData {
+                format: format.into(),
+                collection_name: collection_name.unwrap_or_default().into(),
+                environment_name: environment_name.unwrap_or_default().into(),
+                request_count: request_count as i32,
+                folder_count: folder_count as i32,
+                variable_count: variable_count as i32,
+            });
+
+            // Convert warnings to Slint model
+            let slint_warnings: Vec<ImportWarningItem> = warnings
+                .into_iter()
+                .map(|w| ImportWarningItem {
+                    path: w.path.into(),
+                    message: w.message.into(),
+                    severity: w.severity.into(),
+                })
+                .collect();
+            let model: ModelRc<ImportWarningItem> =
+                Rc::new(VecModel::from(slint_warnings)).into();
+            ui.set_import_warnings(model);
+
+            ui.set_import_state(ImportState::Previewing);
+        }
+
+        UiUpdate::ImportProgress(progress) => {
+            ui.set_import_progress(progress);
+        }
+
+        UiUpdate::ImportDialogComplete {
+            name,
+            requests_imported,
+            folders_imported,
+            variables_imported,
+        } => {
+            eprintln!(
+                "Import complete: {} ({} requests, {} folders, {} variables)",
+                name, requests_imported, folders_imported, variables_imported
+            );
+            ui.set_import_state(ImportState::Complete);
+        }
+
+        UiUpdate::ImportError { message } => {
+            ui.set_import_error_message(message.into());
+            ui.set_import_state(ImportState::Error);
         }
 
         UiUpdate::ExportComplete { path } => {
