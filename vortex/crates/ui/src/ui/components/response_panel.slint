@@ -1,8 +1,9 @@
 // Response Panel Component
-// Displays response data with tabs for Body and Headers
+// Displays response data with tabs for Body, Headers, and Tests
 
 import { TextEdit, ScrollView } from "std-widgets.slint";
 import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+import { TestPanel, TestAssertion, TestSummary, AssertionDialog } from "test_panel.slint";
 
 // Response header for display
 export struct ResponseHeader {
@@ -33,17 +34,41 @@ export component ResponsePanel inherits Rectangle {
     // Loading data
     in property <string> elapsed-time: "0ms";
 
-    // Tab state: 0=Body, 1=Headers
+    // Tab state: 0=Body, 1=Headers, 2=Tests
     in-out property <int> active-tab: 0;
 
     // Sprint 06: Track if body is formatted
     in-out property <bool> is-formatted: false;
+
+    // Sprint 07: Test assertions
+    in property <[TestAssertion]> test-assertions: [];
+    in property <TestSummary> test-summary: { total: 0, passed: 0, failed: 0, duration-ms: 0 };
+    in property <bool> has-test-results: false;
+    in property <bool> is-running-tests: false;
+    in-out property <bool> show-assertion-dialog: false;
+    in-out property <bool> is-editing-assertion: false;
+    in-out property <int> assertion-type-index: 0;
+    in-out property <string> assertion-status-value: "200";
+    in-out property <string> assertion-max-time: "1000";
+    in-out property <string> assertion-header-name: "";
+    in-out property <string> assertion-header-value: "";
+    in-out property <string> assertion-pattern: "";
+    in-out property <string> assertion-text: "";
+    in-out property <string> assertion-json-path: "";
+    in-out property <string> assertion-expected: "";
 
     callback retry-clicked();
     callback copy-body-clicked();
     // Sprint 06: Format callbacks
     callback format-body-clicked();
     callback copy-formatted-clicked();
+    // Sprint 07: Test callbacks
+    callback run-tests();
+    callback add-test-assertion();
+    callback save-test-assertion();
+    callback remove-test-assertion(int);
+    callback edit-test-assertion(int);
+    callback close-assertion-dialog();
 
     background: VortexPalette.bg-secondary;
     min-height: 200px;
@@ -372,6 +397,64 @@ export component ResponsePanel inherits Rectangle {
                         }
                     }
 
+                    // Tests tab
+                    Rectangle {
+                        width: 90px;
+                        height: 35px;
+                        background: active-tab == 2 ? VortexPalette.bg-tertiary : transparent;
+
+                        // Active indicator line at bottom
+                        Rectangle {
+                            x: 0;
+                            y: parent.height - 2px;
+                            width: parent.width;
+                            height: 2px;
+                            background: active-tab == 2 ? VortexPalette.primary : transparent;
+                        }
+
+                        states [
+                            hover when tests-tab-touch.has-hover && active-tab != 2: {
+                                background: VortexPalette.bg-hover;
+                            }
+                        ]
+
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: "Tests";
+                                color: active-tab == 2 ? VortexPalette.text-accent : VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                                font-weight: active-tab == 2 ? VortexTypography.weight-bold : VortexTypography.weight-normal;
+                                vertical-alignment: center;
+                            }
+
+                            // Test count badge
+                            if test-assertions.length > 0: Rectangle {
+                                width: 24px;
+                                height: 18px;
+                                background: has-test-results ?
+                                    (test-summary.failed == 0 ? VortexPalette.status-success : VortexPalette.status-error) :
+                                    (active-tab == 2 ? VortexPalette.primary : VortexPalette.bg-tertiary);
+                                border-radius: 9px;
+
+                                Text {
+                                    text: test-assertions.length;
+                                    color: has-test-results || active-tab == 2 ? white : VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-xs;
+                                    font-weight: VortexTypography.weight-bold;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        tests-tab-touch := TouchArea {
+                            clicked => { active-tab = 2; }
+                        }
+                    }
+
                     Rectangle { horizontal-stretch: 1; }
                 }
             }
@@ -450,8 +533,44 @@ export component ResponsePanel inherits Rectangle {
                         }
                     }
                 }
+
+                // Tests tab content
+                if active-tab == 2: TestPanel {
+                    x: 0;
+                    y: 0;
+                    width: parent.width;
+                    height: parent.height;
+                    assertions: test-assertions;
+                    summary: test-summary;
+                    has-results: has-test-results;
+                    is-running: is-running-tests;
+
+                    run-tests => { root.run-tests(); }
+                    add-assertion => { root.add-test-assertion(); }
+                    remove-assertion(id) => { root.remove-test-assertion(id); }
+                    edit-assertion(id) => { root.edit-test-assertion(id); }
+                }
             }
         }
+    }
+
+    // Assertion dialog overlay
+    AssertionDialog {
+        show: show-assertion-dialog;
+        is-edit: is-editing-assertion;
+        assertion-type-index <=> root.assertion-type-index;
+        status-value <=> root.assertion-status-value;
+        max-time-ms <=> root.assertion-max-time;
+        header-name <=> root.assertion-header-name;
+        header-value <=> root.assertion-header-value;
+        pattern <=> root.assertion-pattern;
+        text-value <=> root.assertion-text;
+        json-path <=> root.assertion-json-path;
+        expected-value <=> root.assertion-expected;
+
+        close => { root.close-assertion-dialog(); }
+        save => { root.save-test-assertion(); }
+        type-changed(idx) => { }
     }
 
     // Error state - show error details
