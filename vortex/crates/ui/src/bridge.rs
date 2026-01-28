@@ -195,11 +195,21 @@ pub enum UiCommand {
     SearchResultClicked { id: String, path: String },
 
     // --- Sprint 06: Import/Export Commands ---
-    /// Import a Postman collection.
+    /// Import a Postman collection (legacy - opens dialog).
     ImportCollection,
 
     /// Export the current collection.
     ExportCollection,
+
+    // --- Sprint 04: Import Dialog Commands ---
+    /// Browse for file to import.
+    ImportBrowseFile,
+
+    /// Start the import process with the selected file.
+    ImportStart { file_path: String },
+
+    /// Cancel the import process.
+    ImportCancel,
 
     /// Export current request as cURL command.
     ExportAsCurl,
@@ -408,6 +418,14 @@ pub struct SearchResultData {
     pub path: String,
 }
 
+/// Import warning data for UI (Sprint 04).
+#[derive(Debug, Clone)]
+pub struct ImportWarningData {
+    pub path: String,
+    pub message: String,
+    pub severity: String,
+}
+
 /// Updates sent from async runtime to the UI.
 #[derive(Debug, Clone)]
 pub enum UiUpdate {
@@ -545,11 +563,40 @@ pub enum UiUpdate {
     ShowQuickSearch(bool),
 
     // --- Sprint 06: Import/Export Updates ---
-    /// Collection import completed successfully.
+    /// Collection import completed successfully (legacy).
     ImportComplete { collection_name: String },
 
     /// Collection export completed successfully.
     ExportComplete { path: String },
+
+    // --- Sprint 04: Import Dialog Updates ---
+    /// Import file selected (from browse).
+    ImportFileSelected { file_path: String },
+
+    /// Import preview ready.
+    ImportPreview {
+        format: String,
+        collection_name: Option<String>,
+        environment_name: Option<String>,
+        request_count: usize,
+        folder_count: usize,
+        variable_count: usize,
+        warnings: Vec<ImportWarningData>,
+    },
+
+    /// Import progress update.
+    ImportProgress(f32),
+
+    /// Import completed successfully with new dialog.
+    ImportDialogComplete {
+        name: String,
+        requests_imported: usize,
+        folders_imported: usize,
+        variables_imported: usize,
+    },
+
+    /// Import error.
+    ImportError { message: String },
 
     /// cURL export completed - copy to clipboard.
     CurlExport(String),

@@ -16,9 +16,11 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 async-trait = "0.1.89"
 dirs = "6.0"
+uuid = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
+tempfile = "3.15"
 
 [lints]
 workspace = true

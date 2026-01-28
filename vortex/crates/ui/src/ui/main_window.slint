@@ -28,6 +28,9 @@ import { ConfirmDialog } from "components/confirm_dialog.slint";
 import { RequestTabBar, RequestTab } from "components/request_tabs.slint";
 import { QuickSearchDialog, SearchResult } from "components/quick_search.slint";
 import { RequestEditor } from "components/request_editor.slint";
+import { ImportDialog, ImportPreviewData, ImportWarningItem, ImportState } from "components/import_dialog.slint";
+
+export { ImportPreviewData, ImportWarningItem, ImportState }
 
 export { HistoryItem, ResponseHeader, QueryParam, HeaderRow, RequestTab, SearchResult }
 
@@ -214,6 +217,22 @@ export component MainWindow inherits Window {
     callback import-collection();
     callback import-environment();
     callback export-collection();
+
+    // Import Dialog state
+    in-out property <bool> show-import-dialog: false;
+    in-out property <ImportState> import-state: ImportState.idle;
+    in-out property <string> import-selected-file: "";
+    in-out property <ImportPreviewData> import-preview;
+    in-out property <[ImportWarningItem]> import-warnings: [];
+    in-out property <string> import-error-message: "";
+    in-out property <float> import-progress: 0.0;
+    in-out property <string> import-success-message: "";
+
+    // Import Dialog callbacks
+    callback import-browse-file();
+    callback import-validate-file();
+    callback import-start();
+    callback import-cancel();
     callback export-as-curl();
 
     // Sprint 06: JSON Format callbacks
@@ -452,7 +471,14 @@ export component MainWindow inherits Window {
 
                                     import-touch := TouchArea {
                                         enabled: workspace-path != "";
-                                        clicked => { import-collection(); }
+                                        clicked => {
+                                            show-import-dialog = true;
+                                            import-state = ImportState.idle;
+                                            import-selected-file = "";
+                                            import-warnings = [];
+                                            import-error-message = "";
+                                            import-progress = 0.0;
+                                        }
                                     }
                                 }
 
@@ -769,6 +795,32 @@ export component MainWindow inherits Window {
         close-clicked => {
             close-quick-search();
             show-quick-search = false;
+        }
+    }
+
+    // Sprint 04: Import Dialog (overlay)
+    ImportDialog {
+        is-visible: show-import-dialog;
+        state <=> import-state;
+        selected-file <=> import-selected-file;
+        preview <=> import-preview;
+        warnings <=> import-warnings;
+        error-message <=> import-error-message;
+        progress <=> import-progress;
+        success-message <=> import-success-message;
+
+        browse-file => {
+            import-browse-file();
+        }
+        validate-file => {
+            import-validate-file();
+        }
+        start-import => {
+            import-start();
+        }
+        cancel-import => {
+            show-import-dialog = false;
+            import-cancel();
         }
     }
 }
