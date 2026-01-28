@@ -161,12 +161,66 @@ impl ResolveVariables {
                     location: *location,
                 }
             }
-            AuthConfig::Bearer { token } => {
+            AuthConfig::Bearer { token, prefix } => {
                 let token_result = self.resolver.resolve(token);
                 unresolved.extend(token_result.unresolved);
 
                 AuthConfig::Bearer {
                     token: token_result.resolved,
+                    prefix: prefix.clone(),
+                }
+            }
+            // OAuth2 configs - variables in URLs and secrets should be resolved
+            AuthConfig::OAuth2ClientCredentials {
+                token_url,
+                client_id,
+                client_secret,
+                scope,
+                extra_params,
+            } => {
+                let token_url_result = self.resolver.resolve(token_url);
+                let client_id_result = self.resolver.resolve(client_id);
+                let client_secret_result = self.resolver.resolve(client_secret);
+                unresolved.extend(token_url_result.unresolved);
+                unresolved.extend(client_id_result.unresolved);
+                unresolved.extend(client_secret_result.unresolved);
+
+                AuthConfig::OAuth2ClientCredentials {
+                    token_url: token_url_result.resolved,
+                    client_id: client_id_result.resolved,
+                    client_secret: client_secret_result.resolved,
+                    scope: scope.clone(),
+                    extra_params: extra_params.clone(),
+                }
+            }
+            AuthConfig::OAuth2AuthorizationCode {
+                auth_url,
+                token_url,
+                client_id,
+                client_secret,
+                redirect_uri,
+                scope,
+                extra_params,
+            } => {
+                let auth_url_result = self.resolver.resolve(auth_url);
+                let token_url_result = self.resolver.resolve(token_url);
+                let client_id_result = self.resolver.resolve(client_id);
+                let client_secret_result = self.resolver.resolve(client_secret);
+                let redirect_uri_result = self.resolver.resolve(redirect_uri);
+                unresolved.extend(auth_url_result.unresolved);
+                unresolved.extend(token_url_result.unresolved);
+                unresolved.extend(client_id_result.unresolved);
+                unresolved.extend(client_secret_result.unresolved);
+                unresolved.extend(redirect_uri_result.unresolved);
+
+                AuthConfig::OAuth2AuthorizationCode {
+                    auth_url: auth_url_result.resolved,
+                    token_url: token_url_result.resolved,
+                    client_id: client_id_result.resolved,
+                    client_secret: client_secret_result.resolved,
+                    redirect_uri: redirect_uri_result.resolved,
+                    scope: scope.clone(),
+                    extra_params: extra_params.clone(),
                 }
             }
             AuthConfig::Basic { username, password } => {
@@ -332,7 +386,7 @@ mod tests {
 
         assert!(output.is_complete);
         match output.resolved_request.auth {
-            AuthConfig::Bearer { token } => assert_eq!(token, "sk-secret-123"),
+            AuthConfig::Bearer { token, .. } => assert_eq!(token, "sk-secret-123"),
             _ => panic!("Expected Bearer auth"),
         }
     }

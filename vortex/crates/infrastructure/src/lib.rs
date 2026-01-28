@@ -4,11 +4,15 @@
 //! defined in the application layer.
 
 pub mod adapters;
+pub mod auth;
+pub mod http;
 pub mod import;
 pub mod persistence;
 pub mod serialization;
 
 pub use adapters::ReqwestHttpClient;
+pub use auth::OAuth2Provider;
+pub use http::{build_body, BodyBuildError, BuiltBody};
 pub use import::{
     ImportConfig, ImportError, ImportFormat, ImportPreview, ImportResult, ImportWarning,
     PostmanCollection, PostmanEnvironment, PostmanImporter, ValidationResult, WarningSeverity,

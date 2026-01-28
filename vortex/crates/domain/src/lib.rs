@@ -14,9 +14,15 @@ pub mod request;
 pub mod response;
 pub mod settings;
 pub mod state;
+pub mod tls;
 
+pub use auth::{ApiKeyLocation, AuthConfig, AuthError, AuthResolution, OAuth2Token};
 pub use error::{DomainError, DomainResult};
 pub use history::{HistoryAuth, HistoryEntry, HistoryHeader, HistoryParam, RequestHistory};
 pub use id::{generate_id, generate_id_v7};
 pub use settings::{FontScale, ThemeMode, UserSettings};
 pub use state::{RequestErrorKind, RequestState};
+pub use tls::{
+    CertificateInfo, CertificateSource, ClientCertificate, PrivateKeySource, TlsConfig,
+    TlsSecurityWarning, TlsVersion, WarningSeverity,
+};
