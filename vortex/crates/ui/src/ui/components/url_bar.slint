@@ -1,9 +1,8 @@
 // URL Bar Component
-// Contains method selector, URL input, and Send/Cancel button
+// Postman-style URL bar with method selector, URL input, and Send button
 
-import { LineEdit } from "std-widgets.slint";
-import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
-import { MethodSelector } from "method_selector.slint";
+import { LineEdit, ComboBox } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape, VortexLayout } from "../theme.slint";
 
 export component UrlBar inherits Rectangle {
     in-out property <string> url: "";
@@ -16,100 +15,131 @@ export component UrlBar inherits Rectangle {
     callback method-changed(string);
     callback url-changed(string);
 
-    height: 48px;
+    height: VortexLayout.url-bar-height;
     background: VortexPalette.bg-secondary;
 
+    // Bottom border only effect
+    Rectangle {
+        x: 0;
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: VortexPalette.border-default;
+    }
+
     HorizontalLayout {
-        padding: VortexSpacing.sm;
+        padding: VortexSpacing.md;
         spacing: VortexSpacing.sm;
 
-        MethodSelector {
-            current-index <=> method-index;
-            methods: root.methods;
-            method-changed(m) => { root.method-changed(m); }
-        }
-
+        // Combined method + URL input field (Postman style)
         Rectangle {
             horizontal-stretch: 1;
-            background: VortexPalette.bg-input;
-            border-radius: VortexShape.radius-sm;
+            height: 36px;
+            background: VortexPalette.bg-tertiary;
+            border-radius: VortexShape.radius-md;
             border-width: 1px;
-            border-color: url-input.has-focus ? VortexPalette.border-focus : VortexPalette.border-default;
+            border-color: url-input.has-focus ? VortexPalette.text-primary : VortexPalette.border-strong;
 
-            url-input := LineEdit {
-                width: parent.width - 2px;
-                height: parent.height - 2px;
-                x: 1px;
-                y: 1px;
-                text <=> url;
-                placeholder-text: "Enter URL (e.g., https://api.example.com/users)";
-                font-size: VortexTypography.font-base;
+            HorizontalLayout {
+                spacing: 0px;
 
-                accepted => {
-                    if !is-loading {
-                        send-clicked();
+                // Method selector
+                Rectangle {
+                    width: 100px;
+                    background: method-touch.has-hover ? VortexPalette.bg-hover : transparent;
+
+                    // Right border separator
+                    Rectangle {
+                        x: parent.width - 1px;
+                        y: 0;
+                        width: 1px;
+                        height: parent.height;
+                        background: VortexPalette.border-strong;
+                    }
+
+                    HorizontalLayout {
+                        padding-left: VortexSpacing.md;
+                        padding-right: VortexSpacing.sm;
+                        alignment: space-between;
+
+                        Text {
+                            text: method-index >= 0 && method-index < methods.length ? methods[method-index] : "GET";
+                            font-size: VortexTypography.font-md;
+                            font-weight: VortexTypography.weight-semibold;
+                            color: method-index == 0 ? VortexPalette.method-get :      // GET
+                                   method-index == 1 ? VortexPalette.method-post :     // POST
+                                   method-index == 2 ? VortexPalette.method-put :      // PUT
+                                   method-index == 3 ? VortexPalette.method-patch :    // PATCH
+                                   method-index == 4 ? VortexPalette.method-delete :   // DELETE
+                                   method-index == 5 ? VortexPalette.method-head :     // HEAD
+                                   VortexPalette.method-options;                        // OPTIONS
+                            vertical-alignment: center;
+                        }
+
+                        // Dropdown chevron
+                        Text {
+                            text: "\u{25BE}";  // Down triangle
+                            font-size: VortexTypography.font-xs;
+                            color: VortexPalette.text-muted;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    method-touch := TouchArea {
+                        clicked => {
+                            // Cycle through methods on click (simplified)
+                            method-index = mod(method-index + 1, methods.length);
+                            method-changed(methods[method-index]);
+                        }
                     }
                 }
 
-                edited => {
-                    url-changed(self.text);
+                // URL input
+                url-input := LineEdit {
+                    horizontal-stretch: 1;
+                    text <=> url;
+                    placeholder-text: "Enter request URL";
+                    font-size: VortexTypography.font-md;
+
+                    accepted => {
+                        if !is-loading {
+                            send-clicked();
+                        }
+                    }
+
+                    edited => {
+                        url-changed(self.text);
+                    }
                 }
             }
         }
 
-        if !is-loading: Rectangle {
-            width: 80px;
-            height: 32px;
-            background: VortexPalette.button-primary;
-            border-radius: VortexShape.radius-sm;
-
-            states [
-                hover when send-touch.has-hover: {
-                    background: VortexPalette.button-primary-hover;
-                }
-            ]
+        // Send / Cancel button
+        Rectangle {
+            width: 90px;
+            height: 36px;
+            background: is-loading ? VortexPalette.status-error :
+                        (send-touch.has-hover ? VortexPalette.accent-hover : VortexPalette.accent);
+            border-radius: VortexShape.radius-md;
+            opacity: is-loading ? (cancel-touch.has-hover ? 1.0 : 0.9) : 1.0;
 
             Text {
-                text: "Send";
-                color: white;
-                font-size: VortexTypography.font-base;
-                font-weight: VortexTypography.weight-medium;
+                text: is-loading ? "Cancel" : "Send";
+                color: VortexPalette.text-inverse;
+                font-size: VortexTypography.font-md;
+                font-weight: VortexTypography.weight-semibold;
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }
 
             send-touch := TouchArea {
-                clicked => {
-                    send-clicked();
-                }
-            }
-        }
-
-        if is-loading: Rectangle {
-            width: 80px;
-            height: 32px;
-            background: VortexPalette.status-error;
-            border-radius: VortexShape.radius-sm;
-
-            states [
-                hover when cancel-touch.has-hover: {
-                    background: #d43d3d;
-                }
-            ]
-
-            Text {
-                text: "Cancel";
-                color: white;
-                font-size: VortexTypography.font-base;
-                font-weight: VortexTypography.weight-medium;
-                horizontal-alignment: center;
-                vertical-alignment: center;
+                visible: !is-loading;
+                clicked => { send-clicked(); }
             }
 
             cancel-touch := TouchArea {
-                clicked => {
-                    cancel-clicked();
-                }
+                visible: is-loading;
+                clicked => { cancel-clicked(); }
             }
         }
     }

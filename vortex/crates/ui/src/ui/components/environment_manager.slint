@@ -26,6 +26,7 @@ export component EnvironmentManager inherits Rectangle {
     callback add-variable();
     callback delete-variable(int);
     callback variable-changed(int, VariableRow);
+    callback import-clicked();
 
     background: is-visible ? #00000080 : transparent;
     visible: is-visible;
@@ -71,7 +72,7 @@ export component EnvironmentManager inherits Rectangle {
                         ]
 
                         Text {
-                            text: "\u{2715}";
+                            text: "x";
                             color: VortexPalette.text-primary;
                             font-size: VortexTypography.font-lg;
                             horizontal-alignment: center;
@@ -133,6 +134,11 @@ export component EnvironmentManager inherits Rectangle {
                                         }
                                     }
                                 }
+
+                                Button {
+                                    text: "Import";
+                                    clicked => { import-clicked(); }
+                                }
                             }
                         }
 
@@ -186,7 +192,7 @@ export component EnvironmentManager inherits Rectangle {
                                             ]
 
                                             Text {
-                                                text: "\u{2715}"; // X mark (safe icon)
+                                                text: "x"; // X mark (safe icon)
                                                 color: VortexPalette.text-secondary;
                                                 font-size: VortexTypography.font-base;
                                                 horizontal-alignment: center;

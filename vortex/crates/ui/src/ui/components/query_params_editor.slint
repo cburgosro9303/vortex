@@ -8,6 +8,7 @@ import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../
 export struct QueryParam {
     key: string,
     value: string,
+    description: string,
     enabled: bool,
 }
 
@@ -87,7 +88,7 @@ component QueryParamRow inherits Rectangle {
             ]
 
             Text {
-                text: "\u{2715}"; // X icon
+                text: "x"; // X icon
                 color: VortexPalette.text-secondary;
                 font-size: VortexTypography.font-base;
                 horizontal-alignment: center;

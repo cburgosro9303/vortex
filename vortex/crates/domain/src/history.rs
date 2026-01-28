@@ -9,6 +9,47 @@ use serde::{Deserialize, Serialize};
 
 use crate::request::HttpMethod;
 
+/// A header stored in history.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HistoryHeader {
+    /// Header name.
+    pub key: String,
+    /// Header value.
+    pub value: String,
+    /// Whether this header is enabled.
+    pub enabled: bool,
+}
+
+/// A query parameter stored in history.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HistoryParam {
+    /// Parameter name.
+    pub key: String,
+    /// Parameter value.
+    pub value: String,
+    /// Whether this parameter is enabled.
+    pub enabled: bool,
+}
+
+/// Authentication data stored in history.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HistoryAuth {
+    /// Authentication type: 0=None, 1=Bearer, 2=Basic, 3=API Key.
+    pub auth_type: i32,
+    /// Bearer token value.
+    pub bearer_token: String,
+    /// Basic auth username.
+    pub basic_username: String,
+    /// Basic auth password.
+    pub basic_password: String,
+    /// API key header/param name.
+    pub api_key_name: String,
+    /// API key value.
+    pub api_key_value: String,
+    /// API key location: 0=Header, 1=Query.
+    pub api_key_location: i32,
+}
+
 /// A single entry in the request history.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryEntry {
@@ -26,6 +67,18 @@ pub struct HistoryEntry {
     pub duration_ms: Option<u64>,
     /// Optional name of the request (from collection).
     pub request_name: Option<String>,
+    /// Request body (for POST, PUT, PATCH).
+    #[serde(default)]
+    pub body: Option<String>,
+    /// Request headers.
+    #[serde(default)]
+    pub headers: Vec<HistoryHeader>,
+    /// Query parameters.
+    #[serde(default)]
+    pub params: Vec<HistoryParam>,
+    /// Authentication data.
+    #[serde(default)]
+    pub auth: Option<HistoryAuth>,
 }
 
 impl HistoryEntry {
@@ -37,6 +90,10 @@ impl HistoryEntry {
         status_code: u16,
         duration_ms: u64,
         request_name: Option<String>,
+        body: Option<String>,
+        headers: Vec<HistoryHeader>,
+        params: Vec<HistoryParam>,
+        auth: Option<HistoryAuth>,
     ) -> Self {
         Self {
             id: crate::generate_id(),
@@ -46,12 +103,24 @@ impl HistoryEntry {
             status_code: Some(status_code),
             duration_ms: Some(duration_ms),
             request_name,
+            body,
+            headers,
+            params,
+            auth,
         }
     }
 
     /// Creates a history entry for a failed request.
     #[must_use]
-    pub fn failed(method: HttpMethod, url: String, request_name: Option<String>) -> Self {
+    pub fn failed(
+        method: HttpMethod,
+        url: String,
+        request_name: Option<String>,
+        body: Option<String>,
+        headers: Vec<HistoryHeader>,
+        params: Vec<HistoryParam>,
+        auth: Option<HistoryAuth>,
+    ) -> Self {
         Self {
             id: crate::generate_id(),
             timestamp: Utc::now(),
@@ -60,6 +129,10 @@ impl HistoryEntry {
             status_code: None,
             duration_ms: None,
             request_name,
+            body,
+            headers,
+            params,
+            auth,
         }
     }
 
@@ -180,6 +253,10 @@ mod tests {
             200,
             150,
             Some("Test Request".to_string()),
+            None,
+            vec![],
+            vec![],
+            None,
         );
 
         assert_eq!(entry.method, HttpMethod::Get);
@@ -198,6 +275,10 @@ mod tests {
                 200,
                 100,
                 None,
+                None,
+                vec![],
+                vec![],
+                None,
             ));
         }
 
@@ -214,6 +295,10 @@ mod tests {
             200,
             150,
             None,
+            None,
+            vec![],
+            vec![],
+            None,
         );
         assert_eq!(entry.duration_display(), "150ms");
 
@@ -222,6 +307,10 @@ mod tests {
             "https://example.com".to_string(),
             200,
             1500,
+            None,
+            None,
+            vec![],
+            vec![],
             None,
         );
         assert_eq!(entry2.duration_display(), "1.5s");

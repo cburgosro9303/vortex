@@ -118,6 +118,7 @@ pub enum UiCommand {
         index: i32,
         key: String,
         value: String,
+        description: String,
         enabled: bool,
     },
 
@@ -133,6 +134,7 @@ pub enum UiCommand {
         index: i32,
         key: String,
         value: String,
+        description: String,
         enabled: bool,
     },
 
@@ -211,6 +213,15 @@ pub enum UiCommand {
 
     /// Copy the formatted response body.
     CopyFormattedResponse,
+
+    /// Refresh the collection tree.
+    RefreshTree,
+
+    /// Refresh the environments list.
+    RefreshEnvironments,
+
+    /// Import a Postman environment.
+    ImportEnvironment,
 }
 
 /// A tree item for UI display.
@@ -258,6 +269,7 @@ pub struct HistoryItemData {
 pub struct QueryParamData {
     pub key: String,
     pub value: String,
+    pub description: String,
     pub enabled: bool,
 }
 
@@ -266,6 +278,7 @@ pub struct QueryParamData {
 pub struct HeaderData {
     pub key: String,
     pub value: String,
+    pub description: String,
     pub enabled: bool,
 }
 
