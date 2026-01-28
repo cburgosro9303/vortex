@@ -1,0 +1,212 @@
+// Header Bar Component
+// Top navigation bar with search, settings, and theme toggle
+
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape, VortexLayout } from "../theme.slint";
+
+export component HeaderBar inherits Rectangle {
+    in property <string> version: "v1.0.0";
+    in property <bool> dark-mode: true;
+
+    callback toggle-theme();
+    callback open-settings();
+    callback open-quick-search();
+
+    height: VortexLayout.header-height;
+    background: VortexPalette.bg-secondary;
+
+    // Bottom border
+    Rectangle {
+        x: 0;
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: VortexPalette.border-default;
+    }
+
+    HorizontalLayout {
+        padding-left: VortexSpacing.lg;
+        padding-right: VortexSpacing.lg;
+        alignment: space-between;
+
+        // Left section: Logo and navigation
+        HorizontalLayout {
+            spacing: VortexSpacing.xxl;
+            alignment: start;
+
+            // Logo / Brand
+            HorizontalLayout {
+                spacing: VortexSpacing.sm;
+                alignment: center;
+
+                // Vortex icon (simplified lightning bolt)
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    background: VortexPalette.accent;
+                    border-radius: VortexShape.radius-md;
+
+                    Text {
+                        text: "V";
+                        font-size: VortexTypography.font-lg;
+                        font-weight: VortexTypography.weight-bold;
+                        color: VortexPalette.text-inverse;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Text {
+                    text: "Vortex";
+                    font-size: VortexTypography.font-lg;
+                    font-weight: VortexTypography.weight-semibold;
+                    color: VortexPalette.text-primary;
+                    vertical-alignment: center;
+                }
+            }
+
+            // Navigation tabs
+            HorizontalLayout {
+                spacing: VortexSpacing.xs;
+                alignment: center;
+
+                // Workspaces tab (active)
+                Rectangle {
+                    height: 32px;
+                    width: nav-ws-text.preferred-width + VortexSpacing.lg;
+                    background: nav-ws-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                    border-radius: VortexShape.radius-sm;
+                    border-width: 0px 0px 2px 0px;
+                    border-color: VortexPalette.accent;
+
+                    nav-ws-text := Text {
+                        text: "Workspaces";
+                        font-size: VortexTypography.font-sm;
+                        font-weight: VortexTypography.weight-medium;
+                        color: VortexPalette.text-primary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    nav-ws-touch := TouchArea {}
+                }
+
+                // History tab
+                Rectangle {
+                    height: 32px;
+                    width: nav-hist-text.preferred-width + VortexSpacing.lg;
+                    background: nav-hist-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                    border-radius: VortexShape.radius-sm;
+
+                    nav-hist-text := Text {
+                        text: "History";
+                        font-size: VortexTypography.font-sm;
+                        color: VortexPalette.text-secondary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    nav-hist-touch := TouchArea {}
+                }
+            }
+        }
+
+        // Center section: Search bar
+        Rectangle {
+            width: 320px;
+            height: 32px;
+            background: VortexPalette.bg-tertiary;
+            border-radius: VortexShape.radius-md;
+            border-width: 1px;
+            border-color: search-touch.has-hover ? VortexPalette.border-strong : VortexPalette.border-default;
+
+            HorizontalLayout {
+                padding-left: VortexSpacing.md;
+                padding-right: VortexSpacing.md;
+                spacing: VortexSpacing.sm;
+                alignment: start;
+
+                // Search icon
+                Text {
+                    text: "\u{1F50D}";  // Magnifying glass emoji
+                    font-size: VortexTypography.font-sm;
+                    color: VortexPalette.text-muted;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: "Search requests... (Ctrl+K)";
+                    font-size: VortexTypography.font-sm;
+                    color: VortexPalette.text-placeholder;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+            }
+
+            search-touch := TouchArea {
+                clicked => { open-quick-search(); }
+            }
+        }
+
+        // Right section: Actions
+        HorizontalLayout {
+            spacing: VortexSpacing.sm;
+            alignment: end;
+
+            // Theme toggle
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                background: theme-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                border-radius: VortexShape.radius-md;
+
+                Text {
+                    text: dark-mode ? "\u{2600}" : "\u{1F319}";  // Sun / Moon
+                    font-size: VortexTypography.font-lg;
+                    color: VortexPalette.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                theme-touch := TouchArea {
+                    clicked => { toggle-theme(); }
+                }
+            }
+
+            // Settings
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                background: settings-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                border-radius: VortexShape.radius-md;
+
+                Text {
+                    text: "\u{2699}";  // Gear
+                    font-size: VortexTypography.font-lg;
+                    color: VortexPalette.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                settings-touch := TouchArea {
+                    clicked => { open-settings(); }
+                }
+            }
+
+            // Version badge
+            Rectangle {
+                height: 24px;
+                width: version-text.preferred-width + VortexSpacing.lg;
+                background: VortexPalette.bg-tertiary;
+                border-radius: VortexShape.radius-full;
+
+                version-text := Text {
+                    text: version;
+                    font-size: VortexTypography.font-xs;
+                    color: VortexPalette.text-muted;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

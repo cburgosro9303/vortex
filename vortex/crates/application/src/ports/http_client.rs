@@ -227,7 +227,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cancellation_token() {
-        let (token, mut receiver) = CancellationToken::new();
+        let (token, receiver) = CancellationToken::new();
 
         assert!(!token.is_cancelled());
         assert!(!receiver.is_cancelled());

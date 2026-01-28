@@ -7,8 +7,8 @@
 // Sprint 06: Tabs, Quick Search, Import/Export, Keyboard Shortcuts
 
 import { VerticalBox, HorizontalBox, TextEdit, ScrollView, LineEdit, Button, ComboBox } from "std-widgets.slint";
-import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "theme.slint";
-export { VortexPalette, VortexTypography, VortexSpacing, VortexShape }
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape, VortexLayout, VortexAnimation } from "theme.slint";
+export { VortexPalette, VortexTypography, VortexSpacing, VortexShape, VortexLayout, VortexAnimation }
 import { UrlBar } from "components/url_bar.slint";
 import { ResponsePanel, ResponseHeader } from "components/response_panel.slint";
 import { TreeItem, CollectionTreeView } from "components/collection_tree.slint";
@@ -27,6 +27,7 @@ import { ConfirmDialog } from "components/confirm_dialog.slint";
 // Sprint 06 imports
 import { RequestTabBar, RequestTab } from "components/request_tabs.slint";
 import { QuickSearchDialog, SearchResult } from "components/quick_search.slint";
+import { RequestEditor } from "components/request_editor.slint";
 
 export { HistoryItem, ResponseHeader, QueryParam, HeaderRow, RequestTab, SearchResult }
 
@@ -211,6 +212,7 @@ export component MainWindow inherits Window {
 
     // Sprint 06: Import/Export callbacks
     callback import-collection();
+    callback import-environment();
     callback export-collection();
     callback export-as-curl();
 
@@ -262,9 +264,9 @@ export component MainWindow inherits Window {
     VerticalLayout {
         spacing: 0;
 
-        // Title bar - fixed height
+        // Title bar - fixed height (Postman style)
         Rectangle {
-            height: 36px;
+            height: VortexLayout.header-height;
             background: VortexPalette.bg-secondary;
             border-width: 1px;
             border-color: VortexPalette.border-default;
@@ -279,58 +281,6 @@ export component MainWindow inherits Window {
                     font-size: VortexTypography.font-lg;
                     font-weight: VortexTypography.weight-bold;
                     vertical-alignment: center;
-                }
-
-                Rectangle { width: VortexSpacing.sm; }
-
-                // Environment selector in title bar (closer to title)
-                if workspace-path != "": HorizontalLayout {
-                    spacing: VortexSpacing.xs;
-
-                    Text {
-                        text: "Env:";
-                        color: VortexPalette.text-secondary;
-                        font-size: VortexTypography.font-sm;
-                        vertical-alignment: center;
-                    }
-
-                    ComboBox {
-                        width: 160px;
-                        model: environment-names.length > 0 ? environment-names : ["No Environment"];
-                        current-index: current-environment-index;
-                        enabled: environment-names.length > 0;
-
-                        selected(current-value) => {
-                            environment-changed(self.current-index);
-                        }
-                    }
-
-                    Rectangle {
-                        width: 28px;
-                        height: 28px;
-                        background: VortexPalette.bg-tertiary;
-                        border-radius: VortexShape.radius-sm;
-
-                        states [
-                            hover when manage-env-touch.has-hover: {
-                                background: VortexPalette.bg-hover;
-                            }
-                        ]
-
-                        Text {
-                            text: "\u{2699}"; // Gear icon
-                            color: VortexPalette.text-secondary;
-                            font-size: VortexTypography.font-lg;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
-
-                        manage-env-touch := TouchArea {
-                            clicked => {
-                                manage-environments-clicked();
-                            }
-                        }
-                    }
                 }
 
                 Rectangle { horizontal-stretch: 1; }
@@ -409,9 +359,9 @@ export component MainWindow inherits Window {
             vertical-stretch: 1;
             spacing: 0;
 
-            // Sidebar with collections - fixed width
+            // Sidebar with collections - fixed width (Postman style)
             Rectangle {
-                width: 280px;
+                width: VortexLayout.sidebar-width;
                 background: VortexPalette.bg-secondary;
                 border-width: 1px;
                 border-color: VortexPalette.border-default;
@@ -487,14 +437,14 @@ export component MainWindow inherits Window {
 
                                 // Import button
                                 Rectangle {
-                                    width: 24px;
+                                    width: 50px;
                                     height: 24px;
                                     background: import-touch.has-hover ? VortexPalette.bg-hover : transparent;
                                     border-radius: VortexShape.radius-sm;
 
                                     Text {
-                                        text: "\u{2B07}"; // Down arrow (import)
-                                        font-size: VortexTypography.font-sm;
+                                        text: "Import";
+                                        font-size: VortexTypography.font-xs;
                                         color: workspace-path != "" ? VortexPalette.text-secondary : VortexPalette.text-placeholder;
                                         horizontal-alignment: center;
                                         vertical-alignment: center;
@@ -508,14 +458,14 @@ export component MainWindow inherits Window {
 
                                 // Export button
                                 Rectangle {
-                                    width: 24px;
+                                    width: 50px;
                                     height: 24px;
                                     background: export-touch.has-hover ? VortexPalette.bg-hover : transparent;
                                     border-radius: VortexShape.radius-sm;
 
                                     Text {
-                                        text: "\u{2B06}"; // Up arrow (export)
-                                        font-size: VortexTypography.font-sm;
+                                        text: "Export";
+                                        font-size: VortexTypography.font-xs;
                                         color: workspace-path != "" ? VortexPalette.text-secondary : VortexPalette.text-placeholder;
                                         horizontal-alignment: center;
                                         vertical-alignment: center;
@@ -607,19 +557,23 @@ export component MainWindow inherits Window {
                 VerticalLayout {
                     spacing: 0;
 
-                    // Sprint 06: Request Tabs Bar
+                    // Sprint 06: Request Tabs Bar with Environment Selector
                     RequestTabBar {
                         tabs: request-tabs;
                         active-tab-id: root.active-tab-id;
+                        environments: root.environment-names.length > 0 ? root.environment-names : ["No Environment"];
+                        selected-environment-index <=> root.current-environment-index;
 
                         tab-clicked(id) => { root.tab-clicked(id); }
                         tab-close-clicked(id) => { root.tab-close-clicked(id); }
                         new-tab-clicked => { root.new-tab-clicked(); }
+                        environment-changed(idx) => { root.environment-changed(idx); }
+                        quick-look-environments => { root.manage-environments-clicked(); }
                     }
 
                     // URL Bar with variable preview
                     Rectangle {
-                        height: has-unresolved-variables || (resolved-url != url && resolved-url != "") ? 72px : 48px;
+                        height: has-unresolved-variables || (resolved-url != url && resolved-url != "") ? 72px : VortexLayout.url-bar-height;
                         background: VortexPalette.bg-secondary;
 
                         VerticalLayout {
@@ -673,120 +627,48 @@ export component MainWindow inherits Window {
                         }
                     }
 
-                    // Sprint 05: Request configuration panels (scrollable)
-                    ScrollView {
+                    // Request Editor with Tabs (Postman style)
+                    RequestEditor {
                         height: 280px;
 
-                        VerticalLayout {
-                            padding: VortexSpacing.sm;
-                            spacing: VortexSpacing.sm;
+                        // Query params
+                        params <=> query-params;
 
-                            // Query Parameters Editor
-                            QueryParamsEditor {
-                                params <=> query-params;
-                                collapsed <=> query-params-collapsed;
+                        // Headers
+                        headers <=> request-headers;
 
-                                add-param => { add-query-param(); }
-                                delete-param(idx) => { delete-query-param(idx); }
-                                param-changed(idx, p) => { query-param-changed(idx, p); }
-                                toggle-collapsed => { query-params-collapsed = !query-params-collapsed; }
-                            }
+                        // Auth
+                        auth-type <=> root.auth-type;
+                        bearer-token <=> auth-bearer-token;
+                        basic-username <=> auth-basic-username;
+                        basic-password <=> auth-basic-password;
+                        api-key-name <=> auth-api-key-name;
+                        api-key-value <=> auth-api-key-value;
+                        api-key-location <=> auth-api-key-location;
 
-                            // Request Headers Editor
-                            HeadersEditor {
-                                headers <=> request-headers;
-                                collapsed <=> headers-collapsed;
+                        // Body - use raw mode for JSON
+                        body-type: show-body-editor ? 2 : 0;  // 2 = raw when method supports body
+                        body-raw <=> request-body;
 
-                                add-header => { add-request-header(); }
-                                delete-header(idx) => { delete-request-header(idx); }
-                                header-changed(idx, h) => { request-header-changed(idx, h); }
-                                toggle-collapsed => { headers-collapsed = !headers-collapsed; }
-                            }
+                        // Query params callbacks
+                        add-param => { add-query-param(); }
+                        delete-param(idx) => { delete-query-param(idx); }
+                        param-changed(idx, p) => { query-param-changed(idx, p); }
 
-                            // Authentication Editor
-                            AuthEditor {
-                                auth-type <=> root.auth-type;
-                                bearer-token <=> auth-bearer-token;
-                                basic-username <=> auth-basic-username;
-                                basic-password <=> auth-basic-password;
-                                api-key-name <=> auth-api-key-name;
-                                api-key-value <=> auth-api-key-value;
-                                api-key-location <=> auth-api-key-location;
-                                collapsed <=> auth-collapsed;
+                        // Headers callbacks
+                        add-header => { add-request-header(); }
+                        delete-header(idx) => { delete-request-header(idx); }
+                        header-changed(idx, h) => { request-header-changed(idx, h); }
 
-                                auth-type-changed(t) => { auth-type-changed(t); }
-                                bearer-token-changed(t) => { auth-bearer-token-changed(t); }
-                                basic-credentials-changed(u, p) => { auth-basic-credentials-changed(u, p); }
-                                api-key-changed(k, v, l) => { auth-api-key-changed(k, v, l); }
-                                toggle-collapsed => { auth-collapsed = !auth-collapsed; }
-                            }
+                        // Auth callbacks
+                        auth-type-changed(t) => { auth-type-changed(t); }
+                        bearer-token-changed(t) => { auth-bearer-token-changed(t); }
+                        basic-credentials-changed(u, p) => { auth-basic-credentials-changed(u, p); }
+                        api-key-changed(k, v, l) => { auth-api-key-changed(k, v, l); }
 
-                            // Request body editor - visibility controlled by method
-                            if show-body-editor: Rectangle {
-                                min-height: 150px;
-                                background: VortexPalette.bg-primary;
-                                border-width: 1px;
-                                border-color: VortexPalette.border-default;
-                                border-radius: VortexShape.radius-sm;
-
-                                VerticalLayout {
-                                    padding: VortexSpacing.sm;
-                                    spacing: VortexSpacing.xs;
-
-                                    HorizontalLayout {
-                                        alignment: space-between;
-
-                                        Text {
-                                            text: "Request Body (JSON)";
-                                            color: VortexPalette.text-secondary;
-                                            font-size: VortexTypography.font-sm;
-                                            vertical-alignment: center;
-                                        }
-
-                                        // Format button
-                                        Rectangle {
-                                            width: 60px;
-                                            height: 24px;
-                                            background: format-body-touch.has-hover ? VortexPalette.bg-hover : transparent;
-                                            border-radius: VortexShape.radius-sm;
-
-                                            Text {
-                                                text: "Format";
-                                                color: VortexPalette.text-accent;
-                                                font-size: VortexTypography.font-sm;
-                                                horizontal-alignment: center;
-                                                vertical-alignment: center;
-                                            }
-
-                                            format-body-touch := TouchArea {
-                                                clicked => { format-request-body(); }
-                                            }
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        vertical-stretch: 1;
-                                        min-height: 100px;
-                                        background: VortexPalette.bg-input;
-                                        border-radius: VortexShape.radius-sm;
-                                        border-width: 1px;
-                                        border-color: body-editor.has-focus ? VortexPalette.border-focus : VortexPalette.border-default;
-                                        clip: true;
-
-                                        body-editor := TextEdit {
-                                            x: 8px;
-                                            y: 8px;
-                                            width: parent.width - 16px;
-                                            height: parent.height - 16px;
-                                            text <=> request-body;
-                                            font-size: VortexTypography.font-base;
-                                            read-only: false;
-                                            wrap: word-wrap;
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        // Body callbacks
+                        body-raw-changed(body) => { /* body already bound via <=> */ }
+                        format-body => { format-request-body(); }
                     }
 
                     // Response panel - fills remaining vertical space
@@ -831,6 +713,7 @@ export component MainWindow inherits Window {
         add-variable => { add-env-variable(); }
         delete-variable(idx) => { delete-env-variable(idx); }
         variable-changed(idx, var) => { env-variable-changed(idx, var); }
+        import-clicked => { import-environment(); }
     }
 
     // Settings Dialog (overlay)

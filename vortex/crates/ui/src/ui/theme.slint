@@ -1,109 +1,266 @@
-// Vortex Theme - Clean Professional Design
-// Supports light and dark mode with font scaling
+// Vortex Theme - Postman-style Design System
+// Comprehensive light and dark mode support with orange accent
 
 export global VortexPalette {
     // Theme mode toggle (can be set from Rust)
     in-out property <bool> dark-mode: true;
 
-    // Surface colors - clean neutral palette
-    out property <color> bg-primary: dark-mode ? #1a1a1a : #ffffff;
-    out property <color> bg-secondary: dark-mode ? #242424 : #f5f5f5;
-    out property <color> bg-tertiary: dark-mode ? #2e2e2e : #ebebeb;
-    out property <color> bg-input: dark-mode ? #383838 : #ffffff;
-    out property <color> bg-hover: dark-mode ? #3a3a3a : #e8e8e8;
-    out property <color> bg-selected: dark-mode ? #0d47a1 : #1976d2;
+    // ==========================================================================
+    // SURFACE COLORS
+    // ==========================================================================
 
-    // Surface containers
-    out property <color> surface: dark-mode ? #1a1a1a : #ffffff;
-    out property <color> surface-container: dark-mode ? #242424 : #f5f5f5;
-    out property <color> surface-container-high: dark-mode ? #2e2e2e : #ebebeb;
-    out property <color> surface-container-highest: dark-mode ? #383838 : #e0e0e0;
+    // Background layers (from deepest to surface)
+    out property <color> bg-base: dark-mode ? #1a1a1a : #f5f5f5;
+    out property <color> bg-primary: dark-mode ? #1e1e1e : #ffffff;
+    out property <color> bg-secondary: dark-mode ? #212121 : #fafafa;
+    out property <color> bg-tertiary: dark-mode ? #2b2b2b : #f0f0f0;
+    out property <color> bg-elevated: dark-mode ? #333333 : #ffffff;
+    out property <color> bg-input: dark-mode ? #262626 : #ffffff;
+    out property <color> bg-input-focus: dark-mode ? #2d2d2d : #ffffff;
+    out property <color> bg-hover: dark-mode ? #363636 : #e8e8e8;
+    out property <color> bg-active: dark-mode ? #404040 : #d4d4d4;
+    out property <color> bg-selected: dark-mode ? #f9731620 : #ea580c15;
 
-    // Primary colors - blue accent
-    out property <color> primary: dark-mode ? #82b1ff : #1976d2;
-    out property <color> on-primary: dark-mode ? #002f6c : #ffffff;
-    out property <color> primary-container: dark-mode ? #004ba0 : #bbdefb;
-    out property <color> on-primary-container: dark-mode ? #d1e4ff : #002f6c;
+    // Surface aliases for compatibility
+    out property <color> surface: bg-primary;
+    out property <color> surface-container: bg-secondary;
+    out property <color> surface-container-high: bg-tertiary;
+    out property <color> surface-container-highest: bg-elevated;
 
-    // Secondary colors - gray
-    out property <color> secondary: dark-mode ? #b0bec5 : #546e7a;
-    out property <color> on-secondary: dark-mode ? #263238 : #ffffff;
-    out property <color> secondary-container: dark-mode ? #37474f : #cfd8dc;
-    out property <color> on-secondary-container: dark-mode ? #eceff1 : #263238;
+    // ==========================================================================
+    // BORDER COLORS
+    // ==========================================================================
 
-    // Tertiary colors - teal accent
-    out property <color> tertiary: dark-mode ? #80cbc4 : #00796b;
-    out property <color> on-tertiary: dark-mode ? #004d40 : #ffffff;
-    out property <color> tertiary-container: dark-mode ? #00695c : #b2dfdb;
-    out property <color> on-tertiary-container: dark-mode ? #b2dfdb : #004d40;
+    out property <color> border-subtle: dark-mode ? #2a2a2a : #e5e5e5;
+    out property <color> border-default: dark-mode ? #333333 : #d4d4d4;
+    out property <color> border-strong: dark-mode ? #444444 : #a3a3a3;
+    out property <color> border-focus: dark-mode ? #f97316 : #ea580c;
+    out property <color> outline: border-default;
+    out property <color> outline-variant: border-subtle;
 
-    // Text colors
-    out property <color> text-primary: dark-mode ? #e0e0e0 : #212121;
-    out property <color> text-secondary: dark-mode ? #9e9e9e : #757575;
-    out property <color> text-accent: dark-mode ? #82b1ff : #1976d2;
-    out property <color> text-placeholder: dark-mode ? #757575 : #9e9e9e;
-    out property <color> on-surface: dark-mode ? #e0e0e0 : #212121;
-    out property <color> on-surface-variant: dark-mode ? #9e9e9e : #757575;
+    // ==========================================================================
+    // TEXT COLORS
+    // ==========================================================================
 
-    // Status colors (semantic)
-    out property <color> status-success: dark-mode ? #81c784 : #388e3c;
-    out property <color> status-info: dark-mode ? #64b5f6 : #1976d2;
-    out property <color> status-warning: dark-mode ? #ffb74d : #f57c00;
-    out property <color> status-error: dark-mode ? #e57373 : #d32f2f;
+    out property <color> text-primary: dark-mode ? #e8e8e8 : #171717;
+    out property <color> text-secondary: dark-mode ? #a0a0a0 : #525252;
+    out property <color> text-muted: dark-mode ? #6b7280 : #737373;
+    out property <color> text-placeholder: dark-mode ? #4b5563 : #9ca3af;
+    out property <color> text-disabled: dark-mode ? #4a4a4a : #a3a3a3;
+    out property <color> text-inverse: dark-mode ? #1a1a1a : #ffffff;
+    out property <color> text-accent: dark-mode ? #f97316 : #ea580c;
 
-    // HTTP Method colors (consistent across themes)
-    out property <color> method-get: #61affe;
-    out property <color> method-post: #49cc90;
-    out property <color> method-put: #fca130;
-    out property <color> method-patch: #50e3c2;
-    out property <color> method-delete: #f93e3e;
-    out property <color> method-head: #9012fe;
-    out property <color> method-options: #0d5aa7;
+    // Aliases for compatibility
+    out property <color> on-surface: text-primary;
+    out property <color> on-surface-variant: text-secondary;
 
-    // Borders and outlines - neutral gray
-    out property <color> border-default: dark-mode ? #424242 : #bdbdbd;
-    out property <color> border-focus: dark-mode ? #82b1ff : #1976d2;
-    out property <color> outline: dark-mode ? #757575 : #9e9e9e;
-    out property <color> outline-variant: dark-mode ? #424242 : #e0e0e0;
+    // ==========================================================================
+    // ACCENT COLORS (Orange - Brand)
+    // ==========================================================================
 
-    // Button colors - blue accent
-    out property <color> button-primary: dark-mode ? #82b1ff : #1976d2;
-    out property <color> button-primary-hover: dark-mode ? #a4c8ff : #1565c0;
-    out property <color> button-on-primary: #ffffff;
+    out property <color> accent: dark-mode ? #f97316 : #ea580c;
+    out property <color> accent-hover: dark-mode ? #fb923c : #f97316;
+    out property <color> accent-active: dark-mode ? #ea580c : #c2410c;
+    out property <color> accent-subtle: dark-mode ? #f9731620 : #ea580c15;
+
+    // Primary color aliases (using accent as primary)
+    out property <color> primary: accent;
+    out property <color> on-primary: text-inverse;
+    out property <color> primary-container: accent-subtle;
+    out property <color> on-primary-container: accent;
+
+    // Secondary colors (neutral)
+    out property <color> secondary: text-secondary;
+    out property <color> on-secondary: text-inverse;
+    out property <color> secondary-container: bg-tertiary;
+    out property <color> on-secondary-container: text-primary;
+
+    // Tertiary colors (for variety)
+    out property <color> tertiary: dark-mode ? #3b82f6 : #2563eb;
+    out property <color> on-tertiary: text-inverse;
+    out property <color> tertiary-container: dark-mode ? #3b82f620 : #2563eb15;
+    out property <color> on-tertiary-container: tertiary;
+
+    // ==========================================================================
+    // STATUS COLORS
+    // ==========================================================================
+
+    out property <color> status-success: dark-mode ? #22c55e : #16a34a;
+    out property <color> status-success-subtle: dark-mode ? #22c55e20 : #16a34a15;
+    out property <color> status-warning: dark-mode ? #eab308 : #ca8a04;
+    out property <color> status-warning-subtle: dark-mode ? #eab30820 : #ca8a0415;
+    out property <color> status-error: dark-mode ? #ef4444 : #dc2626;
+    out property <color> status-error-subtle: dark-mode ? #ef444420 : #dc262615;
+    out property <color> status-info: dark-mode ? #3b82f6 : #2563eb;
+    out property <color> status-info-subtle: dark-mode ? #3b82f620 : #2563eb15;
+
+    // ==========================================================================
+    // HTTP METHOD COLORS (High contrast, same for both themes)
+    // ==========================================================================
+
+    out property <color> method-get: #22c55e;           // Green
+    out property <color> method-get-bg: #22c55e20;
+    out property <color> method-post: #eab308;          // Yellow
+    out property <color> method-post-bg: #eab30820;
+    out property <color> method-put: #3b82f6;           // Blue
+    out property <color> method-put-bg: #3b82f620;
+    out property <color> method-patch: #a855f7;         // Purple
+    out property <color> method-patch-bg: #a855f720;
+    out property <color> method-delete: #ef4444;        // Red
+    out property <color> method-delete-bg: #ef444420;
+    out property <color> method-head: #6366f1;          // Indigo
+    out property <color> method-head-bg: #6366f120;
+    out property <color> method-options: #06b6d4;       // Cyan
+    out property <color> method-options-bg: #06b6d420;
+
+    // ==========================================================================
+    // STATUS CODE COLORS
+    // ==========================================================================
+
+    out property <color> status-1xx: #6366f1;           // Informational - Indigo
+    out property <color> status-1xx-bg: #6366f120;
+    out property <color> status-2xx: #22c55e;           // Success - Green
+    out property <color> status-2xx-bg: #22c55e20;
+    out property <color> status-3xx: #3b82f6;           // Redirection - Blue
+    out property <color> status-3xx-bg: #3b82f620;
+    out property <color> status-4xx: #f97316;           // Client Error - Orange
+    out property <color> status-4xx-bg: #f9731620;
+    out property <color> status-5xx: #ef4444;           // Server Error - Red
+    out property <color> status-5xx-bg: #ef444420;
+
+    // ==========================================================================
+    // BUTTON COLORS
+    // ==========================================================================
+
+    out property <color> button-primary: accent;
+    out property <color> button-primary-hover: accent-hover;
+    out property <color> button-primary-active: accent-active;
+    out property <color> button-on-primary: text-inverse;
+
+    out property <color> button-secondary: bg-tertiary;
+    out property <color> button-secondary-hover: bg-hover;
+    out property <color> button-secondary-active: bg-active;
+    out property <color> button-on-secondary: text-primary;
+
+    // ==========================================================================
+    // SCROLLBAR COLORS
+    // ==========================================================================
+
+    out property <color> scrollbar-track: dark-mode ? #1e1e1e : #f0f0f0;
+    out property <color> scrollbar-thumb: dark-mode ? #444444 : #c4c4c4;
+    out property <color> scrollbar-thumb-hover: dark-mode ? #555555 : #a3a3a3;
 }
 
 export global VortexTypography {
     // Font scale factor (0.85=small, 1.0=medium, 1.15=large)
     in-out property <float> scale-factor: 1.0;
 
-    // Scaled font sizes
+    // Font families (reference only - Slint uses system fonts)
+    out property <string> font-family-sans: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    out property <string> font-family-mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace";
+
+    // Scaled font sizes (13px base for native desktop)
+    out property <length> font-xxs: 10px * scale-factor;
     out property <length> font-xs: 11px * scale-factor;
     out property <length> font-sm: 12px * scale-factor;
-    out property <length> font-base: 14px * scale-factor;
+    out property <length> font-base: 13px * scale-factor;
+    out property <length> font-md: 14px * scale-factor;
     out property <length> font-lg: 16px * scale-factor;
     out property <length> font-xl: 18px * scale-factor;
-    out property <length> font-xxl: 22px * scale-factor;
+    out property <length> font-xxl: 20px * scale-factor;
+    out property <length> font-xxxl: 24px * scale-factor;
+
+    // Code editor specific
+    out property <length> code-font-size: 13px * scale-factor;
+    out property <length> code-line-height: 20px * scale-factor;
+    out property <length> line-number-width: 48px;
 
     // Font weights
     out property <int> weight-normal: 400;
     out property <int> weight-medium: 500;
-    out property <int> weight-bold: 600;
+    out property <int> weight-semibold: 600;
+    out property <int> weight-bold: 700;
+
+    // Line heights
+    out property <float> leading-tight: 1.25;
+    out property <float> leading-normal: 1.5;
+    out property <float> leading-relaxed: 1.625;
 }
 
 export global VortexSpacing {
+    // Base unit: 4px
+    out property <length> unit: 4px;
+
+    // Spacing scale
+    out property <length> none: 0px;
+    out property <length> xxs: 2px;
     out property <length> xs: 4px;
     out property <length> sm: 8px;
     out property <length> md: 12px;
     out property <length> lg: 16px;
-    out property <length> xl: 24px;
-    out property <length> xxl: 32px;
+    out property <length> xl: 20px;
+    out property <length> xxl: 24px;
+    out property <length> xxxl: 32px;
+    out property <length> huge: 48px;
+
+    // Component-specific spacing
+    out property <length> input-padding-x: 12px;
+    out property <length> input-padding-y: 8px;
+    out property <length> button-padding-x: 16px;
+    out property <length> button-padding-y: 8px;
+    out property <length> card-padding: 16px;
+    out property <length> tab-padding-x: 12px;
+    out property <length> tab-padding-y: 8px;
+
+    // Gap utilities
+    out property <length> gap-tight: 4px;
+    out property <length> gap-default: 8px;
+    out property <length> gap-relaxed: 12px;
+    out property <length> gap-loose: 16px;
 }
 
 export global VortexShape {
-    // MD3 Expressive shapes - more rounded
-    out property <length> radius-sm: 8px;
-    out property <length> radius-md: 12px;
-    out property <length> radius-lg: 16px;
-    out property <length> radius-xl: 28px;
+    // Border radius scale
+    out property <length> radius-none: 0px;
+    out property <length> radius-xs: 2px;
+    out property <length> radius-sm: 4px;
+    out property <length> radius-md: 6px;
+    out property <length> radius-lg: 8px;
+    out property <length> radius-xl: 12px;
     out property <length> radius-full: 9999px;
+
+    // Focus ring
+    out property <length> focus-ring-width: 2px;
+    out property <length> focus-ring-offset: 2px;
+}
+
+export global VortexLayout {
+    // Fixed dimensions
+    out property <length> header-height: 48px;
+    out property <length> sidebar-width: 264px;
+    out property <length> sidebar-collapsed-width: 48px;
+    out property <length> tab-bar-height: 40px;
+    out property <length> tab-height: 36px;
+    out property <length> url-bar-height: 48px;
+    out property <length> status-bar-height: 32px;
+    out property <length> toolbar-height: 40px;
+    out property <length> resizer-height: 4px;
+
+    // Split pane defaults
+    out property <float> request-panel-ratio: 0.55;
+    out property <float> response-panel-ratio: 0.45;
+
+    // Minimum dimensions
+    out property <length> min-window-width: 900px;
+    out property <length> min-window-height: 600px;
+    out property <length> min-sidebar-width: 200px;
+    out property <length> max-sidebar-width: 400px;
+}
+
+export global VortexAnimation {
+    out property <duration> instant: 50ms;
+    out property <duration> fast: 100ms;
+    out property <duration> normal: 150ms;
+    out property <duration> slow: 250ms;
+    out property <duration> slower: 350ms;
 }

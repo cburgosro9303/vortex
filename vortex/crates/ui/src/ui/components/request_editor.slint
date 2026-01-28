@@ -1,0 +1,1157 @@
+// Request Editor Component
+// Postman-style tabbed editor for request configuration
+
+import { ScrollView, TextEdit, ComboBox, LineEdit } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+import { QueryParam } from "./query_params_editor.slint";
+import { HeaderRow } from "./headers_editor.slint";
+import { KeyValueItem, KeyValueEditor } from "./key_value_editor.slint";
+
+// Request editor tab component
+component EditorTab inherits Rectangle {
+    in property <string> label;
+    in property <int> count: 0;
+    in property <bool> active: false;
+
+    callback clicked();
+
+    min-width: 80px;
+    height: 36px;
+    background: transparent;
+
+    // Bottom indicator line
+    Rectangle {
+        x: 0;
+        y: parent.height - 2px;
+        width: parent.width;
+        height: 2px;
+        background: active ? VortexPalette.accent : transparent;
+    }
+
+    states [
+        hover when touch.has-hover && !active: {
+            background: VortexPalette.bg-hover;
+        }
+    ]
+
+    HorizontalLayout {
+        padding-left: VortexSpacing.md;
+        padding-right: VortexSpacing.md;
+        spacing: VortexSpacing.xs;
+        alignment: center;
+
+        Text {
+            text: label;
+            color: active ? VortexPalette.text-primary : VortexPalette.text-secondary;
+            font-size: VortexTypography.font-sm;
+            font-weight: active ? VortexTypography.weight-medium : VortexTypography.weight-normal;
+            vertical-alignment: center;
+        }
+
+        // Count badge
+        if count > 0: Rectangle {
+            width: 18px;
+            height: 16px;
+            background: active ? VortexPalette.accent : VortexPalette.bg-tertiary;
+            border-radius: VortexShape.radius-sm;
+
+            Text {
+                text: count;
+                color: active ? VortexPalette.text-inverse : VortexPalette.text-muted;
+                font-size: VortexTypography.font-xxs;
+                font-weight: VortexTypography.weight-bold;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+// Body type selector
+component BodyTypeSelector inherits Rectangle {
+    in-out property <int> body-type: 0;  // 0=none, 1=form-data, 2=raw
+
+    callback type-changed(int);
+
+    height: 32px;
+
+    HorizontalLayout {
+        spacing: VortexSpacing.lg;
+        alignment: start;
+
+        // None option
+        HorizontalLayout {
+            spacing: VortexSpacing.xs;
+
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                border-width: 2px;
+                border-color: body-type == 0 ? VortexPalette.accent : VortexPalette.border-strong;
+                background: transparent;
+
+                // Inner dot when selected
+                if body-type == 0: Rectangle {
+                    width: 8px;
+                    height: 8px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: 4px;
+                    background: VortexPalette.accent;
+                }
+
+                TouchArea {
+                    clicked => {
+                        body-type = 0;
+                        type-changed(0);
+                    }
+                }
+            }
+
+            Text {
+                text: "none";
+                color: body-type == 0 ? VortexPalette.text-primary : VortexPalette.text-secondary;
+                font-size: VortexTypography.font-xs;
+                vertical-alignment: center;
+            }
+        }
+
+        // Form-data option
+        HorizontalLayout {
+            spacing: VortexSpacing.xs;
+
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                border-width: 2px;
+                border-color: body-type == 1 ? VortexPalette.accent : VortexPalette.border-strong;
+                background: transparent;
+
+                if body-type == 1: Rectangle {
+                    width: 8px;
+                    height: 8px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: 4px;
+                    background: VortexPalette.accent;
+                }
+
+                TouchArea {
+                    clicked => {
+                        body-type = 1;
+                        type-changed(1);
+                    }
+                }
+            }
+
+            Text {
+                text: "form-data";
+                color: body-type == 1 ? VortexPalette.text-primary : VortexPalette.text-secondary;
+                font-size: VortexTypography.font-xs;
+                vertical-alignment: center;
+            }
+        }
+
+        // Raw option
+        HorizontalLayout {
+            spacing: VortexSpacing.xs;
+
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                border-width: 2px;
+                border-color: body-type == 2 ? VortexPalette.accent : VortexPalette.border-strong;
+                background: transparent;
+
+                if body-type == 2: Rectangle {
+                    width: 8px;
+                    height: 8px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: 4px;
+                    background: VortexPalette.accent;
+                }
+
+                TouchArea {
+                    clicked => {
+                        body-type = 2;
+                        type-changed(2);
+                    }
+                }
+            }
+
+            Text {
+                text: "raw";
+                color: body-type == 2 ? VortexPalette.text-primary : VortexPalette.text-secondary;
+                font-size: VortexTypography.font-xs;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+// Main Request Editor component
+export component RequestEditor inherits Rectangle {
+    // Active tab: 0=Params, 1=Headers, 2=Auth, 3=Body
+    in-out property <int> active-tab: 0;
+
+    // Query params state
+    in-out property <[QueryParam]> params: [];
+
+    // Headers state
+    in-out property <[HeaderRow]> headers: [];
+
+    // Auth state
+    in-out property <int> auth-type: 0;  // 0=None, 1=Bearer, 2=Basic, 3=API Key
+    in-out property <string> bearer-token: "";
+    in-out property <string> basic-username: "";
+    in-out property <string> basic-password: "";
+    in-out property <string> api-key-name: "";
+    in-out property <string> api-key-value: "";
+    in-out property <int> api-key-location: 0;
+
+    // Body state
+    in-out property <int> body-type: 0;  // 0=none, 1=form-data, 2=raw
+    in-out property <string> body-raw: "";
+
+    // Callbacks - Params
+    callback add-param();
+    callback delete-param(int);
+    callback param-changed(int, QueryParam);
+
+    // Callbacks - Headers
+    callback add-header();
+    callback delete-header(int);
+    callback header-changed(int, HeaderRow);
+
+    // Callbacks - Auth
+    callback auth-type-changed(int);
+    callback bearer-token-changed(string);
+    callback basic-credentials-changed(string, string);
+    callback api-key-changed(string, string, int);
+
+    // Callbacks - Body
+    callback body-type-changed(int);
+    callback body-raw-changed(string);
+    callback format-body();
+
+    property <[string]> auth-types: ["No Auth", "Bearer Token", "Basic Auth", "API Key"];
+    property <[string]> api-key-locations: ["Header", "Query Param"];
+
+    background: VortexPalette.bg-primary;
+
+    VerticalLayout {
+        spacing: 0;
+
+        // Tab bar
+        Rectangle {
+            height: 36px;
+            background: VortexPalette.bg-secondary;
+
+            // Bottom border
+            Rectangle {
+                x: 0;
+                y: parent.height - 1px;
+                width: parent.width;
+                height: 1px;
+                background: VortexPalette.border-default;
+            }
+
+            HorizontalLayout {
+                padding-left: VortexSpacing.sm;
+                spacing: VortexSpacing.lg;
+                alignment: start;
+
+                EditorTab {
+                    label: "Params";
+                    count: params.length;
+                    active: active-tab == 0;
+                    clicked => { active-tab = 0; }
+                }
+
+                EditorTab {
+                    label: "Headers";
+                    count: headers.length;
+                    active: active-tab == 1;
+                    clicked => { active-tab = 1; }
+                }
+
+                EditorTab {
+                    label: "Authorization";
+                    count: auth-type > 0 ? 1 : 0;
+                    active: active-tab == 2;
+                    clicked => { active-tab = 2; }
+                }
+
+                EditorTab {
+                    label: "Body";
+                    count: body-type > 0 ? 1 : 0;
+                    active: active-tab == 3;
+                    clicked => { active-tab = 3; }
+                }
+            }
+        }
+
+        // Tab content
+        Rectangle {
+            vertical-stretch: 1;
+            background: VortexPalette.bg-primary;
+
+            // Params tab
+            if active-tab == 0: ScrollView {
+                VerticalLayout {
+                    padding: VortexSpacing.md;
+                    spacing: VortexSpacing.sm;
+
+                    // Header
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        Text {
+                            text: "Query Params";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-xs;
+                            font-weight: VortexTypography.weight-semibold;
+                            letter-spacing: 0.5px;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            width: 60px;
+                            height: 26px;
+                            background: add-param-touch.has-hover ? VortexPalette.bg-hover : VortexPalette.bg-tertiary;
+                            border-radius: VortexShape.radius-sm;
+
+                            HorizontalLayout {
+                                alignment: center;
+                                spacing: VortexSpacing.xs;
+
+                                Text {
+                                    text: "+";
+                                    color: VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-sm;
+                                    font-weight: VortexTypography.weight-bold;
+                                    vertical-alignment: center;
+                                }
+
+                                Text {
+                                    text: "Add";
+                                    color: VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-xs;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            add-param-touch := TouchArea {
+                                clicked => { add-param(); }
+                            }
+                        }
+                    }
+
+                    // Params table
+                    if params.length > 0: Rectangle {
+                        background: VortexPalette.bg-secondary;
+                        border-radius: VortexShape.radius-sm;
+                        border-width: 1px;
+                        border-color: VortexPalette.border-default;
+
+                        VerticalLayout {
+                            // Column headers
+                            Rectangle {
+                                height: 28px;
+                                background: VortexPalette.bg-tertiary;
+
+                                HorizontalLayout {
+                                    spacing: 0;
+
+                                    Rectangle {
+                                        width: 40px;
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+
+                                        Text {
+                                            x: VortexSpacing.sm;
+                                            text: "Key";
+                                            color: VortexPalette.text-muted;
+                                            font-size: VortexTypography.font-xs;
+                                            font-weight: VortexTypography.weight-semibold;
+                                            vertical-alignment: center;
+                                        }
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+
+                                        Text {
+                                            x: VortexSpacing.sm;
+                                            text: "Value";
+                                            color: VortexPalette.text-muted;
+                                            font-size: VortexTypography.font-xs;
+                                            font-weight: VortexTypography.weight-semibold;
+                                            vertical-alignment: center;
+                                        }
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    Rectangle { width: 36px; }
+                                }
+                            }
+
+                            // Param rows
+                            for param[idx] in params: Rectangle {
+                                height: 36px;
+                                background: mod(idx, 2) == 0 ? VortexPalette.bg-primary : VortexPalette.bg-secondary;
+
+                                HorizontalLayout {
+                                    spacing: 0;
+
+                                    // Checkbox
+                                    Rectangle {
+                                        width: 40px;
+
+                                        Rectangle {
+                                            width: 16px;
+                                            height: 16px;
+                                            x: (parent.width - self.width) / 2;
+                                            y: (parent.height - self.height) / 2;
+                                            border-radius: VortexShape.radius-xs;
+                                            border-width: 1px;
+                                            border-color: param.enabled ? VortexPalette.accent : VortexPalette.border-default;
+                                            background: param.enabled ? VortexPalette.accent : transparent;
+
+                                            if param.enabled: Text {
+                                                text: "\u{2713}";
+                                                font-size: VortexTypography.font-xs;
+                                                color: VortexPalette.text-inverse;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+
+                                            TouchArea {
+                                                clicked => {
+                                                    // Use the current text from the named LineEdits
+                                                    param-changed(idx, { key: param-key-input.text, value: param-value-input.text, description: param.description, enabled: !param.enabled });
+                                                }
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    // Key
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+
+                                        param-key-input := LineEdit {
+                                            text: param.key;
+                                            placeholder-text: "key";
+                                            font-size: VortexTypography.font-sm;
+                                            edited => {
+                                                // Use the current text from both inputs
+                                                param-changed(idx, { key: self.text, value: param-value-input.text, description: param.description, enabled: param.enabled });
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    // Value
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+
+                                        param-value-input := LineEdit {
+                                            text: param.value;
+                                            placeholder-text: "value";
+                                            font-size: VortexTypography.font-sm;
+                                            edited => {
+                                                // Use the current text from both inputs
+                                                param-changed(idx, { key: param-key-input.text, value: self.text, description: param.description, enabled: param.enabled });
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    // Delete
+                                    Rectangle {
+                                        width: 36px;
+
+                                        Text {
+                                            text: "x";
+                                            font-size: VortexTypography.font-sm;
+                                            color: del-param-touch.has-hover ? VortexPalette.status-error : VortexPalette.text-muted;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+
+                                        del-param-touch := TouchArea {
+                                            clicked => { delete-param(idx); }
+                                        }
+                                    }
+                                }
+
+                                // Bottom border
+                                Rectangle {
+                                    x: 0;
+                                    y: parent.height - 1px;
+                                    width: parent.width;
+                                    height: 1px;
+                                    background: VortexPalette.border-subtle;
+                                }
+                            }
+                        }
+                    }
+
+                    // Empty state
+                    if params.length == 0: Rectangle {
+                        height: 60px;
+
+                        Text {
+                            text: "No query parameters. Click '+ Add' to create one.";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-sm;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            // Headers tab
+            if active-tab == 1: ScrollView {
+                VerticalLayout {
+                    padding: VortexSpacing.md;
+                    spacing: VortexSpacing.sm;
+
+                    // Header
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        Text {
+                            text: "Request Headers";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-xs;
+                            font-weight: VortexTypography.weight-semibold;
+                            letter-spacing: 0.5px;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            width: 60px;
+                            height: 26px;
+                            background: add-header-touch.has-hover ? VortexPalette.bg-hover : VortexPalette.bg-tertiary;
+                            border-radius: VortexShape.radius-sm;
+
+                            HorizontalLayout {
+                                alignment: center;
+                                spacing: VortexSpacing.xs;
+
+                                Text {
+                                    text: "+";
+                                    color: VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-sm;
+                                    font-weight: VortexTypography.weight-bold;
+                                    vertical-alignment: center;
+                                }
+
+                                Text {
+                                    text: "Add";
+                                    color: VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-xs;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            add-header-touch := TouchArea {
+                                clicked => { add-header(); }
+                            }
+                        }
+                    }
+
+                    // Headers table
+                    if headers.length > 0: Rectangle {
+                        background: VortexPalette.bg-secondary;
+                        border-radius: VortexShape.radius-sm;
+                        border-width: 1px;
+                        border-color: VortexPalette.border-default;
+
+                        VerticalLayout {
+                            // Column headers
+                            Rectangle {
+                                height: 28px;
+                                background: VortexPalette.bg-tertiary;
+
+                                HorizontalLayout {
+                                    spacing: 0;
+
+                                    Rectangle {
+                                        width: 40px;
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+
+                                        Text {
+                                            x: VortexSpacing.sm;
+                                            text: "Header Name";
+                                            color: VortexPalette.text-muted;
+                                            font-size: VortexTypography.font-xs;
+                                            font-weight: VortexTypography.weight-semibold;
+                                            vertical-alignment: center;
+                                        }
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+
+                                        Text {
+                                            x: VortexSpacing.sm;
+                                            text: "Value";
+                                            color: VortexPalette.text-muted;
+                                            font-size: VortexTypography.font-xs;
+                                            font-weight: VortexTypography.weight-semibold;
+                                            vertical-alignment: center;
+                                        }
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    Rectangle { width: 36px; }
+                                }
+                            }
+
+                            // Header rows
+                            for header[idx] in headers: Rectangle {
+                                height: 36px;
+                                background: mod(idx, 2) == 0 ? VortexPalette.bg-primary : VortexPalette.bg-secondary;
+
+                                HorizontalLayout {
+                                    spacing: 0;
+
+                                    // Checkbox
+                                    Rectangle {
+                                        width: 40px;
+
+                                        Rectangle {
+                                            width: 16px;
+                                            height: 16px;
+                                            x: (parent.width - self.width) / 2;
+                                            y: (parent.height - self.height) / 2;
+                                            border-radius: VortexShape.radius-xs;
+                                            border-width: 1px;
+                                            border-color: header.enabled ? VortexPalette.accent : VortexPalette.border-default;
+                                            background: header.enabled ? VortexPalette.accent : transparent;
+
+                                            if header.enabled: Text {
+                                                text: "\u{2713}";
+                                                font-size: VortexTypography.font-xs;
+                                                color: VortexPalette.text-inverse;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+
+                                            TouchArea {
+                                                clicked => {
+                                                    // Use the current text from the named LineEdits
+                                                    header-changed(idx, { key: header-key-input.text, value: header-value-input.text, description: header.description, enabled: !header.enabled });
+                                                }
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    // Key
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+
+                                        header-key-input := LineEdit {
+                                            text: header.key;
+                                            placeholder-text: "Header name";
+                                            font-size: VortexTypography.font-sm;
+                                            edited => {
+                                                // Use the current text from both inputs
+                                                header-changed(idx, { key: self.text, value: header-value-input.text, description: header.description, enabled: header.enabled });
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    // Value
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+
+                                        header-value-input := LineEdit {
+                                            text: header.value;
+                                            placeholder-text: "value";
+                                            font-size: VortexTypography.font-sm;
+                                            edited => {
+                                                // Use the current text from both inputs
+                                                header-changed(idx, { key: header-key-input.text, value: self.text, description: header.description, enabled: header.enabled });
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            x: parent.width - 1px;
+                                            y: 0;
+                                            width: 1px;
+                                            height: parent.height;
+                                            background: VortexPalette.border-subtle;
+                                        }
+                                    }
+
+                                    // Delete
+                                    Rectangle {
+                                        width: 36px;
+
+                                        Text {
+                                            text: "x";
+                                            font-size: VortexTypography.font-sm;
+                                            color: del-header-touch.has-hover ? VortexPalette.status-error : VortexPalette.text-muted;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+
+                                        del-header-touch := TouchArea {
+                                            clicked => { delete-header(idx); }
+                                        }
+                                    }
+                                }
+
+                                // Bottom border
+                                Rectangle {
+                                    x: 0;
+                                    y: parent.height - 1px;
+                                    width: parent.width;
+                                    height: 1px;
+                                    background: VortexPalette.border-subtle;
+                                }
+                            }
+                        }
+                    }
+
+                    // Empty state
+                    if headers.length == 0: Rectangle {
+                        height: 60px;
+
+                        Text {
+                            text: "No custom headers. Click '+ Add' to create one.";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-sm;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            // Authorization tab
+            if active-tab == 2: ScrollView {
+                VerticalLayout {
+                    padding: VortexSpacing.md;
+                    spacing: VortexSpacing.lg;
+
+                    // Auth type selector
+                    HorizontalLayout {
+                        height: 32px;
+                        spacing: VortexSpacing.md;
+                        alignment: start;
+
+                        Text {
+                            text: "Type:";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-sm;
+                            vertical-alignment: center;
+                        }
+
+                        ComboBox {
+                            width: 150px;
+                            height: 28px;
+                            model: auth-types;
+                            current-index <=> auth-type;
+                            selected(value) => {
+                                auth-type-changed(self.current-index);
+                            }
+                        }
+                    }
+
+                    // Auth content based on type
+                    if auth-type == 0: Rectangle {
+                        height: 100px;
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            Text {
+                                text: "This request does not use any authorization.";
+                                color: VortexPalette.text-muted;
+                                font-size: VortexTypography.font-sm;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Bearer Token
+                    if auth-type == 1: VerticalLayout {
+                        spacing: VortexSpacing.sm;
+
+                        Text {
+                            text: "Token";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-sm;
+                        }
+
+                        Rectangle {
+                            height: 36px;
+                            background: VortexPalette.bg-input;
+                            border-radius: VortexShape.radius-sm;
+                            border-width: 1px;
+                            border-color: VortexPalette.border-default;
+
+                            LineEdit {
+                                text <=> bearer-token;
+                                placeholder-text: "JWT token or {{variable}}";
+                                font-size: VortexTypography.font-sm;
+                                edited => {
+                                    bearer-token-changed(self.text);
+                                }
+                            }
+                        }
+                    }
+
+                    // Basic Auth
+                    if auth-type == 2: VerticalLayout {
+                        spacing: VortexSpacing.md;
+
+                        VerticalLayout {
+                            spacing: VortexSpacing.sm;
+
+                            Text {
+                                text: "Username";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 36px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                LineEdit {
+                                    text <=> basic-username;
+                                    placeholder-text: "Username or {{variable}}";
+                                    font-size: VortexTypography.font-sm;
+                                    edited => {
+                                        basic-credentials-changed(self.text, basic-password);
+                                    }
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: VortexSpacing.sm;
+
+                            Text {
+                                text: "Password";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 36px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                LineEdit {
+                                    text <=> basic-password;
+                                    placeholder-text: "Password or {{variable}}";
+                                    font-size: VortexTypography.font-sm;
+                                    input-type: password;
+                                    edited => {
+                                        basic-credentials-changed(basic-username, self.text);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // API Key
+                    if auth-type == 3: VerticalLayout {
+                        spacing: VortexSpacing.md;
+
+                        HorizontalLayout {
+                            spacing: VortexSpacing.lg;
+
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                spacing: VortexSpacing.sm;
+
+                                Text {
+                                    text: "Key Name";
+                                    color: VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-sm;
+                                }
+
+                                Rectangle {
+                                    height: 36px;
+                                    background: VortexPalette.bg-input;
+                                    border-radius: VortexShape.radius-sm;
+                                    border-width: 1px;
+                                    border-color: VortexPalette.border-default;
+
+                                    LineEdit {
+                                        text <=> api-key-name;
+                                        placeholder-text: "X-API-Key";
+                                        font-size: VortexTypography.font-sm;
+                                        edited => {
+                                            api-key-changed(self.text, api-key-value, api-key-location);
+                                        }
+                                    }
+                                }
+                            }
+
+                            VerticalLayout {
+                                width: 150px;
+                                spacing: VortexSpacing.sm;
+
+                                Text {
+                                    text: "Add to";
+                                    color: VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-sm;
+                                }
+
+                                ComboBox {
+                                    height: 36px;
+                                    model: api-key-locations;
+                                    current-index <=> api-key-location;
+                                    selected(value) => {
+                                        api-key-changed(api-key-name, api-key-value, self.current-index);
+                                    }
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: VortexSpacing.sm;
+
+                            Text {
+                                text: "Key Value";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 36px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                LineEdit {
+                                    text <=> api-key-value;
+                                    placeholder-text: "API key value or {{variable}}";
+                                    font-size: VortexTypography.font-sm;
+                                    edited => {
+                                        api-key-changed(api-key-name, self.text, api-key-location);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Body tab
+            if active-tab == 3: VerticalLayout {
+                padding: VortexSpacing.md;
+                spacing: VortexSpacing.md;
+
+                // Body type selector
+                BodyTypeSelector {
+                    body-type <=> root.body-type;
+                    type-changed(t) => { body-type-changed(t); }
+                }
+
+                // Body content
+                if body-type == 0: Rectangle {
+                    vertical-stretch: 1;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        Text {
+                            text: "This request does not have a body";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-sm;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+
+                if body-type == 1: Rectangle {
+                    vertical-stretch: 1;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        Text {
+                            text: "Form-data editor not implemented in this demo (Use raw)";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-sm;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+
+                if body-type == 2: VerticalLayout {
+                    vertical-stretch: 1;
+                    spacing: VortexSpacing.sm;
+
+                    // Header with format button
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        Text {
+                            text: "Request Body (JSON, Text, etc.)";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-xs;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            width: 60px;
+                            height: 24px;
+                            background: format-body-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                            border-radius: VortexShape.radius-sm;
+
+                            Text {
+                                text: "Format";
+                                color: VortexPalette.text-accent;
+                                font-size: VortexTypography.font-sm;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            format-body-touch := TouchArea {
+                                clicked => { format-body(); }
+                            }
+                        }
+                    }
+
+                    // Text editor
+                    Rectangle {
+                        vertical-stretch: 1;
+                        background: VortexPalette.bg-input;
+                        border-radius: VortexShape.radius-sm;
+                        border-width: 1px;
+                        border-color: body-editor.has-focus ? VortexPalette.border-focus : VortexPalette.border-default;
+                        clip: true;
+
+                        body-editor := TextEdit {
+                            x: VortexSpacing.sm;
+                            y: VortexSpacing.sm;
+                            width: parent.width - VortexSpacing.lg;
+                            height: parent.height - VortexSpacing.lg;
+                            text <=> body-raw;
+                            font-size: VortexTypography.code-font-size;
+                            wrap: word-wrap;
+
+                            edited => {
+                                body-raw-changed(self.text);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

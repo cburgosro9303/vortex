@@ -1,0 +1,461 @@
+// Sidebar Component
+// Main navigation sidebar with collections, environments, and history
+
+import { ScrollView } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape, VortexLayout } from "../theme.slint";
+
+// Tree item data structure
+export struct SidebarTreeItem {
+    id: string,
+    name: string,
+    item-type: string,  // "request", "folder", "collection"
+    method: string,     // HTTP method for requests
+    depth: int,         // Nesting level
+    expanded: bool,     // For folders
+    path: string,       // File path
+}
+
+// HTTP Method Badge component
+component MethodBadge inherits Rectangle {
+    in property <string> method: "GET";
+
+    width: 36px;
+    height: 16px;
+    border-radius: VortexShape.radius-xs;
+    background: transparent;
+
+    Text {
+        text: method;
+        font-size: VortexTypography.font-xxs;
+        font-weight: VortexTypography.weight-bold;
+        color: method == "GET" ? VortexPalette.method-get :
+               method == "POST" ? VortexPalette.method-post :
+               method == "PUT" ? VortexPalette.method-put :
+               method == "PATCH" ? VortexPalette.method-patch :
+               method == "DELETE" ? VortexPalette.method-delete :
+               method == "HEAD" ? VortexPalette.method-head :
+               VortexPalette.method-options;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+// Single tree item row
+component SidebarTreeItemRow inherits Rectangle {
+    in property <SidebarTreeItem> item;
+    in property <bool> selected: false;
+
+    callback clicked();
+    callback double-clicked();
+    callback toggle-expanded();
+
+    height: 32px;
+    background: selected ? VortexPalette.bg-selected : transparent;
+
+    // Left accent border on hover
+    Rectangle {
+        width: 3px;
+        height: parent.height;
+        background: (touch.has-hover || selected) ? VortexPalette.accent : transparent;
+    }
+
+    states [
+        hover when touch.has-hover && !selected: {
+            background: VortexPalette.bg-hover;
+        }
+    ]
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+        double-clicked => { root.double-clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: (item.depth * 12px) + VortexSpacing.lg;
+        padding-right: VortexSpacing.md;
+        spacing: VortexSpacing.sm;
+        alignment: start;
+
+        // Expand/collapse for folders/collections
+        if item.item-type == "folder" || item.item-type == "collection": Rectangle {
+            width: 16px;
+            height: 16px;
+            vertical-alignment: center;
+
+            Text {
+                text: item.expanded ? "\u{25BE}" : "\u{25B8}";  // Down/right triangle
+                font-size: VortexTypography.font-xs;
+                color: VortexPalette.text-muted;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => { root.toggle-expanded(); }
+            }
+        }
+
+        // Method badge for requests
+        if item.item-type == "request": MethodBadge {
+            method: item.method;
+            vertical-alignment: center;
+        }
+
+        // Item name
+        Text {
+            text: item.name;
+            font-size: VortexTypography.font-sm;
+            color: selected ? VortexPalette.text-primary :
+                   touch.has-hover ? VortexPalette.text-primary : VortexPalette.text-secondary;
+            overflow: elide;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+    }
+}
+
+// Section header component
+component SidebarSection inherits Rectangle {
+    in property <string> title;
+    in property <string> icon: "";
+    in property <bool> expanded: true;
+    in property <int> count: 0;
+
+    callback toggle-expanded();
+    callback header-clicked();
+
+    height: 40px;
+    background: header-touch.has-hover ? VortexPalette.bg-hover : transparent;
+
+    // Left accent on hover
+    Rectangle {
+        width: 3px;
+        height: parent.height;
+        background: header-touch.has-hover ? VortexPalette.accent : transparent;
+    }
+
+    HorizontalLayout {
+        padding-left: VortexSpacing.lg;
+        padding-right: VortexSpacing.md;
+        spacing: VortexSpacing.sm;
+        alignment: space-between;
+
+        HorizontalLayout {
+            spacing: VortexSpacing.sm;
+            alignment: start;
+
+            // Chevron
+            Text {
+                text: expanded ? "\u{25BE}" : "\u{25B8}";
+                font-size: VortexTypography.font-xs;
+                color: VortexPalette.text-muted;
+                vertical-alignment: center;
+            }
+
+            // Icon
+            if icon != "": Text {
+                text: icon;
+                font-size: VortexTypography.font-md;
+                color: VortexPalette.text-secondary;
+                vertical-alignment: center;
+            }
+
+            // Title
+            Text {
+                text: title;
+                font-size: VortexTypography.font-sm;
+                font-weight: VortexTypography.weight-medium;
+                color: VortexPalette.text-primary;
+                vertical-alignment: center;
+            }
+        }
+
+        // Count badge
+        if count > 0: Rectangle {
+            width: 20px;
+            height: 18px;
+            border-radius: VortexShape.radius-full;
+            background: VortexPalette.bg-tertiary;
+            vertical-alignment: center;
+
+            Text {
+                text: count;
+                font-size: VortexTypography.font-xxs;
+                color: VortexPalette.text-secondary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    header-touch := TouchArea {
+        clicked => {
+            root.toggle-expanded();
+            root.header-clicked();
+        }
+    }
+}
+
+// Main Sidebar component
+export component Sidebar inherits Rectangle {
+    in property <[SidebarTreeItem]> collection-items: [];
+    in-out property <string> selected-id: "";
+    in property <bool> collections-expanded: true;
+    in property <bool> environments-expanded: true;
+    in property <bool> history-expanded: false;
+    in property <string> version: "v1.0.0";
+    in property <bool> is-online: true;
+
+    // Callbacks
+    callback new-request-clicked();
+    callback import-clicked();
+    callback item-selected(SidebarTreeItem);
+    callback item-double-clicked(SidebarTreeItem);
+    callback toggle-folder(SidebarTreeItem);
+    callback toggle-collections();
+    callback toggle-environments();
+    callback toggle-history();
+    callback manage-environments();
+
+    width: VortexLayout.sidebar-width;
+    background: VortexPalette.bg-secondary;
+
+    // Right border
+    Rectangle {
+        x: parent.width - 1px;
+        y: 0;
+        width: 1px;
+        height: parent.height;
+        background: VortexPalette.border-default;
+    }
+
+    VerticalLayout {
+        // Top actions bar
+        Rectangle {
+            height: 52px;
+            background: VortexPalette.bg-secondary;
+
+            // Bottom border
+            Rectangle {
+                x: 0;
+                y: parent.height - 1px;
+                width: parent.width;
+                height: 1px;
+                background: VortexPalette.border-default;
+            }
+
+            HorizontalLayout {
+                padding: VortexSpacing.md;
+                spacing: VortexSpacing.sm;
+
+                // New button
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 32px;
+                    background: new-btn-touch.has-hover ? VortexPalette.bg-hover : VortexPalette.bg-tertiary;
+                    border-radius: VortexShape.radius-md;
+
+                    HorizontalLayout {
+                        padding-left: VortexSpacing.md;
+                        padding-right: VortexSpacing.md;
+                        spacing: VortexSpacing.sm;
+                        alignment: center;
+
+                        Text {
+                            text: "+";
+                            font-size: VortexTypography.font-md;
+                            font-weight: VortexTypography.weight-bold;
+                            color: VortexPalette.text-secondary;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: "New";
+                            font-size: VortexTypography.font-sm;
+                            color: VortexPalette.text-secondary;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    new-btn-touch := TouchArea {
+                        clicked => { new-request-clicked(); }
+                    }
+                }
+
+                // Import button
+                Rectangle {
+                    width: 36px;
+                    height: 32px;
+                    background: import-btn-touch.has-hover ? VortexPalette.bg-hover : VortexPalette.bg-tertiary;
+                    border-radius: VortexShape.radius-md;
+
+                    Text {
+                        text: "\u{21A7}";  // Down arrow with bar
+                        font-size: VortexTypography.font-md;
+                        color: VortexPalette.text-secondary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    import-btn-touch := TouchArea {
+                        clicked => { import-clicked(); }
+                    }
+                }
+            }
+        }
+
+        // Scrollable content area
+        ScrollView {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                alignment: start;
+                spacing: 0px;
+
+                // Collections section
+                SidebarSection {
+                    title: "Collections";
+                    icon: "\u{1F4C1}";  // Folder icon
+                    expanded: collections-expanded;
+                    count: collection-items.length;
+                    toggle-expanded => { toggle-collections(); }
+                }
+
+                if collections-expanded: VerticalLayout {
+                    spacing: 0px;
+
+                    for item in collection-items: SidebarTreeItemRow {
+                        item: item;
+                        selected: item.id == selected-id;
+
+                        clicked => {
+                            selected-id = item.id;
+                            item-selected(item);
+                        }
+
+                        double-clicked => {
+                            item-double-clicked(item);
+                        }
+
+                        toggle-expanded => {
+                            toggle-folder(item);
+                        }
+                    }
+
+                    // Empty state
+                    if collection-items.length == 0: Rectangle {
+                        height: 60px;
+
+                        Text {
+                            text: "No collections yet";
+                            font-size: VortexTypography.font-sm;
+                            color: VortexPalette.text-muted;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Environments section
+                SidebarSection {
+                    title: "Environments";
+                    icon: "E";
+                    expanded: environments-expanded;
+                    toggle-expanded => { toggle-environments(); }
+                    header-clicked => { manage-environments(); }
+                }
+
+                if environments-expanded: Rectangle {
+                    height: 40px;
+
+                    HorizontalLayout {
+                        padding-left: VortexSpacing.xxl;
+                        padding-right: VortexSpacing.md;
+                        alignment: start;
+
+                        Text {
+                            text: "Manage environments...";
+                            font-size: VortexTypography.font-sm;
+                            color: env-link-touch.has-hover ? VortexPalette.text-accent : VortexPalette.text-muted;
+                            vertical-alignment: center;
+                        }
+
+                        env-link-touch := TouchArea {
+                            clicked => { manage-environments(); }
+                        }
+                    }
+                }
+
+                // History section
+                SidebarSection {
+                    title: "History";
+                    icon: "\u{1F552}";  // Clock icon
+                    expanded: history-expanded;
+                    toggle-expanded => { toggle-history(); }
+                }
+
+                if history-expanded: Rectangle {
+                    height: 40px;
+
+                    Text {
+                        text: "Recent requests will appear here";
+                        font-size: VortexTypography.font-sm;
+                        color: VortexPalette.text-muted;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        // Status footer
+        Rectangle {
+            height: 32px;
+            background: VortexPalette.bg-secondary;
+
+            // Top border
+            Rectangle {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                height: 1px;
+                background: VortexPalette.border-default;
+            }
+
+            HorizontalLayout {
+                padding-left: VortexSpacing.md;
+                padding-right: VortexSpacing.md;
+                alignment: space-between;
+
+                // Connection status
+                HorizontalLayout {
+                    spacing: VortexSpacing.sm;
+                    alignment: start;
+
+                    Rectangle {
+                        width: 8px;
+                        height: 8px;
+                        border-radius: VortexShape.radius-full;
+                        background: is-online ? VortexPalette.status-success : VortexPalette.status-error;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: is-online ? "Online" : "Offline";
+                        font-size: VortexTypography.font-xs;
+                        color: VortexPalette.text-muted;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Version
+                Text {
+                    text: version;
+                    font-size: VortexTypography.font-xs;
+                    color: VortexPalette.text-muted;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

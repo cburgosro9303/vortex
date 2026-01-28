@@ -16,7 +16,7 @@ pub mod settings;
 pub mod state;
 
 pub use error::{DomainError, DomainResult};
-pub use history::{HistoryEntry, RequestHistory};
+pub use history::{HistoryAuth, HistoryEntry, HistoryHeader, HistoryParam, RequestHistory};
 pub use id::{generate_id, generate_id_v7};
 pub use settings::{FontScale, ThemeMode, UserSettings};
 pub use state::{RequestErrorKind, RequestState};

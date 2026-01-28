@@ -1,0 +1,443 @@
+// Key-Value Editor Component
+// Postman-style table editor for params, headers, etc.
+
+import { ScrollView, CheckBox, LineEdit } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+// Data structure for a key-value row
+export struct KeyValueItem {
+    key: string,
+    value: string,
+    description: string,
+    enabled: bool,
+}
+
+// Single row component
+component KeyValueRow inherits Rectangle {
+    in property <int> index;
+    in-out property <KeyValueItem> item;
+    in property <bool> show-description: true;
+
+    callback item-changed(int, KeyValueItem);
+    callback delete-requested(int);
+
+    height: 36px;
+    background: mod(index, 2) == 0 ? VortexPalette.bg-primary : VortexPalette.bg-secondary;
+
+    // Hover effect
+    states [
+        hover when row-touch.has-hover: {
+            background: VortexPalette.bg-hover;
+        }
+    ]
+
+    row-touch := TouchArea {
+        mouse-cursor: default;
+    }
+
+    HorizontalLayout {
+        spacing: 0px;
+
+        // Checkbox column
+        Rectangle {
+            width: 40px;
+            background: transparent;
+
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                border-radius: VortexShape.radius-xs;
+                border-width: 1px;
+                border-color: item.enabled ? VortexPalette.accent : VortexPalette.border-default;
+                background: item.enabled ? VortexPalette.accent : transparent;
+
+                // Checkmark
+                if item.enabled: Text {
+                    text: "\u{2713}";
+                    font-size: VortexTypography.font-xs;
+                    color: VortexPalette.text-inverse;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                TouchArea {
+                    clicked => {
+                        item.enabled = !item.enabled;
+                        item-changed(index, item);
+                    }
+                }
+            }
+
+            // Right border
+            Rectangle {
+                x: parent.width - 1px;
+                y: 0;
+                width: 1px;
+                height: parent.height;
+                background: VortexPalette.border-subtle;
+            }
+        }
+
+        // Key column
+        Rectangle {
+            horizontal-stretch: 1;
+            background: key-input.has-focus ? VortexPalette.bg-input-focus : transparent;
+
+            key-input := LineEdit {
+                text: item.key;
+                placeholder-text: "Key";
+                font-size: VortexTypography.font-sm;
+
+                edited => {
+                    item-changed(index, { key: self.text, value: item.value, description: item.description, enabled: item.enabled });
+                }
+            }
+
+            // Right border
+            Rectangle {
+                x: parent.width - 1px;
+                y: 0;
+                width: 1px;
+                height: parent.height;
+                background: VortexPalette.border-subtle;
+            }
+        }
+
+        // Value column
+        Rectangle {
+            horizontal-stretch: 1;
+            background: value-input.has-focus ? VortexPalette.bg-input-focus : transparent;
+
+            value-input := LineEdit {
+                text: item.value;
+                placeholder-text: "Value";
+                font-size: VortexTypography.font-sm;
+
+                edited => {
+                    item-changed(index, { key: item.key, value: self.text, description: item.description, enabled: item.enabled });
+                }
+            }
+
+            // Right border
+            Rectangle {
+                x: parent.width - 1px;
+                y: 0;
+                width: 1px;
+                height: parent.height;
+                background: VortexPalette.border-subtle;
+            }
+        }
+
+        // Description column (optional)
+        if show-description: Rectangle {
+            horizontal-stretch: 1;
+            background: desc-input.has-focus ? VortexPalette.bg-input-focus : transparent;
+
+            desc-input := LineEdit {
+                text: item.description;
+                placeholder-text: "Description";
+                font-size: VortexTypography.font-sm;
+
+                edited => {
+                    item-changed(index, { key: item.key, value: item.value, description: self.text, enabled: item.enabled });
+                }
+            }
+
+            // Right border
+            Rectangle {
+                x: parent.width - 1px;
+                y: 0;
+                width: 1px;
+                height: parent.height;
+                background: VortexPalette.border-subtle;
+            }
+        }
+
+        // Delete button column
+        Rectangle {
+            width: 36px;
+            background: delete-touch.has-hover ? VortexPalette.status-error-subtle : transparent;
+
+            Text {
+                text: "x";
+                font-size: VortexTypography.font-sm;
+                color: delete-touch.has-hover ? VortexPalette.status-error : VortexPalette.text-muted;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                opacity: row-touch.has-hover || delete-touch.has-hover ? 1.0 : 0.0;
+            }
+
+            delete-touch := TouchArea {
+                clicked => {
+                    delete-requested(index);
+                }
+            }
+        }
+    }
+
+    // Bottom border
+    Rectangle {
+        x: 0;
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: VortexPalette.border-subtle;
+    }
+}
+
+// Main Key-Value Editor component
+export component KeyValueEditor inherits Rectangle {
+    in property <string> title: "Parameters";
+    in-out property <[KeyValueItem]> items: [];
+    in property <bool> show-description: true;
+    in property <bool> collapsed: false;
+
+    callback add-item();
+    callback delete-item(int);
+    callback item-changed(int, KeyValueItem);
+    callback toggle-collapsed();
+
+    background: VortexPalette.bg-primary;
+    border-radius: VortexShape.radius-sm;
+    border-width: 1px;
+    border-color: VortexPalette.border-default;
+
+    VerticalLayout {
+        // Header bar
+        Rectangle {
+            height: 36px;
+            background: VortexPalette.bg-secondary;
+            border-radius: collapsed ? VortexShape.radius-sm : 0px;
+
+            HorizontalLayout {
+                padding-left: VortexSpacing.sm;
+                padding-right: VortexSpacing.sm;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: VortexSpacing.sm;
+                    alignment: start;
+
+                    // Collapse toggle
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+
+                        Text {
+                            text: collapsed ? "\u{25B8}" : "\u{25BE}";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-xs;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        TouchArea {
+                            clicked => { toggle-collapsed(); }
+                        }
+                    }
+
+                    Text {
+                        text: title;
+                        color: VortexPalette.text-primary;
+                        font-size: VortexTypography.font-sm;
+                        font-weight: VortexTypography.weight-semibold;
+                        vertical-alignment: center;
+                    }
+
+                    // Item count badge
+                    if items.length > 0: Rectangle {
+                        width: 20px;
+                        height: 18px;
+                        background: VortexPalette.accent;
+                        border-radius: VortexShape.radius-sm;
+
+                        Text {
+                            text: items.length;
+                            color: VortexPalette.text-inverse;
+                            font-size: VortexTypography.font-xxs;
+                            font-weight: VortexTypography.weight-bold;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Add button
+                Rectangle {
+                    width: 60px;
+                    height: 26px;
+                    background: add-touch.has-hover ? VortexPalette.bg-hover : VortexPalette.bg-tertiary;
+                    border-radius: VortexShape.radius-sm;
+
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: VortexSpacing.xs;
+
+                        Text {
+                            text: "+";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-sm;
+                            font-weight: VortexTypography.weight-bold;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: "Add";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-xs;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    add-touch := TouchArea {
+                        clicked => { add-item(); }
+                    }
+                }
+            }
+        }
+
+        // Content (hidden when collapsed)
+        if !collapsed: VerticalLayout {
+            // Column headers
+            Rectangle {
+                height: 28px;
+                background: VortexPalette.bg-tertiary;
+
+                HorizontalLayout {
+                    spacing: 0px;
+
+                    // Checkbox header
+                    Rectangle {
+                        width: 40px;
+
+                        // Right border
+                        Rectangle {
+                            x: parent.width - 1px;
+                            y: 0;
+                            width: 1px;
+                            height: parent.height;
+                            background: VortexPalette.border-subtle;
+                        }
+                    }
+
+                    // Key header
+                    Rectangle {
+                        horizontal-stretch: 1;
+
+                        Text {
+                            x: VortexSpacing.sm;
+                            text: "Key";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-xs;
+                            font-weight: VortexTypography.weight-semibold;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            x: parent.width - 1px;
+                            y: 0;
+                            width: 1px;
+                            height: parent.height;
+                            background: VortexPalette.border-subtle;
+                        }
+                    }
+
+                    // Value header
+                    Rectangle {
+                        horizontal-stretch: 1;
+
+                        Text {
+                            x: VortexSpacing.sm;
+                            text: "Value";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-xs;
+                            font-weight: VortexTypography.weight-semibold;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            x: parent.width - 1px;
+                            y: 0;
+                            width: 1px;
+                            height: parent.height;
+                            background: VortexPalette.border-subtle;
+                        }
+                    }
+
+                    // Description header
+                    if show-description: Rectangle {
+                        horizontal-stretch: 1;
+
+                        Text {
+                            x: VortexSpacing.sm;
+                            text: "Description";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-xs;
+                            font-weight: VortexTypography.weight-semibold;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            x: parent.width - 1px;
+                            y: 0;
+                            width: 1px;
+                            height: parent.height;
+                            background: VortexPalette.border-subtle;
+                        }
+                    }
+
+                    // Actions header
+                    Rectangle {
+                        width: 36px;
+                    }
+                }
+
+                // Bottom border
+                Rectangle {
+                    x: 0;
+                    y: parent.height - 1px;
+                    width: parent.width;
+                    height: 1px;
+                    background: VortexPalette.border-default;
+                }
+            }
+
+            // Rows
+            if items.length > 0: ScrollView {
+                min-height: 72px;
+                max-height: 200px;
+
+                VerticalLayout {
+                    for item[idx] in items: KeyValueRow {
+                        index: idx;
+                        item: item;
+                        show-description: root.show-description;
+
+                        item-changed(i, changed-item) => {
+                            root.item-changed(i, changed-item);
+                        }
+
+                        delete-requested(i) => {
+                            root.delete-item(i);
+                        }
+                    }
+                }
+            }
+
+            // Empty state
+            if items.length == 0: Rectangle {
+                height: 60px;
+
+                Text {
+                    text: "No items. Click '+ Add' to create one.";
+                    color: VortexPalette.text-muted;
+                    font-size: VortexTypography.font-sm;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

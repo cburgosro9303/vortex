@@ -20,7 +20,7 @@ use vortex_domain::{
     persistence::{PersistenceHttpMethod, SavedRequest},
     request::{HttpMethod, RequestBody, RequestSpec},
 };
-use vortex_domain::{FontScale, HistoryEntry, RequestHistory, ThemeMode, UserSettings};
+use vortex_domain::{FontScale, HistoryEntry, HistoryHeader, HistoryParam, HistoryAuth, RequestHistory, ThemeMode, UserSettings};
 use vortex_infrastructure::{
     FileEnvironmentRepository, FileSystemWorkspaceRepository, HistoryRepository,
     ReqwestHttpClient, SettingsRepository, TokioFileSystem, from_json,
@@ -135,6 +135,7 @@ impl AppWindow {
         let cmd_tx_import = cmd_tx.clone();
         let cmd_tx_export = cmd_tx.clone();
         let cmd_tx_export_curl = cmd_tx.clone();
+        let cmd_tx_import_env = cmd_tx.clone();
 
         // Sprint 06: JSON format command senders
         let cmd_tx_format = cmd_tx.clone();
@@ -315,6 +316,7 @@ impl AppWindow {
                 index,
                 key: param.key.to_string(),
                 value: param.value.to_string(),
+                description: param.description.to_string(),
                 enabled: param.enabled,
             });
         });
@@ -333,6 +335,7 @@ impl AppWindow {
                 index,
                 key: header.key.to_string(),
                 value: header.value.to_string(),
+                description: header.description.to_string(),
                 enabled: header.enabled,
             });
         });
@@ -434,6 +437,10 @@ impl AppWindow {
             let _ = cmd_tx_import.send(UiCommand::ImportCollection);
         });
 
+        window.on_import_environment(move || {
+            let _ = cmd_tx_import_env.send(UiCommand::ImportEnvironment);
+        });
+
         window.on_export_collection(move || {
             let _ = cmd_tx_export.send(UiCommand::ExportCollection);
         });
@@ -461,8 +468,9 @@ impl AppWindow {
 
         // Spawn the async runtime in a separate thread
         let ui_weak_async = ui_weak.clone();
+        let cmd_tx_async = cmd_tx.clone();
         std::thread::spawn(move || {
-            run_async_runtime(ui_weak_async, cmd_rx, update_tx);
+            run_async_runtime(ui_weak_async, cmd_rx, update_tx, cmd_tx_async);
         });
 
         // Process UI updates on the main thread using a timer
@@ -546,6 +554,8 @@ struct AppState {
     all_requests: Vec<SearchResultData>, // Cached for search
     // Sprint 06: Response body for formatting
     response_body: String,
+    // Flag to prevent circular URL update when params change
+    updating_url_from_params: bool,
 }
 
 impl AppState {
@@ -576,6 +586,7 @@ impl AppState {
             active_tab_id: None,
             all_requests: Vec::new(),
             response_body: String::new(),
+            updating_url_from_params: false,
         }
     }
 
@@ -664,6 +675,7 @@ fn run_async_runtime(
     ui_weak: slint::Weak<MainWindow>,
     mut cmd_rx: mpsc::UnboundedReceiver<UiCommand>,
     update_tx: mpsc::UnboundedSender<UiUpdate>,
+    cmd_tx: mpsc::UnboundedSender<UiCommand>,
 ) {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -731,10 +743,69 @@ fn run_async_runtime(
                         state.response_body = result.response_body.clone();
 
                         // Add to history
-                        let entry = if let (Some(status), Some(duration)) = (result.status_code, result.duration_ms) {
-                            HistoryEntry::new(result.method, result.url, status, duration, None)
+                        let body_for_history = if result.request_body.is_empty() {
+                            None
                         } else {
-                            HistoryEntry::failed(result.method, result.url, None)
+                            Some(result.request_body.clone())
+                        };
+
+                        // Convert headers for history
+                        let headers_for_history: Vec<HistoryHeader> = state.request_headers
+                            .iter()
+                            .map(|h| HistoryHeader {
+                                key: h.key.clone(),
+                                value: h.value.clone(),
+                                enabled: h.enabled,
+                            })
+                            .collect();
+
+                        // Convert params for history
+                        let params_for_history: Vec<HistoryParam> = state.query_params
+                            .iter()
+                            .map(|p| HistoryParam {
+                                key: p.key.clone(),
+                                value: p.value.clone(),
+                                enabled: p.enabled,
+                            })
+                            .collect();
+
+                        // Convert auth for history
+                        let auth_for_history = if state.auth_data.auth_type > 0 {
+                            Some(HistoryAuth {
+                                auth_type: state.auth_data.auth_type,
+                                bearer_token: state.auth_data.bearer_token.clone(),
+                                basic_username: state.auth_data.basic_username.clone(),
+                                basic_password: state.auth_data.basic_password.clone(),
+                                api_key_name: state.auth_data.api_key_name.clone(),
+                                api_key_value: state.auth_data.api_key_value.clone(),
+                                api_key_location: state.auth_data.api_key_location,
+                            })
+                        } else {
+                            None
+                        };
+
+                        let entry = if let (Some(status), Some(duration)) = (result.status_code, result.duration_ms) {
+                            HistoryEntry::new(
+                                result.method,
+                                result.url,
+                                status,
+                                duration,
+                                None,
+                                body_for_history,
+                                headers_for_history,
+                                params_for_history,
+                                auth_for_history,
+                            )
+                        } else {
+                            HistoryEntry::failed(
+                                result.method,
+                                result.url,
+                                None,
+                                body_for_history,
+                                headers_for_history,
+                                params_for_history,
+                                auth_for_history,
+                            )
                         };
 
                         state.history.add(entry);
@@ -882,44 +953,78 @@ fn run_async_runtime(
                             let _ = update_tx.send(UiUpdate::ActiveTabChanged(tab_id));
                         } else if let Ok(content) = tokio::fs::read_to_string(&path).await {
                             // Create a new tab for this request
-                            if let Ok(request) = from_json::<vortex_domain::persistence::SavedRequest>(&content) {
+                            // Try to parse as SavedRequest first, fall back to raw JSON for imported files
+                            let parsed_request = from_json::<vortex_domain::persistence::SavedRequest>(&content);
+
+                            // If parsing fails, try to extract data directly from JSON (for old imports)
+                            let (request_name, method_str, url, body, headers_map, query_params_map) = if let Ok(req) = &parsed_request {
                                 use vortex_domain::persistence::PersistenceRequestBody;
+                                let body_str = req.body.as_ref().map(|b| match b {
+                                    PersistenceRequestBody::Json { content } => content.to_string(),
+                                    PersistenceRequestBody::Text { content } => content.clone(),
+                                    PersistenceRequestBody::Graphql { query, .. } => query.clone(),
+                                    _ => String::new(),
+                                }).unwrap_or_default();
 
-                                let method_index = match request.method {
-                                    PersistenceHttpMethod::Get => 0,
-                                    PersistenceHttpMethod::Post => 1,
-                                    PersistenceHttpMethod::Put => 2,
-                                    PersistenceHttpMethod::Patch => 3,
-                                    PersistenceHttpMethod::Delete => 4,
-                                    PersistenceHttpMethod::Head => 5,
-                                    PersistenceHttpMethod::Options => 6,
-                                    PersistenceHttpMethod::Trace => 0,
-                                };
+                                (
+                                    req.name.clone(),
+                                    format!("{:?}", req.method).to_uppercase(),
+                                    req.url.clone(),
+                                    body_str,
+                                    req.headers.clone(),
+                                    req.query_params.clone(),
+                                )
+                            } else if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                                // Fallback for old import format
+                                let name = json.get("name").and_then(|n| n.as_str()).unwrap_or("Unknown").to_string();
+                                let method = json.get("method").and_then(|m| m.as_str()).unwrap_or("GET").to_string();
+                                let url = json.get("url").and_then(|u| u.as_str()).unwrap_or("").to_string();
+                                let body = json.get("body").and_then(|b| b.as_str()).unwrap_or("").to_string();
 
-                                let body = request
-                                    .body
-                                    .as_ref()
-                                    .map(|b| match b {
-                                        PersistenceRequestBody::Json { content } => content.to_string(),
-                                        PersistenceRequestBody::Text { content } => content.clone(),
-                                        PersistenceRequestBody::Graphql { query, .. } => query.clone(),
-                                        _ => String::new(),
-                                    })
+                                let headers_map: std::collections::BTreeMap<String, String> = json.get("headers")
+                                    .and_then(|h| h.as_object())
+                                    .map(|obj| obj.iter().filter_map(|(k, v)| {
+                                        Some((k.clone(), v.as_str()?.to_string()))
+                                    }).collect())
                                     .unwrap_or_default();
 
-                                let headers: Vec<HeaderData> = request.headers.iter()
-                                    .map(|(k, v)| HeaderData { key: k.clone(), value: v.clone(), enabled: true })
+                                let query_params_map: std::collections::BTreeMap<String, String> = json.get("query_params")
+                                    .and_then(|q| q.as_object())
+                                    .map(|obj| obj.iter().filter_map(|(k, v)| {
+                                        Some((k.clone(), v.as_str()?.to_string()))
+                                    }).collect())
+                                    .unwrap_or_default();
+
+                                (name, method, url, body, headers_map, query_params_map)
+                            } else {
+                                continue;
+                            };
+
+                            {
+                                let method_index = match method_str.to_uppercase().as_str() {
+                                    "GET" => 0,
+                                    "POST" => 1,
+                                    "PUT" => 2,
+                                    "PATCH" => 3,
+                                    "DELETE" => 4,
+                                    "HEAD" => 5,
+                                    "OPTIONS" => 6,
+                                    _ => 0,
+                                };
+
+                                let headers: Vec<HeaderData> = headers_map.iter()
+                                    .map(|(k, v)| HeaderData { key: k.clone(), value: v.clone(), description: String::new(), enabled: true })
                                     .collect();
 
-                                let query_params: Vec<QueryParamData> = request.query_params.iter()
-                                    .map(|(k, v)| QueryParamData { key: k.clone(), value: v.clone(), enabled: true })
+                                let query_params: Vec<QueryParamData> = query_params_map.iter()
+                                    .map(|(k, v)| QueryParamData { key: k.clone(), value: v.clone(), description: String::new(), enabled: true })
                                     .collect();
 
                                 let new_tab = TabState {
                                     id: uuid::Uuid::new_v4().to_string(),
-                                    name: request.name.clone(),
+                                    name: request_name.clone(),
                                     method: method_index,
-                                    url: request.url.clone(),
+                                    url: url.clone(),
                                     body: body.clone(),
                                     headers: headers.clone(),
                                     query_params: query_params.clone(),
@@ -942,13 +1047,13 @@ fn run_async_runtime(
                                 state.tabs.push(new_tab);
                                 state.active_tab_id = Some(new_id.clone());
 
-                                state.current_url = request.url.clone();
-                                state.base_url = request.url.split('?').next().unwrap_or("").to_string();
+                                state.current_url = url.clone();
+                                state.base_url = url.split('?').next().unwrap_or("").to_string();
                                 state.query_params = query_params.clone();
                                 state.request_headers = headers.clone();
 
                                 let _ = update_tx.send(UiUpdate::LoadFullRequest {
-                                    url: request.url,
+                                    url,
                                     method: method_index,
                                     body,
                                     headers,
@@ -1319,9 +1424,17 @@ fn run_async_runtime(
                 }
 
                 UiCommand::UrlChanged { url } => {
+                    // Skip re-parsing if we're updating from params (to avoid circular update)
+                    if state.updating_url_from_params {
+                        state.updating_url_from_params = false;
+                        state.current_url = url.clone();
+                        resolve_and_update_url(&state, &update_tx);
+                        continue;
+                    }
+
                     state.current_url = url.clone();
 
-                    // Sprint 05: Sync query params from URL
+                    // Sprint 05: Sync query params from URL (only when user edits URL directly)
                     if let Some(query_start) = url.find('?') {
                         state.base_url = url[..query_start].to_string();
                         let query_string = &url[query_start + 1..];
@@ -1337,6 +1450,7 @@ fn run_async_runtime(
                                 QueryParamData {
                                     key,
                                     value,
+                                    description: String::new(),
                                     enabled: true,
                                 }
                             })
@@ -1405,7 +1519,7 @@ fn run_async_runtime(
 
                 // History commands (Sprint 04)
                 UiCommand::LoadHistoryItem { id } => {
-                    if let Some(entry) = state.history.get(&id) {
+                    if let Some(entry) = state.history.get(&id).cloned() {
                         // Load the request into the editor
                         let method_index = match entry.method {
                             vortex_domain::request::HttpMethod::Get => 0,
@@ -1417,14 +1531,55 @@ fn run_async_runtime(
                             vortex_domain::request::HttpMethod::Options => 6,
                         };
 
-                        let _ = update_tx.send(UiUpdate::LoadRequest {
+                        // Convert history headers to HeaderData
+                        let headers: Vec<HeaderData> = entry.headers
+                            .iter()
+                            .map(|h| HeaderData {
+                                key: h.key.clone(),
+                                value: h.value.clone(),
+                                description: String::new(),
+                                enabled: h.enabled,
+                            })
+                            .collect();
+
+                        // Convert history params to QueryParamData
+                        let query_params: Vec<QueryParamData> = entry.params
+                            .iter()
+                            .map(|p| QueryParamData {
+                                key: p.key.clone(),
+                                value: p.value.clone(),
+                                description: String::new(),
+                                enabled: p.enabled,
+                            })
+                            .collect();
+
+                        // Convert history auth to AuthData
+                        let auth = entry.auth.as_ref().map(|a| AuthData {
+                            auth_type: a.auth_type,
+                            bearer_token: a.bearer_token.clone(),
+                            basic_username: a.basic_username.clone(),
+                            basic_password: a.basic_password.clone(),
+                            api_key_name: a.api_key_name.clone(),
+                            api_key_value: a.api_key_value.clone(),
+                            api_key_location: a.api_key_location,
+                        }).unwrap_or_default();
+
+                        // Update state
+                        state.current_url = entry.url.clone();
+                        state.request_headers = headers.clone();
+                        state.query_params = query_params.clone();
+                        state.auth_data = auth.clone();
+
+                        // Send full request data to UI
+                        let _ = update_tx.send(UiUpdate::LoadFullRequest {
                             url: entry.url.clone(),
                             method: method_index,
-                            body: String::new(), // History doesn't store body
+                            body: entry.body.clone().unwrap_or_default(),
+                            headers,
+                            query_params,
+                            auth,
                         });
 
-                        // Update current URL for variable resolution
-                        state.current_url = entry.url.clone();
                         resolve_and_update_url(&state, &update_tx);
                     }
                 }
@@ -1457,6 +1612,7 @@ fn run_async_runtime(
                     state.query_params.push(QueryParamData {
                         key: String::new(),
                         value: String::new(),
+                        description: String::new(),
                         enabled: true,
                     });
                     let _ = update_tx.send(UiUpdate::QueryParams(state.query_params.clone()));
@@ -1471,10 +1627,11 @@ fn run_async_runtime(
                     }
                 }
 
-                UiCommand::QueryParamChanged { index, key, value, enabled } => {
+                UiCommand::QueryParamChanged { index, key, value, description, enabled } => {
                     if let Some(param) = state.query_params.get_mut(index as usize) {
                         param.key = key;
                         param.value = value;
+                        param.description = description;
                         param.enabled = enabled;
                         // Don't send QueryParams back to avoid rebuilding UI and losing focus
                         // Only update the URL which doesn't affect the input focus
@@ -1487,6 +1644,7 @@ fn run_async_runtime(
                     state.request_headers.push(HeaderData {
                         key: String::new(),
                         value: String::new(),
+                        description: String::new(),
                         enabled: true,
                     });
                     let _ = update_tx.send(UiUpdate::RequestHeaders(state.request_headers.clone()));
@@ -1499,10 +1657,11 @@ fn run_async_runtime(
                     }
                 }
 
-                UiCommand::RequestHeaderChanged { index, key, value, enabled } => {
+                UiCommand::RequestHeaderChanged { index, key, value, description, enabled } => {
                     if let Some(header) = state.request_headers.get_mut(index as usize) {
                         header.key = key;
                         header.value = value;
+                        header.description = description;
                         header.enabled = enabled;
                     }
                 }
@@ -1803,11 +1962,11 @@ fn run_async_runtime(
                                 }).unwrap_or_default();
 
                                 let headers: Vec<HeaderData> = request.headers.iter()
-                                    .map(|(k, v)| HeaderData { key: k.clone(), value: v.clone(), enabled: true })
+                                    .map(|(k, v)| HeaderData { key: k.clone(), value: v.clone(), description: String::new(), enabled: true })
                                     .collect();
 
                                 let query_params: Vec<QueryParamData> = request.query_params.iter()
-                                    .map(|(k, v)| QueryParamData { key: k.clone(), value: v.clone(), enabled: true })
+                                    .map(|(k, v)| QueryParamData { key: k.clone(), value: v.clone(), description: String::new(), enabled: true })
                                     .collect();
 
                                 let new_tab = TabState {
@@ -1866,6 +2025,7 @@ fn run_async_runtime(
                         // Open file dialog to select Postman collection
                         let ws = ws_path.clone();
                         let tx = update_tx.clone();
+                        let cmd_tx_refresh = cmd_tx.clone();
                         std::thread::spawn(move || {
                             if let Some(path) = rfd::FileDialog::new()
                                 .set_title("Import Postman Collection")
@@ -1877,6 +2037,8 @@ fn run_async_runtime(
                                     match import_postman_collection(&content, &ws) {
                                         Ok(name) => {
                                             let _ = tx.send(UiUpdate::ImportComplete { collection_name: name });
+                                            // Trigger tree refresh
+                                            let _ = cmd_tx_refresh.send(UiCommand::RefreshTree);
                                         }
                                         Err(e) => {
                                             let _ = tx.send(UiUpdate::Error {
@@ -1959,6 +2121,55 @@ fn run_async_runtime(
                         let _ = update_tx.send(UiUpdate::CurlExport(formatted)); // Reuse for clipboard
                     }
                 }
+
+                UiCommand::RefreshTree => {
+                    // Refresh the collection tree
+                    if let Some(ref ws_path) = state.workspace_path {
+                        let items = load_workspace_tree(ws_path, &state.expanded_folders).await;
+                        let _ = update_tx.send(UiUpdate::CollectionItems(items));
+                    }
+                }
+
+                UiCommand::RefreshEnvironments => {
+                    // Refresh the environments list
+                    if let Some(ws_path) = state.workspace_path.clone() {
+                        load_environments(&ws_path, &mut state, &update_tx).await;
+                    }
+                }
+
+                UiCommand::ImportEnvironment => {
+                    if let Some(ref ws_path) = state.workspace_path.clone() {
+                        let ws = ws_path.clone();
+                        let tx = update_tx.clone();
+                        let cmd_tx_refresh = cmd_tx.clone();
+                        std::thread::spawn(move || {
+                            if let Some(path) = rfd::FileDialog::new()
+                                .set_title("Import Postman Environment")
+                                .add_filter("JSON files", &["json"])
+                                .pick_file()
+                            {
+                                if let Ok(content) = std::fs::read_to_string(&path) {
+                                    match import_postman_environment(&content, &ws) {
+                                        Ok(name) => {
+                                            let _ = tx.send(UiUpdate::Error {
+                                                title: "Import Successful".to_string(),
+                                                message: format!("Environment '{}' imported successfully.", name),
+                                            });
+                                            // Refresh environments
+                                            let _ = cmd_tx_refresh.send(UiCommand::RefreshEnvironments);
+                                        }
+                                        Err(e) => {
+                                            let _ = tx.send(UiUpdate::Error {
+                                                title: "Import Failed".to_string(),
+                                                message: e,
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
             }
         }
     });
@@ -2021,6 +2232,9 @@ fn update_url_from_params(state: &mut AppState, update_tx: &mpsc::UnboundedSende
         format!("{}?{}", base, query_parts.join("&"))
     };
 
+    // Set flag to prevent circular update when URL changes
+    state.updating_url_from_params = true;
+
     // Update the URL in the UI
     let _ = update_tx.send(UiUpdate::UpdateUrl(state.current_url.clone()));
 
@@ -2078,6 +2292,8 @@ struct RequestResult {
     response_headers: Vec<crate::bridge::ResponseHeaderData>,
     error_title: String,
     error_message: String,
+    // Request body for history
+    request_body: String,
 }
 
 async fn handle_send_request(
@@ -2124,6 +2340,8 @@ async fn handle_send_request(
             _ => HttpMethod::Get,
         };
 
+        // Save body for history before it's moved
+        let request_body_for_history = resolved_body.clone();
         let request_body = if method.has_body() && !resolved_body.is_empty() {
             RequestBody::json(resolved_body)
         } else {
@@ -2275,6 +2493,7 @@ async fn handle_send_request(
             response_headers,
             error_title,
             error_message,
+            request_body: request_body_for_history,
         });
     }
 
@@ -2332,15 +2551,18 @@ fn load_folder_items<'a>(
     items: &'a mut Vec<TreeItemData>,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>> {
     Box::pin(async move {
-        // Try "requests" first, then "request" for flexibility
+        // Try "requests" first, then "request", then the folder itself for flexibility
         let requests_dir = folder_path.join("requests");
         let request_dir = folder_path.join("request");
 
-        // Try to read from "requests" directory first, then "request"
+        // Try to read from "requests" directory first, then "request", then folder itself
         let dir_to_read = if tokio::fs::metadata(&requests_dir).await.is_ok() {
             requests_dir
-        } else {
+        } else if tokio::fs::metadata(&request_dir).await.is_ok() {
             request_dir
+        } else {
+            // For subfolders (from Postman import), read directly from the folder
+            folder_path.to_path_buf()
         };
 
         if let Ok(mut entries) = tokio::fs::read_dir(&dir_to_read).await {
@@ -2350,11 +2572,21 @@ fn load_folder_items<'a>(
                 if path.is_dir() {
                     // This is a subfolder
                     let folder_id = path.display().to_string();
-                    let folder_name = path
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("Unknown")
-                        .to_string();
+
+                    // Try to read display name from folder.json, fallback to filesystem name
+                    let folder_meta_path = path.join("folder.json");
+                    let folder_name = if let Ok(content) = tokio::fs::read_to_string(&folder_meta_path).await {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                            json.get("name")
+                                .and_then(|n| n.as_str())
+                                .unwrap_or_else(|| path.file_name().and_then(|n| n.to_str()).unwrap_or("Unknown"))
+                                .to_string()
+                        } else {
+                            path.file_name().and_then(|n| n.to_str()).unwrap_or("Unknown").to_string()
+                        }
+                    } else {
+                        path.file_name().and_then(|n| n.to_str()).unwrap_or("Unknown").to_string()
+                    };
 
                     let is_expanded = expanded_folders.contains(&folder_id);
 
@@ -2373,30 +2605,40 @@ fn load_folder_items<'a>(
                         load_folder_items(&path, depth + 1, expanded_folders, items).await;
                     }
                 } else if path.extension().map_or(false, |e| e == "json") {
+                    // Skip collection.json and folder.json metadata files
+                    if path.file_name().map_or(false, |n| n == "collection.json" || n == "folder.json") {
+                        continue;
+                    }
+
                     // This is a request file
-                    let file_name = path
+                    let fallback_name = path
                         .file_stem()
                         .and_then(|n| n.to_str())
                         .unwrap_or("Unknown")
                         .to_string();
 
-                    // Try to read the method from the file
-                    let method = if let Ok(content) = tokio::fs::read_to_string(&path).await {
+                    // Try to read the name and method from the file
+                    let (name, method) = if let Ok(content) = tokio::fs::read_to_string(&path).await {
                         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                            json.get("method")
+                            let name = json.get("name")
+                                .and_then(|n| n.as_str())
+                                .unwrap_or(&fallback_name)
+                                .to_string();
+                            let method = json.get("method")
                                 .and_then(|m| m.as_str())
                                 .unwrap_or("GET")
-                                .to_string()
+                                .to_string();
+                            (name, method)
                         } else {
-                            "GET".to_string()
+                            (fallback_name.clone(), "GET".to_string())
                         }
                     } else {
-                        "GET".to_string()
+                        (fallback_name.clone(), "GET".to_string())
                     };
 
                     items.push(TreeItemData {
                         id: path.display().to_string(),
-                        name: file_name,
+                        name,
                         item_type: "request".to_string(),
                         method,
                         depth,
@@ -2612,6 +2854,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
                 .map(|p| QueryParam {
                     key: p.key.into(),
                     value: p.value.into(),
+                    description: p.description.into(),
                     enabled: p.enabled,
                 })
                 .collect();
@@ -2627,6 +2870,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
                 .map(|h| HeaderRow {
                     key: h.key.into(),
                     value: h.value.into(),
+                    description: h.description.into(),
                     enabled: h.enabled,
                 })
                 .collect();
@@ -2685,6 +2929,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
                 .map(|h| HeaderRow {
                     key: h.key.into(),
                     value: h.value.into(),
+                    description: h.description.into(),
                     enabled: h.enabled,
                 })
                 .collect();
@@ -2697,6 +2942,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
                 .map(|p| QueryParam {
                     key: p.key.into(),
                     value: p.value.into(),
+                    description: p.description.into(),
                     enabled: p.enabled,
                 })
                 .collect();
@@ -2834,10 +3080,20 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
 // --- Sprint 06: Import/Export Helper Functions ---
 
 /// Import a Postman collection v2.1 format.
+/// Also auto-detects and imports Postman environments.
 fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<String, String> {
     // Parse Postman collection JSON
     let collection: serde_json::Value = serde_json::from_str(content)
         .map_err(|e| format!("Invalid JSON: {}", e))?;
+
+    // Auto-detect: If this is an environment file (has "name" and "values" but no "info"),
+    // redirect to environment import
+    if collection.get("info").is_none() {
+        if collection.get("name").is_some() && collection.get("values").is_some() {
+            return import_postman_environment(content, workspace_path);
+        }
+        return Err("Invalid Postman file: Missing 'info' field for collection, or 'name'/'values' fields for environment".to_string());
+    }
 
     // Get collection info
     let info = collection.get("info")
@@ -2880,6 +3136,8 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
 
 /// Recursively import Postman items.
 fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Result<(), String> {
+    eprintln!("[IMPORT] Processing {} items in {:?}", items.len(), target_dir);
+
     for item in items {
         let name = item.get("name")
             .and_then(|n| n.as_str())
@@ -2890,8 +3148,19 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
             // This is a folder - create subdirectory and recurse
             let safe_name = name.to_lowercase().replace(' ', "-");
             let subfolder = target_dir.join(&safe_name);
+            eprintln!("[IMPORT] Folder: {} -> {:?}", name, subfolder);
             std::fs::create_dir_all(&subfolder)
-                .map_err(|e| format!("Failed to create folder: {}", e))?;
+                .map_err(|e| format!("Failed to create folder '{}': {}", name, e))?;
+
+            // Create folder.json with display name
+            let folder_meta = serde_json::json!({
+                "name": name,
+                "schema_version": 1,
+            });
+            std::fs::write(
+                subfolder.join("folder.json"),
+                serde_json::to_string_pretty(&folder_meta).unwrap_or_default(),
+            ).map_err(|e| format!("Failed to write folder.json for '{}': {}", name, e))?;
 
             if let Some(sub_items) = item.get("item").and_then(|i| i.as_array()) {
                 import_postman_items(sub_items, &subfolder)?;
@@ -2918,8 +3187,64 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                 })
                 .unwrap_or_default();
 
+            // Extract body from Postman format
+            let body = request.get("body").and_then(|body_obj| {
+                let mode = body_obj.get("mode")?.as_str()?;
+                match mode {
+                    "raw" => body_obj.get("raw").and_then(|r| r.as_str()).map(|s| s.to_string()),
+                    "urlencoded" => {
+                        // Convert form-urlencoded to string representation
+                        body_obj.get("urlencoded").and_then(|arr| arr.as_array()).map(|items| {
+                            items.iter()
+                                .filter_map(|item| {
+                                    let key = item.get("key")?.as_str()?;
+                                    let value = item.get("value")?.as_str().unwrap_or("");
+                                    Some(format!("{}={}", key, value))
+                                })
+                                .collect::<Vec<_>>()
+                                .join("&")
+                        })
+                    }
+                    "formdata" => {
+                        // Convert form-data to JSON representation for display
+                        body_obj.get("formdata").and_then(|arr| arr.as_array()).map(|items| {
+                            let obj: serde_json::Map<String, serde_json::Value> = items.iter()
+                                .filter_map(|item| {
+                                    let key = item.get("key")?.as_str()?.to_string();
+                                    let value = item.get("value")?.as_str().unwrap_or("").to_string();
+                                    Some((key, serde_json::Value::String(value)))
+                                })
+                                .collect();
+                            serde_json::to_string_pretty(&obj).unwrap_or_default()
+                        })
+                    }
+                    _ => None,
+                }
+            }).unwrap_or_default();
+
+            // Extract query params from Postman URL as BTreeMap
+            let query_params: std::collections::BTreeMap<String, String> = request.get("url")
+                .and_then(|url_obj| url_obj.get("query"))
+                .and_then(|q| q.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|param| {
+                            let disabled = param.get("disabled").and_then(|d| d.as_bool()).unwrap_or(false);
+                            if disabled {
+                                return None;
+                            }
+                            let key = param.get("key")?.as_str()?;
+                            let value = param.get("value")?.as_str().unwrap_or("");
+                            Some((key.to_string(), value.to_string()))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            eprintln!("[IMPORT] Request: {} {} (body: {} chars)", method, name, body.len());
+
             // Create Vortex request
-            let vortex_request = serde_json::json!({
+            let mut vortex_request = serde_json::json!({
                 "id": uuid::Uuid::new_v4().to_string(),
                 "name": name,
                 "method": method.to_uppercase(),
@@ -2928,12 +3253,34 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                 "schema_version": 1,
             });
 
+            // Add body if present using the correct PersistenceRequestBody format
+            if !body.is_empty() {
+                // Try to parse as JSON first, fall back to text
+                if let Ok(json_content) = serde_json::from_str::<serde_json::Value>(&body) {
+                    vortex_request["body"] = serde_json::json!({
+                        "type": "json",
+                        "content": json_content
+                    });
+                } else {
+                    vortex_request["body"] = serde_json::json!({
+                        "type": "text",
+                        "content": body
+                    });
+                }
+            }
+
+            // Add query params if present
+            if !query_params.is_empty() {
+                vortex_request["query_params"] = serde_json::json!(query_params);
+            }
+
             let safe_name = name.to_lowercase().replace(' ', "-").replace('/', "-");
             let file_path = target_dir.join(format!("{}.json", safe_name));
+            eprintln!("[IMPORT] Writing file: {:?}", file_path);
             std::fs::write(
                 &file_path,
                 serde_json::to_string_pretty(&vortex_request).unwrap_or_default(),
-            ).map_err(|e| format!("Failed to write request: {}", e))?;
+            ).map_err(|e| format!("Failed to write request '{}': {}", name, e))?;
         }
     }
 
@@ -3176,4 +3523,61 @@ fn collect_requests_for_search<'a>(
             }
         }
     })
+}
+
+/// Import a Postman environment file.
+fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result<String, String> {
+    let env: serde_json::Value = serde_json::from_str(content)
+        .map_err(|e| format!("Invalid JSON: {}", e))?;
+
+    // Postman environment format has "name" and "values" at the root level
+    // (unlike collections which have "info")
+    let name = env.get("name")
+        .and_then(|n| n.as_str())
+        .ok_or("Missing 'name' field - this may not be a Postman environment file")?
+        .to_string();
+
+    let values = env.get("values")
+        .and_then(|v| v.as_array())
+        .ok_or("Missing 'values' field - this may not be a Postman environment file")?;
+
+    // Create environments directory if it doesn't exist
+    let environments_dir = workspace_path.join("environments");
+    std::fs::create_dir_all(&environments_dir)
+        .map_err(|e| format!("Failed to create environments directory: {}", e))?;
+
+    // Convert Postman variables to Vortex format
+    let variables: Vec<serde_json::Value> = values.iter()
+        .filter_map(|v| {
+            let key = v.get("key")?.as_str()?;
+            let value = v.get("value")?.as_str().unwrap_or("");
+            let enabled = v.get("enabled").and_then(|e| e.as_bool()).unwrap_or(true);
+            let secret = v.get("type").and_then(|t| t.as_str()) == Some("secret");
+
+            Some(serde_json::json!({
+                "name": key,
+                "value": value,
+                "enabled": enabled,
+                "is_secret": secret
+            }))
+        })
+        .collect();
+
+    // Create Vortex environment file
+    let vortex_env = serde_json::json!({
+        "id": uuid::Uuid::new_v4().to_string(),
+        "name": name,
+        "variables": variables,
+        "schema_version": 1,
+    });
+
+    let safe_name = name.to_lowercase().replace(' ', "-");
+    let file_path = environments_dir.join(format!("{}.json", safe_name));
+
+    std::fs::write(
+        &file_path,
+        serde_json::to_string_pretty(&vortex_env).unwrap_or_default(),
+    ).map_err(|e| format!("Failed to write environment file: {}", e))?;
+
+    Ok(name)
 }

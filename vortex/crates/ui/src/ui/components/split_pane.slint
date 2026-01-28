@@ -1,0 +1,207 @@
+// Split Pane Component
+// Vertical split with draggable resizer for request/response panels
+
+import { VortexPalette, VortexSpacing, VortexLayout } from "../theme.slint";
+
+export component SplitPane inherits Rectangle {
+    // Ratio of top panel height (0.0 to 1.0)
+    in-out property <float> split-ratio: VortexLayout.request-panel-ratio;
+
+    // Min/max ratios to prevent panels from being too small
+    property <float> min-ratio: 0.2;
+    property <float> max-ratio: 0.8;
+
+    // Resizer handle height
+    property <length> resizer-height: VortexLayout.resizer-height;
+
+    // Track if resizing
+    property <bool> is-resizing: false;
+
+    background: VortexPalette.bg-primary;
+
+    // Top panel placeholder
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: (parent.height - resizer-height) * split-ratio;
+
+        @children
+    }
+
+    // Resizer handle
+    Rectangle {
+        x: 0;
+        y: (parent.height - resizer-height) * split-ratio;
+        width: parent.width;
+        height: resizer-height;
+        background: resizer-touch.has-hover || is-resizing ? VortexPalette.accent : VortexPalette.border-default;
+
+        // Center grip indicator
+        Rectangle {
+            width: 40px;
+            height: 2px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: resizer-touch.has-hover || is-resizing ? VortexPalette.text-inverse : VortexPalette.text-muted;
+            border-radius: 1px;
+        }
+
+        resizer-touch := TouchArea {
+            mouse-cursor: row-resize;
+
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down {
+                    is-resizing = true;
+                } else if event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel {
+                    is-resizing = false;
+                }
+            }
+
+            moved => {
+                if is-resizing {
+                    // Calculate new ratio based on mouse position
+                    // self.pressed-y is relative to touch area, need to convert to parent coordinates
+                    // The touch area's y position + the moved delta gives us the new position
+
+                    // Get the current mouse Y in the parent's coordinate space
+                    // resizer is at y = (parent.height - resizer-height) * split-ratio
+                    // mouse Y relative to parent = resizer.y + mouse-y (within touch area)
+
+                    // Use the position within the parent
+                    // mouse-y is the cursor Y relative to the touch area
+                    // We need to figure out where the mouse is in the parent and calculate ratio
+
+                    // Since TouchArea.moved gives relative position, we compute:
+                    // new_y = current_resizer_y + (mouse_y - pressed_y)
+
+                    // For simplicity, use the mouse position directly
+                    // The mouse Y relative to the split pane would be:
+                    // resizer.y + self.mouse-y
+
+                    // Actually, let's compute the new ratio:
+                    // new_ratio = (resizer_y + mouse_movement) / (total_height - resizer_height)
+
+                    // The mouse-y in TouchArea is relative to the touch area
+                    // Since resizer is at position split-ratio * (height - resizer-height)
+                    // and mouse moves relative to press point, we can update:
+
+                    // Actually, let's use the absolute approach:
+                    // mouse-y in touch area tells us where in the touch area the mouse is
+                    // We want the new split position to be where the mouse is
+
+                    // New y position for resizer top = parent.height * split-ratio was old
+                    // We want: new_y = old_y + (mouse-y - pressed-y)
+                    // Then: new_ratio = new_y / (parent.height - resizer-height)
+
+                    // Simpler: treat pressed position as reference
+                    // new-ratio = current-ratio + (mouse-y - resizer-height/2) / (parent.height - resizer-height)
+
+                    // Let's use a simpler calculation:
+                    // The resizer should follow the mouse
+                    // Current resizer y = (parent.height - resizer-height) * split-ratio
+                    // Mouse y relative to parent = resizer.y + self.mouse-y
+                    // New ratio = mouse_y_relative_to_parent / (parent.height - resizer-height)
+
+                    // self.mouse-y is relative to touch area (resizer)
+                    // parent of touch area is the resizer rectangle
+                    // resizer.y is already (parent.height - resizer-height) * split-ratio
+
+                    // So new_ratio = (resizer.y + self.mouse-y) / (root.height - resizer-height)
+                    // = ((root.height - resizer-height) * split-ratio + self.mouse-y) / (root.height - resizer-height)
+                    // = split-ratio + self.mouse-y / (root.height - resizer-height)
+
+                    // But we want the center of the resizer to follow the mouse
+                    // Offset by half the resizer height
+
+                    if root.height > resizer-height {
+                        new-ratio := split-ratio + self.mouse-y / (root.height - resizer-height);
+
+                        // Clamp to min/max
+                        if new-ratio < min-ratio {
+                            split-ratio = min-ratio;
+                        } else if new-ratio > max-ratio {
+                            split-ratio = max-ratio;
+                        } else {
+                            split-ratio = new-ratio;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Bottom panel placeholder (content placed by parent using absolute positioning)
+    // The parent component should position the bottom content at:
+    // y: (parent.height - resizer-height) * split-ratio + resizer-height
+    // height: parent.height - y
+}
+
+// Component that provides the actual split functionality with slots
+export component VerticalSplitPane inherits Rectangle {
+    in-out property <float> split-ratio: VortexLayout.request-panel-ratio;
+
+    property <float> min-ratio: 0.2;
+    property <float> max-ratio: 0.8;
+    property <length> resizer-height: VortexLayout.resizer-height;
+    property <bool> is-resizing: false;
+
+    callback split-changed(float);
+
+    background: VortexPalette.bg-primary;
+
+    VerticalLayout {
+        spacing: 0;
+
+        // Top panel - takes split-ratio of remaining space
+        Rectangle {
+            vertical-stretch: split-ratio;
+            min-height: 100px;
+
+            @children
+        }
+
+        // Resizer handle
+        Rectangle {
+            height: resizer-height;
+            background: resizer-area.has-hover || is-resizing ? VortexPalette.accent : VortexPalette.border-default;
+
+            // Center grip indicator
+            Rectangle {
+                width: 40px;
+                height: 2px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                background: resizer-area.has-hover || is-resizing ? VortexPalette.text-inverse : VortexPalette.text-muted;
+                border-radius: 1px;
+            }
+
+            resizer-area := TouchArea {
+                mouse-cursor: row-resize;
+
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down {
+                        is-resizing = true;
+                    } else if event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel {
+                        is-resizing = false;
+                        split-changed(split-ratio);
+                    }
+                }
+
+                moved => {
+                    if is-resizing && root.height > resizer-height {
+                        new-ratio := split-ratio + self.mouse-y / (root.height - resizer-height);
+
+                        if new-ratio < min-ratio {
+                            split-ratio = min-ratio;
+                        } else if new-ratio > max-ratio {
+                            split-ratio = max-ratio;
+                        } else {
+                            split-ratio = new-ratio;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
