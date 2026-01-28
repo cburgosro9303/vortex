@@ -71,128 +71,100 @@ component EditorTab inherits Rectangle {
     }
 }
 
+// Radio option component for body type selector
+component BodyTypeRadio inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    callback clicked();
+
+    height: 20px;
+    width: self.preferred-width;
+
+    HorizontalLayout {
+        spacing: VortexSpacing.xs;
+
+        Rectangle {
+            width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            border-width: 2px;
+            border-color: selected ? VortexPalette.accent : VortexPalette.border-strong;
+            background: transparent;
+
+            if selected: Rectangle {
+                width: 8px;
+                height: 8px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                border-radius: 4px;
+                background: VortexPalette.accent;
+            }
+
+            TouchArea {
+                clicked => { root.clicked(); }
+            }
+        }
+
+        Text {
+            text: label;
+            color: selected ? VortexPalette.text-primary : VortexPalette.text-secondary;
+            font-size: VortexTypography.font-xs;
+            vertical-alignment: center;
+        }
+    }
+
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
 // Body type selector
+// 0=none, 1=form-data, 2=x-www-form-urlencoded, 3=raw, 4=binary, 5=graphql
 component BodyTypeSelector inherits Rectangle {
-    in-out property <int> body-type: 0;  // 0=none, 1=form-data, 2=raw
+    in-out property <int> body-type: 0;
 
     callback type-changed(int);
 
     height: 32px;
 
     HorizontalLayout {
-        spacing: VortexSpacing.lg;
+        spacing: VortexSpacing.md;
         alignment: start;
 
-        // None option
-        HorizontalLayout {
-            spacing: VortexSpacing.xs;
-
-            Rectangle {
-                width: 16px;
-                height: 16px;
-                border-radius: 8px;
-                border-width: 2px;
-                border-color: body-type == 0 ? VortexPalette.accent : VortexPalette.border-strong;
-                background: transparent;
-
-                // Inner dot when selected
-                if body-type == 0: Rectangle {
-                    width: 8px;
-                    height: 8px;
-                    x: (parent.width - self.width) / 2;
-                    y: (parent.height - self.height) / 2;
-                    border-radius: 4px;
-                    background: VortexPalette.accent;
-                }
-
-                TouchArea {
-                    clicked => {
-                        body-type = 0;
-                        type-changed(0);
-                    }
-                }
-            }
-
-            Text {
-                text: "none";
-                color: body-type == 0 ? VortexPalette.text-primary : VortexPalette.text-secondary;
-                font-size: VortexTypography.font-xs;
-                vertical-alignment: center;
-            }
+        BodyTypeRadio {
+            label: "none";
+            selected: body-type == 0;
+            clicked => { body-type = 0; type-changed(0); }
         }
 
-        // Form-data option
-        HorizontalLayout {
-            spacing: VortexSpacing.xs;
-
-            Rectangle {
-                width: 16px;
-                height: 16px;
-                border-radius: 8px;
-                border-width: 2px;
-                border-color: body-type == 1 ? VortexPalette.accent : VortexPalette.border-strong;
-                background: transparent;
-
-                if body-type == 1: Rectangle {
-                    width: 8px;
-                    height: 8px;
-                    x: (parent.width - self.width) / 2;
-                    y: (parent.height - self.height) / 2;
-                    border-radius: 4px;
-                    background: VortexPalette.accent;
-                }
-
-                TouchArea {
-                    clicked => {
-                        body-type = 1;
-                        type-changed(1);
-                    }
-                }
-            }
-
-            Text {
-                text: "form-data";
-                color: body-type == 1 ? VortexPalette.text-primary : VortexPalette.text-secondary;
-                font-size: VortexTypography.font-xs;
-                vertical-alignment: center;
-            }
+        BodyTypeRadio {
+            label: "form-data";
+            selected: body-type == 1;
+            clicked => { body-type = 1; type-changed(1); }
         }
 
-        // Raw option
-        HorizontalLayout {
-            spacing: VortexSpacing.xs;
+        BodyTypeRadio {
+            label: "x-www-form-urlencoded";
+            selected: body-type == 2;
+            clicked => { body-type = 2; type-changed(2); }
+        }
 
-            Rectangle {
-                width: 16px;
-                height: 16px;
-                border-radius: 8px;
-                border-width: 2px;
-                border-color: body-type == 2 ? VortexPalette.accent : VortexPalette.border-strong;
-                background: transparent;
+        BodyTypeRadio {
+            label: "raw";
+            selected: body-type == 3;
+            clicked => { body-type = 3; type-changed(3); }
+        }
 
-                if body-type == 2: Rectangle {
-                    width: 8px;
-                    height: 8px;
-                    x: (parent.width - self.width) / 2;
-                    y: (parent.height - self.height) / 2;
-                    border-radius: 4px;
-                    background: VortexPalette.accent;
-                }
+        BodyTypeRadio {
+            label: "binary";
+            selected: body-type == 4;
+            clicked => { body-type = 4; type-changed(4); }
+        }
 
-                TouchArea {
-                    clicked => {
-                        body-type = 2;
-                        type-changed(2);
-                    }
-                }
-            }
-
-            Text {
-                text: "raw";
-                color: body-type == 2 ? VortexPalette.text-primary : VortexPalette.text-secondary;
-                font-size: VortexTypography.font-xs;
-                vertical-alignment: center;
-            }
+        BodyTypeRadio {
+            label: "GraphQL";
+            selected: body-type == 5;
+            clicked => { body-type = 5; type-changed(5); }
         }
     }
 }
@@ -209,17 +181,32 @@ export component RequestEditor inherits Rectangle {
     in-out property <[HeaderRow]> headers: [];
 
     // Auth state
-    in-out property <int> auth-type: 0;  // 0=None, 1=Bearer, 2=Basic, 3=API Key
+    in-out property <int> auth-type: 0;  // 0=None, 1=Bearer, 2=Basic, 3=API Key, 4=OAuth2 CC, 5=OAuth2 AC
     in-out property <string> bearer-token: "";
+    in-out property <string> bearer-prefix: "Bearer";
     in-out property <string> basic-username: "";
     in-out property <string> basic-password: "";
     in-out property <string> api-key-name: "";
     in-out property <string> api-key-value: "";
     in-out property <int> api-key-location: 0;
+    // OAuth2 properties
+    in-out property <string> oauth2-token-url: "";
+    in-out property <string> oauth2-auth-url: "";
+    in-out property <string> oauth2-client-id: "";
+    in-out property <string> oauth2-client-secret: "";
+    in-out property <string> oauth2-redirect-uri: "http://localhost:8080/callback";
+    in-out property <string> oauth2-scope: "";
+    in property <string> oauth2-token-status: "";
+    in property <string> oauth2-token-preview: "";
 
-    // Body state
-    in-out property <int> body-type: 0;  // 0=none, 1=form-data, 2=raw
+    // Body state - 0=none, 1=form-data, 2=x-www-form-urlencoded, 3=raw, 4=binary, 5=graphql
+    in-out property <int> body-type: 0;
     in-out property <string> body-raw: "";
+    in-out property <string> body-binary-path: "";
+    in-out property <string> graphql-query: "";
+    in-out property <string> graphql-variables: "";
+    // Form data items (for both form-data and x-www-form-urlencoded)
+    in-out property <[KeyValueItem]> form-data-items: [];
 
     // Callbacks - Params
     callback add-param();
@@ -234,15 +221,26 @@ export component RequestEditor inherits Rectangle {
     // Callbacks - Auth
     callback auth-type-changed(int);
     callback bearer-token-changed(string);
+    callback bearer-prefix-changed(string);
     callback basic-credentials-changed(string, string);
     callback api-key-changed(string, string, int);
+    callback oauth2-client-credentials-changed(string, string, string, string);
+    callback oauth2-auth-code-changed(string, string, string, string, string, string);
+    callback oauth2-get-token();
+    callback oauth2-clear-token();
 
     // Callbacks - Body
     callback body-type-changed(int);
     callback body-raw-changed(string);
     callback format-body();
+    callback select-binary-file();
+    callback graphql-query-changed(string);
+    callback graphql-variables-changed(string);
+    callback add-form-data-item();
+    callback delete-form-data-item(int);
+    callback form-data-item-changed(int, KeyValueItem);
 
-    property <[string]> auth-types: ["No Auth", "Bearer Token", "Basic Auth", "API Key"];
+    property <[string]> auth-types: ["No Auth", "Bearer Token", "Basic Auth", "API Key", "OAuth2 Client Credentials", "OAuth2 Authorization Code"];
     property <[string]> api-key-locations: ["Header", "Query Param"];
 
     background: VortexPalette.bg-primary;
@@ -1061,7 +1059,7 @@ export component RequestEditor inherits Rectangle {
                     type-changed(t) => { body-type-changed(t); }
                 }
 
-                // Body content
+                // Body content - none
                 if body-type == 0: Rectangle {
                     vertical-stretch: 1;
 
@@ -1077,31 +1075,248 @@ export component RequestEditor inherits Rectangle {
                     }
                 }
 
-                if body-type == 1: Rectangle {
-                    vertical-stretch: 1;
-
-                    VerticalLayout {
-                        alignment: center;
-
-                        Text {
-                            text: "Form-data editor not implemented in this demo (Use raw)";
-                            color: VortexPalette.text-muted;
-                            font-size: VortexTypography.font-sm;
-                            horizontal-alignment: center;
-                        }
-                    }
-                }
-
-                if body-type == 2: VerticalLayout {
+                // Body content - form-data (multipart)
+                if body-type == 1: VerticalLayout {
                     vertical-stretch: 1;
                     spacing: VortexSpacing.sm;
 
-                    // Header with format button
                     HorizontalLayout {
                         alignment: space-between;
 
                         Text {
-                            text: "Request Body (JSON, Text, etc.)";
+                            text: "Form Data (multipart/form-data)";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-xs;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            width: 60px;
+                            height: 24px;
+                            background: add-form-touch.has-hover ? VortexPalette.bg-hover : VortexPalette.bg-tertiary;
+                            border-radius: VortexShape.radius-sm;
+
+                            HorizontalLayout {
+                                alignment: center;
+                                spacing: VortexSpacing.xs;
+
+                                Text {
+                                    text: "+";
+                                    color: VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-sm;
+                                    font-weight: VortexTypography.weight-bold;
+                                    vertical-alignment: center;
+                                }
+
+                                Text {
+                                    text: "Add";
+                                    color: VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-xs;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            add-form-touch := TouchArea {
+                                clicked => { add-form-data-item(); }
+                            }
+                        }
+                    }
+
+                    if form-data-items.length == 0: Rectangle {
+                        vertical-stretch: 1;
+
+                        Text {
+                            text: "No form data. Click '+ Add' to add a field.";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-sm;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    if form-data-items.length > 0: ScrollView {
+                        vertical-stretch: 1;
+
+                        VerticalLayout {
+                            spacing: VortexSpacing.xs;
+
+                            for item[idx] in form-data-items: Rectangle {
+                                height: 36px;
+                                background: mod(idx, 2) == 0 ? VortexPalette.bg-primary : VortexPalette.bg-secondary;
+                                border-radius: VortexShape.radius-sm;
+
+                                HorizontalLayout {
+                                    spacing: VortexSpacing.sm;
+                                    padding: VortexSpacing.xs;
+
+                                    LineEdit {
+                                        horizontal-stretch: 1;
+                                        text: item.key;
+                                        placeholder-text: "Key";
+                                        font-size: VortexTypography.font-sm;
+                                        edited => {
+                                            form-data-item-changed(idx, { key: self.text, value: item.value, enabled: item.enabled });
+                                        }
+                                    }
+
+                                    LineEdit {
+                                        horizontal-stretch: 2;
+                                        text: item.value;
+                                        placeholder-text: "Value";
+                                        font-size: VortexTypography.font-sm;
+                                        edited => {
+                                            form-data-item-changed(idx, { key: item.key, value: self.text, enabled: item.enabled });
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        width: 24px;
+                                        height: 24px;
+
+                                        Text {
+                                            text: "x";
+                                            color: del-form-touch.has-hover ? VortexPalette.status-error : VortexPalette.text-muted;
+                                            font-size: VortexTypography.font-sm;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+
+                                        del-form-touch := TouchArea {
+                                            clicked => { delete-form-data-item(idx); }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Body content - x-www-form-urlencoded
+                if body-type == 2: VerticalLayout {
+                    vertical-stretch: 1;
+                    spacing: VortexSpacing.sm;
+
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        Text {
+                            text: "Form URL Encoded (application/x-www-form-urlencoded)";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-xs;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            width: 60px;
+                            height: 24px;
+                            background: add-urlencode-touch.has-hover ? VortexPalette.bg-hover : VortexPalette.bg-tertiary;
+                            border-radius: VortexShape.radius-sm;
+
+                            HorizontalLayout {
+                                alignment: center;
+                                spacing: VortexSpacing.xs;
+
+                                Text {
+                                    text: "+";
+                                    color: VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-sm;
+                                    font-weight: VortexTypography.weight-bold;
+                                    vertical-alignment: center;
+                                }
+
+                                Text {
+                                    text: "Add";
+                                    color: VortexPalette.text-secondary;
+                                    font-size: VortexTypography.font-xs;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            add-urlencode-touch := TouchArea {
+                                clicked => { add-form-data-item(); }
+                            }
+                        }
+                    }
+
+                    if form-data-items.length == 0: Rectangle {
+                        vertical-stretch: 1;
+
+                        Text {
+                            text: "No form fields. Click '+ Add' to add a field.";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-sm;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    if form-data-items.length > 0: ScrollView {
+                        vertical-stretch: 1;
+
+                        VerticalLayout {
+                            spacing: VortexSpacing.xs;
+
+                            for item[idx] in form-data-items: Rectangle {
+                                height: 36px;
+                                background: mod(idx, 2) == 0 ? VortexPalette.bg-primary : VortexPalette.bg-secondary;
+                                border-radius: VortexShape.radius-sm;
+
+                                HorizontalLayout {
+                                    spacing: VortexSpacing.sm;
+                                    padding: VortexSpacing.xs;
+
+                                    LineEdit {
+                                        horizontal-stretch: 1;
+                                        text: item.key;
+                                        placeholder-text: "Key";
+                                        font-size: VortexTypography.font-sm;
+                                        edited => {
+                                            form-data-item-changed(idx, { key: self.text, value: item.value, enabled: item.enabled });
+                                        }
+                                    }
+
+                                    LineEdit {
+                                        horizontal-stretch: 2;
+                                        text: item.value;
+                                        placeholder-text: "Value";
+                                        font-size: VortexTypography.font-sm;
+                                        edited => {
+                                            form-data-item-changed(idx, { key: item.key, value: self.text, enabled: item.enabled });
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        width: 24px;
+                                        height: 24px;
+
+                                        Text {
+                                            text: "x";
+                                            color: del-urlenc-touch.has-hover ? VortexPalette.status-error : VortexPalette.text-muted;
+                                            font-size: VortexTypography.font-sm;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+
+                                        del-urlenc-touch := TouchArea {
+                                            clicked => { delete-form-data-item(idx); }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Body content - raw (JSON, Text, etc.)
+                if body-type == 3: VerticalLayout {
+                    vertical-stretch: 1;
+                    spacing: VortexSpacing.sm;
+
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        Text {
+                            text: "Request Body (JSON, Text, XML, etc.)";
                             color: VortexPalette.text-muted;
                             font-size: VortexTypography.font-xs;
                             vertical-alignment: center;
@@ -1127,7 +1342,6 @@ export component RequestEditor inherits Rectangle {
                         }
                     }
 
-                    // Text editor
                     Rectangle {
                         vertical-stretch: 1;
                         background: VortexPalette.bg-input;
@@ -1147,6 +1361,177 @@ export component RequestEditor inherits Rectangle {
 
                             edited => {
                                 body-raw-changed(self.text);
+                            }
+                        }
+                    }
+                }
+
+                // Body content - binary
+                if body-type == 4: VerticalLayout {
+                    vertical-stretch: 1;
+                    spacing: VortexSpacing.md;
+                    alignment: center;
+
+                    Text {
+                        text: "Binary File";
+                        color: VortexPalette.text-muted;
+                        font-size: VortexTypography.font-xs;
+                        horizontal-alignment: center;
+                    }
+
+                    Rectangle {
+                        width: 200px;
+                        height: 80px;
+                        background: VortexPalette.bg-secondary;
+                        border-radius: VortexShape.radius-md;
+                        border-width: 2px;
+                        border-color: select-file-touch.has-hover ? VortexPalette.accent : VortexPalette.border-default;
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: VortexSpacing.sm;
+
+                            Text {
+                                text: body-binary-path == "" ? "Select File" : body-binary-path;
+                                color: body-binary-path == "" ? VortexPalette.text-muted : VortexPalette.text-primary;
+                                font-size: VortexTypography.font-sm;
+                                horizontal-alignment: center;
+                                overflow: elide;
+                            }
+
+                            if body-binary-path == "": Text {
+                                text: "Click to browse";
+                                color: VortexPalette.text-placeholder;
+                                font-size: VortexTypography.font-xs;
+                                horizontal-alignment: center;
+                            }
+                        }
+
+                        select-file-touch := TouchArea {
+                            clicked => { select-binary-file(); }
+                        }
+                    }
+
+                    if body-binary-path != "": Rectangle {
+                        width: 80px;
+                        height: 28px;
+                        background: clear-binary-touch.has-hover ? VortexPalette.bg-hover : VortexPalette.bg-tertiary;
+                        border-radius: VortexShape.radius-sm;
+                        border-width: 1px;
+                        border-color: VortexPalette.border-default;
+
+                        Text {
+                            text: "Clear";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-xs;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        clear-binary-touch := TouchArea {
+                            clicked => {
+                                // Clear by setting empty path via callback
+                                body-raw-changed("");
+                            }
+                        }
+                    }
+                }
+
+                // Body content - GraphQL
+                if body-type == 5: VerticalLayout {
+                    vertical-stretch: 1;
+                    spacing: VortexSpacing.sm;
+
+                    // Query section
+                    VerticalLayout {
+                        vertical-stretch: 2;
+                        spacing: VortexSpacing.xs;
+
+                        Text {
+                            text: "Query";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-xs;
+                        }
+
+                        Rectangle {
+                            vertical-stretch: 1;
+                            background: VortexPalette.bg-input;
+                            border-radius: VortexShape.radius-sm;
+                            border-width: 1px;
+                            border-color: graphql-query-editor.has-focus ? VortexPalette.border-focus : VortexPalette.border-default;
+                            clip: true;
+
+                            graphql-query-editor := TextEdit {
+                                x: VortexSpacing.sm;
+                                y: VortexSpacing.sm;
+                                width: parent.width - VortexSpacing.lg;
+                                height: parent.height - VortexSpacing.lg;
+                                text <=> graphql-query;
+                                font-size: VortexTypography.code-font-size;
+                                wrap: word-wrap;
+
+                                edited => {
+                                    graphql-query-changed(self.text);
+                                }
+                            }
+                        }
+                    }
+
+                    // Variables section
+                    VerticalLayout {
+                        vertical-stretch: 1;
+                        spacing: VortexSpacing.xs;
+
+                        HorizontalLayout {
+                            alignment: space-between;
+
+                            Text {
+                                text: "Variables (JSON)";
+                                color: VortexPalette.text-muted;
+                                font-size: VortexTypography.font-xs;
+                                vertical-alignment: center;
+                            }
+
+                            Rectangle {
+                                width: 60px;
+                                height: 20px;
+                                background: format-vars-touch.has-hover ? VortexPalette.bg-hover : transparent;
+                                border-radius: VortexShape.radius-sm;
+
+                                Text {
+                                    text: "Format";
+                                    color: VortexPalette.text-accent;
+                                    font-size: VortexTypography.font-xs;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                format-vars-touch := TouchArea {
+                                    clicked => { format-body(); }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            vertical-stretch: 1;
+                            background: VortexPalette.bg-input;
+                            border-radius: VortexShape.radius-sm;
+                            border-width: 1px;
+                            border-color: graphql-vars-editor.has-focus ? VortexPalette.border-focus : VortexPalette.border-default;
+                            clip: true;
+
+                            graphql-vars-editor := TextEdit {
+                                x: VortexSpacing.sm;
+                                y: VortexSpacing.sm;
+                                width: parent.width - VortexSpacing.lg;
+                                height: parent.height - VortexSpacing.lg;
+                                text <=> graphql-variables;
+                                font-size: VortexTypography.code-font-size;
+                                wrap: word-wrap;
+
+                                edited => {
+                                    graphql-variables-changed(self.text);
+                                }
                             }
                         }
                     }

@@ -36,15 +36,22 @@ thiserror = "2.0.18"
 # UI Framework
 slint = "1.14.1"
 
-# HTTP Client (for future use)
-reqwest = { version = "0.13.1", features = ["json", "rustls","http2"], default-features = false }
+# HTTP Client
+reqwest = { version = "0.13.1", features = ["json", "rustls", "http2", "multipart", "stream"], default-features = false }
+
+# URL encoding
+serde_urlencoded = "0.7.1"
+
+# MIME type guessing
+mime_guess = "2.0.5"
+mime = "0.3.17"
 
 # Utilities
 uuid = { version = "1.20.0", features = ["v4", "v7", "serde"] }
 chrono = { version = "0.4.43", features = ["serde"] }
 url = { version = "2.5.8", features = ["serde"] }
 rand = "0.9"
-async-trait = "0.1"
+async-trait = "0.1.89"
 base64 = "0.22"
 
 # Testing

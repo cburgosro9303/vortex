@@ -2,4 +2,4 @@
 
 mod types;
 
-pub use types::AuthConfig;
+pub use types::{ApiKeyLocation, AuthConfig, AuthError, AuthResolution, OAuth2Token};

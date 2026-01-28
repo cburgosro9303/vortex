@@ -5,13 +5,16 @@
 //! - Use case orchestration
 //! - Application-level error handling
 //! - Variable resolution engine
+//! - Authentication providers and token management
 
+pub mod auth;
 pub mod error;
 pub mod execute_request;
 pub mod ports;
 pub mod use_cases;
 pub mod variable_resolver;
 
+pub use auth::{AuthEvent, AuthProvider, AuthorizationState, TokenStatus, TokenStore};
 pub use error::{ApplicationError, ApplicationResult};
 pub use execute_request::{ExecuteRequest, ExecuteRequestError, ExecuteResult, ExecuteResultExt};
 pub use ports::{
