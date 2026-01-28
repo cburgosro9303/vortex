@@ -1,0 +1,850 @@
+// Test Panel Component
+// Displays test assertions and results for HTTP responses
+
+import { ScrollView, ComboBox } from "std-widgets.slint";
+import { VortexPalette, VortexTypography, VortexSpacing, VortexShape } from "../theme.slint";
+
+// Test assertion for display
+export struct TestAssertion {
+    id: int,
+    assertion-type: string,  // "status_code", "body_contains", etc.
+    description: string,     // Human-readable description
+    passed: bool,
+    actual-value: string,
+    error-message: string,
+}
+
+// Test suite summary
+export struct TestSummary {
+    total: int,
+    passed: int,
+    failed: int,
+    duration-ms: int,
+}
+
+export component TestPanel inherits Rectangle {
+    in property <[TestAssertion]> assertions: [];
+    in property <TestSummary> summary: { total: 0, passed: 0, failed: 0, duration-ms: 0 };
+    in property <bool> has-results: false;
+    in property <bool> is-running: false;
+
+    callback run-tests();
+    callback add-assertion();
+    callback remove-assertion(int);
+    callback edit-assertion(int);
+
+    background: VortexPalette.bg-secondary;
+
+    VerticalLayout {
+        spacing: 0;
+
+        // Header with summary and actions
+        Rectangle {
+            height: 48px;
+            background: VortexPalette.bg-tertiary;
+            border-width: 1px;
+            border-color: VortexPalette.border-default;
+
+            HorizontalLayout {
+                padding-left: VortexSpacing.md;
+                padding-right: VortexSpacing.md;
+                spacing: VortexSpacing.lg;
+
+                // Summary badges
+                if has-results: HorizontalLayout {
+                    spacing: VortexSpacing.md;
+                    alignment: center;
+
+                    // Total
+                    Rectangle {
+                        width: 80px;
+                        height: 28px;
+                        background: VortexPalette.bg-secondary;
+                        border-radius: VortexShape.radius-sm;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: "Total:";
+                                color: VortexPalette.text-muted;
+                                font-size: VortexTypography.font-xs;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: summary.total;
+                                color: VortexPalette.text-primary;
+                                font-size: VortexTypography.font-sm;
+                                font-weight: VortexTypography.weight-bold;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Passed
+                    Rectangle {
+                        width: 80px;
+                        height: 28px;
+                        background: summary.passed > 0 ? #22c55e20 : VortexPalette.bg-secondary;
+                        border-radius: VortexShape.radius-sm;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: "\u{2713}";
+                                color: VortexPalette.status-success;
+                                font-size: VortexTypography.font-sm;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: summary.passed;
+                                color: VortexPalette.status-success;
+                                font-size: VortexTypography.font-sm;
+                                font-weight: VortexTypography.weight-bold;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Failed
+                    Rectangle {
+                        width: 80px;
+                        height: 28px;
+                        background: summary.failed > 0 ? #ef444420 : VortexPalette.bg-secondary;
+                        border-radius: VortexShape.radius-sm;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: "\u{2717}";
+                                color: summary.failed > 0 ? VortexPalette.status-error : VortexPalette.text-muted;
+                                font-size: VortexTypography.font-sm;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: summary.failed;
+                                color: summary.failed > 0 ? VortexPalette.status-error : VortexPalette.text-muted;
+                                font-size: VortexTypography.font-sm;
+                                font-weight: VortexTypography.weight-bold;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Duration
+                    Rectangle {
+                        width: 80px;
+                        height: 28px;
+                        background: VortexPalette.bg-secondary;
+                        border-radius: VortexShape.radius-sm;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: summary.duration-ms + "ms";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-xs;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                // Action buttons
+                HorizontalLayout {
+                    spacing: VortexSpacing.sm;
+                    alignment: center;
+
+                    // Add assertion button
+                    Rectangle {
+                        width: 100px;
+                        height: 28px;
+                        background: add-touch.has-hover ? VortexPalette.bg-hover : VortexPalette.bg-secondary;
+                        border-radius: VortexShape.radius-sm;
+                        border-width: 1px;
+                        border-color: VortexPalette.border-default;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: "+";
+                                color: VortexPalette.text-accent;
+                                font-size: VortexTypography.font-md;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: "Add Test";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-xs;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        add-touch := TouchArea {
+                            clicked => { add-assertion(); }
+                        }
+                    }
+
+                    // Run tests button
+                    Rectangle {
+                        width: 100px;
+                        height: 28px;
+                        background: is-running ? VortexPalette.bg-tertiary :
+                                   (run-touch.has-hover ? VortexPalette.accent-hover : VortexPalette.accent);
+                        border-radius: VortexShape.radius-sm;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: VortexSpacing.xs;
+
+                            Text {
+                                text: is-running ? "..." : "\u{25B6}";
+                                color: white;
+                                font-size: VortexTypography.font-xs;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: is-running ? "Running" : "Run Tests";
+                                color: white;
+                                font-size: VortexTypography.font-xs;
+                                font-weight: VortexTypography.weight-bold;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        run-touch := TouchArea {
+                            clicked => {
+                                if !is-running {
+                                    run-tests();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Assertions list
+        Rectangle {
+            vertical-stretch: 1;
+            background: VortexPalette.bg-primary;
+            border-width: 1px;
+            border-color: VortexPalette.border-default;
+
+            if assertions.length == 0: Rectangle {
+                width: parent.width;
+                height: parent.height;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: VortexSpacing.md;
+
+                    Text {
+                        text: "\u{1F9EA}";
+                        font-size: 48px;
+                        horizontal-alignment: center;
+                        opacity: 0.3;
+                    }
+
+                    Text {
+                        text: "No test assertions defined";
+                        color: VortexPalette.text-muted;
+                        font-size: VortexTypography.font-md;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: "Click '+ Add Test' to create assertions";
+                        color: VortexPalette.text-placeholder;
+                        font-size: VortexTypography.font-sm;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            if assertions.length > 0: ScrollView {
+                width: parent.width;
+                height: parent.height;
+
+                VerticalLayout {
+                    padding: VortexSpacing.sm;
+                    spacing: VortexSpacing.xs;
+
+                    for assertion[index] in assertions: Rectangle {
+                        height: 48px;
+                        background: mod(index, 2) == 0 ? VortexPalette.bg-secondary : VortexPalette.bg-tertiary;
+                        border-radius: VortexShape.radius-sm;
+                        border-width: has-results ? 1px : 0px;
+                        border-color: has-results ?
+                            (assertion.passed ? VortexPalette.status-success : VortexPalette.status-error) :
+                            transparent;
+
+                        HorizontalLayout {
+                            padding-left: VortexSpacing.md;
+                            padding-right: VortexSpacing.sm;
+                            spacing: VortexSpacing.md;
+
+                            // Status indicator
+                            if has-results: Rectangle {
+                                width: 24px;
+                                height: 24px;
+                                border-radius: 12px;
+                                background: assertion.passed ? #22c55e20 : #ef444420;
+
+                                Text {
+                                    text: assertion.passed ? "\u{2713}" : "\u{2717}";
+                                    color: assertion.passed ? VortexPalette.status-success : VortexPalette.status-error;
+                                    font-size: VortexTypography.font-sm;
+                                    font-weight: VortexTypography.weight-bold;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            // Assertion type badge
+                            Rectangle {
+                                width: 100px;
+                                height: 22px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-xs;
+
+                                Text {
+                                    text: assertion.assertion-type;
+                                    color: VortexPalette.text-accent;
+                                    font-size: VortexTypography.font-xs;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            // Description
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                alignment: center;
+
+                                Text {
+                                    text: assertion.description;
+                                    color: VortexPalette.text-primary;
+                                    font-size: VortexTypography.font-sm;
+                                    overflow: elide;
+                                }
+
+                                // Show actual value / error on failure
+                                if has-results && !assertion.passed: Text {
+                                    text: assertion.error-message;
+                                    color: VortexPalette.status-error;
+                                    font-size: VortexTypography.font-xs;
+                                    overflow: elide;
+                                }
+
+                                // Show actual value on success
+                                if has-results && assertion.passed && assertion.actual-value != "": Text {
+                                    text: "Actual: " + assertion.actual-value;
+                                    color: VortexPalette.text-muted;
+                                    font-size: VortexTypography.font-xs;
+                                    overflow: elide;
+                                }
+                            }
+
+                            // Actions
+                            HorizontalLayout {
+                                spacing: VortexSpacing.xs;
+
+                                // Edit button
+                                Rectangle {
+                                    width: 28px;
+                                    height: 28px;
+                                    border-radius: VortexShape.radius-sm;
+                                    background: edit-touch.has-hover ? VortexPalette.bg-hover : transparent;
+
+                                    Text {
+                                        text: "\u{270E}";
+                                        color: VortexPalette.text-secondary;
+                                        font-size: VortexTypography.font-sm;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+
+                                    edit-touch := TouchArea {
+                                        clicked => { edit-assertion(assertion.id); }
+                                    }
+                                }
+
+                                // Delete button
+                                Rectangle {
+                                    width: 28px;
+                                    height: 28px;
+                                    border-radius: VortexShape.radius-sm;
+                                    background: delete-touch.has-hover ? #ef444420 : transparent;
+
+                                    Text {
+                                        text: "\u{2715}";
+                                        color: delete-touch.has-hover ? VortexPalette.status-error : VortexPalette.text-muted;
+                                        font-size: VortexTypography.font-sm;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+
+                                    delete-touch := TouchArea {
+                                        clicked => { remove-assertion(assertion.id); }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Dialog for adding/editing assertions
+export component AssertionDialog inherits Rectangle {
+    in property <bool> show: false;
+    in property <bool> is-edit: false;
+    in-out property <int> assertion-type-index: 0;
+    in property <[string]> assertion-types: [
+        "Status Code",
+        "Response Time",
+        "Header Exists",
+        "Header Matches",
+        "Body Contains",
+        "Body Matches",
+        "JSON Path",
+        "JSON Path Matches",
+        "Body Equals",
+        "Is JSON",
+        "Is XML",
+        "Content Type",
+        "Body Length"
+    ];
+
+    // Input values
+    in-out property <string> status-value: "200";
+    in-out property <string> max-time-ms: "1000";
+    in-out property <string> header-name: "";
+    in-out property <string> header-value: "";
+    in-out property <string> pattern: "";
+    in-out property <string> text-value: "";
+    in-out property <string> json-path: "";
+    in-out property <string> expected-value: "";
+    in-out property <bool> ignore-case: false;
+
+    callback close();
+    callback save();
+    callback type-changed(int);
+
+    // Semi-transparent backdrop
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #00000080;
+        visible: root.show;
+
+        TouchArea {
+            clicked => { close(); }
+        }
+    }
+
+    // Dialog container
+    if show: Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(500px, parent.width - 40px);
+        height: min(400px, parent.height - 80px);
+        background: VortexPalette.bg-elevated;
+        border-radius: VortexShape.radius-lg;
+        border-width: 1px;
+        border-color: VortexPalette.border-default;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: #00000040;
+        drop-shadow-offset-y: 4px;
+
+        VerticalLayout {
+            padding: 0;
+
+            // Header
+            Rectangle {
+                height: 48px;
+                background: VortexPalette.bg-secondary;
+                border-radius: VortexShape.radius-lg;
+
+                HorizontalLayout {
+                    padding-left: VortexSpacing.lg;
+                    padding-right: VortexSpacing.md;
+                    alignment: space-between;
+
+                    Text {
+                        text: is-edit ? "Edit Assertion" : "Add Assertion";
+                        color: VortexPalette.text-primary;
+                        font-size: VortexTypography.font-lg;
+                        font-weight: VortexTypography.weight-bold;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle {
+                        width: 32px;
+                        height: 32px;
+                        border-radius: VortexShape.radius-sm;
+                        background: close-touch.has-hover ? VortexPalette.bg-hover : transparent;
+
+                        Text {
+                            text: "\u{2715}";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-lg;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        close-touch := TouchArea {
+                            clicked => { close(); }
+                        }
+                    }
+                }
+            }
+
+            // Separator
+            Rectangle {
+                height: 1px;
+                background: VortexPalette.border-default;
+            }
+
+            // Content
+            Rectangle {
+                vertical-stretch: 1;
+                background: VortexPalette.bg-primary;
+
+                ScrollView {
+                    width: parent.width;
+                    height: parent.height;
+
+                    VerticalLayout {
+                        padding: VortexSpacing.lg;
+                        spacing: VortexSpacing.md;
+
+                        // Assertion type selector
+                        Text {
+                            text: "Assertion Type";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-sm;
+                        }
+
+                        ComboBox {
+                            width: 100%;
+                            model: assertion-types;
+                            current-index <=> assertion-type-index;
+                            selected(value) => {
+                                type-changed(self.current-index);
+                            }
+                        }
+
+                        // Dynamic fields based on assertion type
+                        // Status Code (0)
+                        if assertion-type-index == 0: VerticalLayout {
+                            spacing: VortexSpacing.sm;
+
+                            Text {
+                                text: "Expected Status Code";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 36px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                TextInput {
+                                    x: VortexSpacing.sm;
+                                    width: parent.width - VortexSpacing.md;
+                                    height: parent.height;
+                                    text <=> status-value;
+                                    color: VortexPalette.text-primary;
+                                    font-size: VortexTypography.font-sm;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Response Time (1)
+                        if assertion-type-index == 1: VerticalLayout {
+                            spacing: VortexSpacing.sm;
+
+                            Text {
+                                text: "Maximum Response Time (ms)";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 36px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                TextInput {
+                                    x: VortexSpacing.sm;
+                                    width: parent.width - VortexSpacing.md;
+                                    height: parent.height;
+                                    text <=> max-time-ms;
+                                    color: VortexPalette.text-primary;
+                                    font-size: VortexTypography.font-sm;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Header Exists (2) / Header Matches (3)
+                        if assertion-type-index == 2 || assertion-type-index == 3: VerticalLayout {
+                            spacing: VortexSpacing.sm;
+
+                            Text {
+                                text: "Header Name";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 36px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                TextInput {
+                                    x: VortexSpacing.sm;
+                                    width: parent.width - VortexSpacing.md;
+                                    height: parent.height;
+                                    text <=> header-name;
+                                    color: VortexPalette.text-primary;
+                                    font-size: VortexTypography.font-sm;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                text: assertion-type-index == 2 ? "Expected Value (optional)" : "Pattern (regex)";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 36px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                TextInput {
+                                    x: VortexSpacing.sm;
+                                    width: parent.width - VortexSpacing.md;
+                                    height: parent.height;
+                                    text <=> header-value;
+                                    color: VortexPalette.text-primary;
+                                    font-size: VortexTypography.font-sm;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Body Contains (4) / Body Matches (5) / Body Equals (8)
+                        if assertion-type-index == 4 || assertion-type-index == 5 || assertion-type-index == 8: VerticalLayout {
+                            spacing: VortexSpacing.sm;
+
+                            Text {
+                                text: assertion-type-index == 4 ? "Text to find" :
+                                      (assertion-type-index == 5 ? "Pattern (regex)" : "Expected body");
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 72px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                TextInput {
+                                    x: VortexSpacing.sm;
+                                    y: VortexSpacing.sm;
+                                    width: parent.width - VortexSpacing.md;
+                                    height: parent.height - VortexSpacing.md;
+                                    text <=> text-value;
+                                    color: VortexPalette.text-primary;
+                                    font-size: VortexTypography.font-sm;
+                                }
+                            }
+                        }
+
+                        // JSON Path (6) / JSON Path Matches (7)
+                        if assertion-type-index == 6 || assertion-type-index == 7: VerticalLayout {
+                            spacing: VortexSpacing.sm;
+
+                            Text {
+                                text: "JSON Path (e.g., $.data.id)";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 36px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                TextInput {
+                                    x: VortexSpacing.sm;
+                                    width: parent.width - VortexSpacing.md;
+                                    height: parent.height;
+                                    text <=> json-path;
+                                    color: VortexPalette.text-primary;
+                                    font-size: VortexTypography.font-sm;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                text: "Expected Value (JSON)";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 36px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                TextInput {
+                                    x: VortexSpacing.sm;
+                                    width: parent.width - VortexSpacing.md;
+                                    height: parent.height;
+                                    text <=> expected-value;
+                                    color: VortexPalette.text-primary;
+                                    font-size: VortexTypography.font-sm;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Content Type (11)
+                        if assertion-type-index == 11: VerticalLayout {
+                            spacing: VortexSpacing.sm;
+
+                            Text {
+                                text: "Expected Content Type";
+                                color: VortexPalette.text-secondary;
+                                font-size: VortexTypography.font-sm;
+                            }
+
+                            Rectangle {
+                                height: 36px;
+                                background: VortexPalette.bg-input;
+                                border-radius: VortexShape.radius-sm;
+                                border-width: 1px;
+                                border-color: VortexPalette.border-default;
+
+                                TextInput {
+                                    x: VortexSpacing.sm;
+                                    width: parent.width - VortexSpacing.md;
+                                    height: parent.height;
+                                    text <=> text-value;
+                                    color: VortexPalette.text-primary;
+                                    font-size: VortexTypography.font-sm;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Is JSON (9) / Is XML (10) - no extra fields needed
+                        if assertion-type-index == 9 || assertion-type-index == 10: Text {
+                            text: assertion-type-index == 9 ?
+                                  "Validates that the response body is valid JSON" :
+                                  "Validates that the response body is valid XML";
+                            color: VortexPalette.text-muted;
+                            font-size: VortexTypography.font-sm;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+
+            // Footer
+            Rectangle {
+                height: 60px;
+                background: VortexPalette.bg-secondary;
+
+                HorizontalLayout {
+                    padding: VortexSpacing.md;
+                    alignment: end;
+                    spacing: VortexSpacing.sm;
+
+                    // Cancel button
+                    Rectangle {
+                        width: 80px;
+                        height: 36px;
+                        background: cancel-touch.has-hover ? VortexPalette.bg-hover : VortexPalette.bg-tertiary;
+                        border-radius: VortexShape.radius-sm;
+                        border-width: 1px;
+                        border-color: VortexPalette.border-default;
+
+                        Text {
+                            text: "Cancel";
+                            color: VortexPalette.text-secondary;
+                            font-size: VortexTypography.font-sm;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        cancel-touch := TouchArea {
+                            clicked => { close(); }
+                        }
+                    }
+
+                    // Save button
+                    Rectangle {
+                        width: 80px;
+                        height: 36px;
+                        background: save-touch.has-hover ? VortexPalette.accent-hover : VortexPalette.accent;
+                        border-radius: VortexShape.radius-sm;
+
+                        Text {
+                            text: is-edit ? "Update" : "Add";
+                            color: white;
+                            font-size: VortexTypography.font-sm;
+                            font-weight: VortexTypography.weight-bold;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        save-touch := TouchArea {
+                            clicked => { save(); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
