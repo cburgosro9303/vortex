@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use vortex_application::ports::{FileSystem, WorkspaceError, WorkspaceRepository};
-use vortex_domain::persistence::{WorkspaceManifest, CURRENT_SCHEMA_VERSION};
+use vortex_domain::persistence::{CURRENT_SCHEMA_VERSION, WorkspaceManifest};
 
 use crate::serialization::{from_json, to_json_stable};
 
@@ -116,6 +116,7 @@ impl<F: FileSystem + Send + Sync> WorkspaceRepository for FileSystemWorkspaceRep
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

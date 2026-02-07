@@ -14,10 +14,12 @@ use crate::response::ResponseSpec;
 /// - `Loading`: Request in flight, show spinner and Cancel
 /// - `Success`: Response received, show response panel
 /// - `Error`: Request failed, show error message
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
+#[derive(Default)]
 pub enum RequestState {
     /// No request has been sent yet, or reset after cancel.
+    #[default]
     Idle,
 
     /// Request is in progress.
@@ -43,12 +45,6 @@ pub enum RequestState {
         /// Optional technical details.
         details: Option<String>,
     },
-}
-
-impl Default for RequestState {
-    fn default() -> Self {
-        Self::Idle
-    }
 }
 
 impl RequestState {

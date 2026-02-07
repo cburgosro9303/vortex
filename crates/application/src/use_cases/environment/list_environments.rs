@@ -17,7 +17,7 @@ pub struct ListEnvironments<R> {
 
 impl<R: EnvironmentRepository> ListEnvironments<R> {
     /// Creates a new `ListEnvironments` use case.
-    pub fn new(repository: R) -> Self {
+    pub const fn new(repository: R) -> Self {
         Self { repository }
     }
 
@@ -28,6 +28,7 @@ impl<R: EnvironmentRepository> ListEnvironments<R> {
     ///
     /// # Returns
     /// A list of environment names.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn execute(
         &self,
         workspace: &Path,
@@ -38,6 +39,12 @@ impl<R: EnvironmentRepository> ListEnvironments<R> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::significant_drop_tightening
+)]
 mod tests {
     use super::*;
     use async_trait::async_trait;

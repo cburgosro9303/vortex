@@ -11,20 +11,22 @@ use vortex_domain::environment::SecretsStore;
 
 use crate::serialization::{from_json_bytes, to_json_stable_bytes};
 
-/// Converts FileSystemError to std::io::Error for SecretsError.
+/// Converts `FileSystemError` to `std::io::Error` for `SecretsError`.
 fn to_io_error(e: FileSystemError) -> std::io::Error {
     match e {
         FileSystemError::Io(io_err) => io_err,
         FileSystemError::NotFound(path) => {
             std::io::Error::new(std::io::ErrorKind::NotFound, path.display().to_string())
         }
-        FileSystemError::PermissionDenied(path) => {
-            std::io::Error::new(std::io::ErrorKind::PermissionDenied, path.display().to_string())
-        }
-        FileSystemError::AlreadyExists(path) => {
-            std::io::Error::new(std::io::ErrorKind::AlreadyExists, path.display().to_string())
-        }
-        _ => std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
+        FileSystemError::PermissionDenied(path) => std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            path.display().to_string(),
+        ),
+        FileSystemError::AlreadyExists(path) => std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            path.display().to_string(),
+        ),
+        _ => std::io::Error::other(e.to_string()),
     }
 }
 
@@ -94,8 +96,8 @@ impl<F: FileSystem + Sync> SecretsRepository for FileSecretsRepository<F> {
             .await
             .map_err(|e| SecretsError::Io(to_io_error(e)))?;
 
-        let content =
-            to_json_stable_bytes(secrets).map_err(|e| SecretsError::Serialization(e.to_string()))?;
+        let content = to_json_stable_bytes(secrets)
+            .map_err(|e| SecretsError::Serialization(e.to_string()))?;
 
         self.fs
             .write_file(&path, &content)

@@ -48,17 +48,17 @@ pub enum BuiltBody {
 }
 
 /// Build an HTTP body from a persistence body type.
+#[allow(clippy::missing_errors_doc)]
 pub async fn build_body(
     body: &PersistenceRequestBody,
     workspace_path: Option<&Path>,
 ) -> Result<BuiltBody, BodyBuildError> {
     match body {
         PersistenceRequestBody::Json { content } => {
-            let json_str = serde_json::to_string(content).map_err(|e| {
-                BodyBuildError::SerializationError {
+            let json_str =
+                serde_json::to_string(content).map_err(|e| BodyBuildError::SerializationError {
                     message: e.to_string(),
-                }
-            })?;
+                })?;
             Ok(BuiltBody::Text {
                 content: json_str,
                 content_type: "application/json".to_string(),
@@ -89,11 +89,12 @@ pub async fn build_body(
 
         PersistenceRequestBody::Binary { path } => {
             let file_path = resolve_path(path, workspace_path);
-            let content = tokio::fs::read(&file_path)
-                .await
-                .map_err(|e| BodyBuildError::FileReadError {
-                    message: format!("{}: {}", file_path.display(), e),
-                })?;
+            let content =
+                tokio::fs::read(&file_path)
+                    .await
+                    .map_err(|e| BodyBuildError::FileReadError {
+                        message: format!("{}: {}", file_path.display(), e),
+                    })?;
 
             let content_type = mime_guess::from_path(&file_path)
                 .first_or_octet_stream()
@@ -139,11 +140,11 @@ async fn build_multipart_form(
                 let file_path = resolve_path(path, workspace_path);
 
                 // Read file content
-                let content = tokio::fs::read(&file_path)
-                    .await
-                    .map_err(|e| BodyBuildError::FileReadError {
+                let content = tokio::fs::read(&file_path).await.map_err(|e| {
+                    BodyBuildError::FileReadError {
                         message: format!("{}: {}", file_path.display(), e),
-                    })?;
+                    }
+                })?;
 
                 // Get filename
                 let filename = file_path
@@ -161,7 +162,7 @@ async fn build_multipart_form(
                     .file_name(filename)
                     .mime_str(&mime_type)
                     .map_err(|e| BodyBuildError::InvalidConfig {
-                        message: format!("Invalid MIME type: {}", e),
+                        message: format!("Invalid MIME type: {e}"),
                     })?;
 
                 form = form.part(name.clone(), part);
@@ -187,27 +188,31 @@ fn resolve_path(path: &str, workspace_path: Option<&Path>) -> std::path::PathBuf
 /// Get the content type for a built body.
 impl BuiltBody {
     /// Get the Content-Type header value.
+    #[must_use]
     pub fn content_type(&self) -> Option<&str> {
         match self {
-            Self::None => None,
-            Self::Text { content_type, .. } => Some(content_type),
-            Self::Binary { content_type, .. } => Some(content_type),
-            Self::Multipart(_) => None, // reqwest sets this automatically with boundary
+            Self::Text { content_type, .. } | Self::Binary { content_type, .. } => {
+                Some(content_type)
+            }
+            Self::None | Self::Multipart(_) => None, // reqwest sets this automatically with boundary
         }
     }
 
     /// Check if this is a multipart form.
+    #[must_use]
     pub const fn is_multipart(&self) -> bool {
         matches!(self, Self::Multipart(_))
     }
 
     /// Check if this body is empty/none.
+    #[must_use]
     pub const fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
@@ -301,6 +306,9 @@ mod tests {
     #[test]
     fn test_resolve_path_relative() {
         let path = resolve_path("relative/file.txt", Some(Path::new("/workspace")));
-        assert_eq!(path, std::path::PathBuf::from("/workspace/relative/file.txt"));
+        assert_eq!(
+            path,
+            std::path::PathBuf::from("/workspace/relative/file.txt")
+        );
     }
 }

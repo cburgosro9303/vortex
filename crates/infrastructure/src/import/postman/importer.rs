@@ -5,8 +5,8 @@
 
 use super::environment_types::PostmanEnvironment;
 use super::mapper::{
-    auth_to_vortex_json, body_to_vortex_json, map_postman_collection, map_postman_environment,
-    MappedItem,
+    MappedItem, auth_to_vortex_json, body_to_vortex_json, map_postman_collection,
+    map_postman_environment,
 };
 use super::types::PostmanCollection;
 use super::warning::{ImportWarning, WarningStats};
@@ -137,6 +137,7 @@ pub struct PostmanImporter {
 
 impl PostmanImporter {
     /// Create a new importer with default config
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: ImportConfig::default(),
@@ -144,11 +145,13 @@ impl PostmanImporter {
     }
 
     /// Create a new importer with custom config
-    pub fn with_config(config: ImportConfig) -> Self {
+    #[must_use]
+    pub const fn with_config(config: ImportConfig) -> Self {
         Self { config }
     }
 
     /// Validate a file before importing
+    #[must_use]
     pub fn validate_file(&self, content: &str) -> ValidationResult {
         let mut issues = Vec::new();
 
@@ -170,7 +173,7 @@ impl PostmanImporter {
         let json: serde_json::Value = match serde_json::from_str(content) {
             Ok(v) => v,
             Err(e) => {
-                issues.push(format!("Invalid JSON: {}", e));
+                issues.push(format!("Invalid JSON: {e}"));
                 return ValidationResult {
                     is_valid: false,
                     format: ImportFormat::Unknown,
@@ -213,7 +216,7 @@ impl PostmanImporter {
                         }
                     }
                     Err(e) => {
-                        issues.push(format!("Invalid collection format: {}", e));
+                        issues.push(format!("Invalid collection format: {e}"));
                         ValidationResult {
                             is_valid: false,
                             format,
@@ -231,7 +234,7 @@ impl PostmanImporter {
                         issues,
                     },
                     Err(e) => {
-                        issues.push(format!("Invalid environment format: {}", e));
+                        issues.push(format!("Invalid environment format: {e}"));
                         ValidationResult {
                             is_valid: false,
                             format,
@@ -244,6 +247,7 @@ impl PostmanImporter {
     }
 
     /// Preview what will be imported without actually importing
+    #[allow(clippy::missing_errors_doc)]
     pub fn preview(&self, content: &str) -> Result<ImportPreview, ImportError> {
         let json: serde_json::Value =
             serde_json::from_str(content).map_err(|e| ImportError::InvalidJson(e.to_string()))?;
@@ -291,6 +295,7 @@ impl PostmanImporter {
     }
 
     /// Import a Postman collection
+    #[allow(clippy::missing_errors_doc)]
     pub fn import_collection(
         &self,
         content: &str,
@@ -312,8 +317,8 @@ impl PostmanImporter {
             ));
         }
 
-        let collection: PostmanCollection = serde_json::from_value(json)
-            .map_err(|e| ImportError::InvalidFormat(e.to_string()))?;
+        let collection: PostmanCollection =
+            serde_json::from_value(json).map_err(|e| ImportError::InvalidFormat(e.to_string()))?;
 
         let mapped = map_postman_collection(&collection, self.config.max_depth);
 
@@ -351,7 +356,9 @@ impl PostmanImporter {
             self.write_items(&mapped.items, &requests_dir)?;
 
         // Write collection variables if any
-        let variables_imported = if !mapped.variables.is_empty() {
+        let variables_imported = if mapped.variables.is_empty() {
+            0
+        } else {
             let variables_json: Vec<serde_json::Value> = mapped
                 .variables
                 .iter()
@@ -370,8 +377,6 @@ impl PostmanImporter {
                 serde_json::to_string_pretty(&variables_json).unwrap_or_default(),
             )?;
             mapped.variables.len()
-        } else {
-            0
         };
 
         Ok(ImportResult {
@@ -384,6 +389,7 @@ impl PostmanImporter {
     }
 
     /// Import a Postman environment
+    #[allow(clippy::missing_errors_doc)]
     pub fn import_environment(
         &self,
         content: &str,
@@ -421,8 +427,11 @@ impl PostmanImporter {
         });
 
         let safe_name = Self::sanitize_name(&mapped.name);
-        let env_path = environments_dir.join(format!("{}.json", safe_name));
-        std::fs::write(&env_path, serde_json::to_string_pretty(&env_json).unwrap_or_default())?;
+        let env_path = environments_dir.join(format!("{safe_name}.json"));
+        std::fs::write(
+            &env_path,
+            serde_json::to_string_pretty(&env_json).unwrap_or_default(),
+        )?;
 
         Ok(ImportResult {
             name: mapped.name,
@@ -450,9 +459,7 @@ impl PostmanImporter {
         }
 
         // Check for Postman Environment (has "name" and "values" but no "info")
-        if json.get("info").is_none()
-            && json.get("name").is_some()
-            && json.get("values").is_some()
+        if json.get("info").is_none() && json.get("name").is_some() && json.get("values").is_some()
         {
             return ImportFormat::PostmanEnvironment;
         }
@@ -494,19 +501,11 @@ impl PostmanImporter {
     /// Sanitize a name for use as a filename/directory name
     fn sanitize_name(name: &str) -> String {
         name.to_lowercase()
-            .replace(' ', "-")
-            .replace('/', "-")
-            .replace('\\', "-")
-            .replace(':', "-")
-            .replace('*', "-")
-            .replace('?', "-")
-            .replace('"', "-")
-            .replace('<', "-")
-            .replace('>', "-")
-            .replace('|', "-")
+            .replace([' ', '/', '\\', ':', '*', '?', '"', '<', '>', '|'], "-")
     }
 
     /// Write items to filesystem recursively
+    #[allow(clippy::self_only_used_in_recursion)]
     fn write_items(&self, items: &[MappedItem], dir: &Path) -> Result<(usize, usize), ImportError> {
         let mut requests = 0;
         let mut folders = 0;
@@ -540,7 +539,7 @@ impl PostmanImporter {
                     }
 
                     let safe_name = Self::sanitize_name(&req.name);
-                    let file_path = dir.join(format!("{}.json", safe_name));
+                    let file_path = dir.join(format!("{safe_name}.json"));
                     std::fs::write(
                         &file_path,
                         serde_json::to_string_pretty(&request_json).unwrap_or_default(),
@@ -581,6 +580,7 @@ impl Default for PostmanImporter {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use tempfile::TempDir;
@@ -674,7 +674,9 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let importer = PostmanImporter::new();
-        let result = importer.import_collection(content, temp_dir.path()).unwrap();
+        let result = importer
+            .import_collection(content, temp_dir.path())
+            .unwrap();
 
         assert_eq!(result.name, "Test API");
         assert_eq!(result.requests_imported, 1);
@@ -683,7 +685,12 @@ mod tests {
         let collection_dir = temp_dir.path().join("collections").join("test-api");
         assert!(collection_dir.exists());
         assert!(collection_dir.join("collection.json").exists());
-        assert!(collection_dir.join("request").join("get-users.json").exists());
+        assert!(
+            collection_dir
+                .join("request")
+                .join("get-users.json")
+                .exists()
+        );
     }
 
     #[test]
@@ -698,13 +705,18 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let importer = PostmanImporter::new();
-        let result = importer.import_environment(content, temp_dir.path()).unwrap();
+        let result = importer
+            .import_environment(content, temp_dir.path())
+            .unwrap();
 
         assert_eq!(result.name, "Development");
         assert_eq!(result.variables_imported, 2);
 
         // Verify file was created
-        let env_path = temp_dir.path().join("environments").join("development.json");
+        let env_path = temp_dir
+            .path()
+            .join("environments")
+            .join("development.json");
         assert!(env_path.exists());
     }
 }

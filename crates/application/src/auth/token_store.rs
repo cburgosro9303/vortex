@@ -1,6 +1,6 @@
 //! In-memory token storage with expiry tracking.
 //!
-//! This module provides a thread-safe store for OAuth2 tokens with
+//! This module provides a thread-safe store for `OAuth2` tokens with
 //! automatic expiry detection and refresh scheduling.
 
 use std::collections::HashMap;
@@ -62,10 +62,9 @@ impl TokenStore {
     /// Check if a token needs refresh (exists but expiring soon).
     pub async fn needs_refresh(&self, key: &str) -> bool {
         let tokens = self.tokens.read().await;
-        tokens
-            .get(key)
-            .map(|t| t.is_expired_or_expiring(self.refresh_buffer_seconds) && t.can_refresh())
-            .unwrap_or(false)
+        tokens.get(key).is_some_and(|t| {
+            t.is_expired_or_expiring(self.refresh_buffer_seconds) && t.can_refresh()
+        })
     }
 
     /// Remove a token.
@@ -89,9 +88,9 @@ impl TokenStore {
     /// Get token status for UI display.
     pub async fn get_status(&self, key: &str) -> TokenStatus {
         let tokens = self.tokens.read().await;
-        match tokens.get(key) {
-            None => TokenStatus::NotAuthenticated,
-            Some(token) => {
+        tokens
+            .get(key)
+            .map_or(TokenStatus::NotAuthenticated, |token| {
                 if token.is_expired_or_expiring(0) {
                     TokenStatus::Expired {
                         can_refresh: token.can_refresh(),
@@ -106,8 +105,7 @@ impl TokenStore {
                         seconds_remaining: token.seconds_until_expiry(),
                     }
                 }
-            }
-        }
+            })
     }
 
     /// Get count of stored tokens.
@@ -173,7 +171,7 @@ impl TokenStatus {
                 } else if *secs > 60 {
                     format!("Valid for {} minutes", secs / 60)
                 } else {
-                    format!("Valid for {} seconds", secs)
+                    format!("Valid for {secs} seconds")
                 }
             }
             Self::Valid {
@@ -188,7 +186,7 @@ impl TokenStatus {
                 } else {
                     ""
                 };
-                format!("Expiring in {} seconds{}", seconds_remaining, refresh_hint)
+                format!("Expiring in {seconds_remaining} seconds{refresh_hint}")
             }
             Self::Expired { can_refresh } => {
                 if *can_refresh {
@@ -202,6 +200,7 @@ impl TokenStatus {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -313,17 +312,21 @@ mod tests {
             "Not authenticated"
         );
 
-        assert!(TokenStatus::Valid {
-            seconds_remaining: Some(7200)
-        }
-        .display_message()
-        .contains("hours"));
+        assert!(
+            TokenStatus::Valid {
+                seconds_remaining: Some(7200)
+            }
+            .display_message()
+            .contains("hours")
+        );
 
-        assert!(TokenStatus::Expiring {
-            seconds_remaining: 30,
-            can_refresh: true
-        }
-        .display_message()
-        .contains("auto-refresh"));
+        assert!(
+            TokenStatus::Expiring {
+                seconds_remaining: 30,
+                can_refresh: true
+            }
+            .display_message()
+            .contains("auto-refresh")
+        );
     }
 }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use super::auth::PersistenceAuth;
-use super::common::{Id, CURRENT_SCHEMA_VERSION};
+use super::common::{CURRENT_SCHEMA_VERSION, Id};
 
 /// Collection metadata stored in `collection.json` within a collection directory.
 ///
@@ -12,7 +12,7 @@ use super::common::{Id, CURRENT_SCHEMA_VERSION};
 /// and variables that are inherited by all requests within.
 ///
 /// Fields are ordered alphabetically for deterministic serialization.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistenceCollection {
     /// Authentication inherited by all requests in this collection.
     /// Can be overridden at folder or request level.
@@ -80,8 +80,10 @@ mod tests {
 
     #[test]
     fn test_collection_new() {
-        let collection =
-            PersistenceCollection::new("550e8400-e29b-41d4-a716-446655440000".to_string(), "My API");
+        let collection = PersistenceCollection::new(
+            "550e8400-e29b-41d4-a716-446655440000".to_string(),
+            "My API",
+        );
         assert_eq!(collection.name, "My API");
         assert_eq!(collection.schema_version, CURRENT_SCHEMA_VERSION);
         assert!(collection.auth.is_none());
@@ -90,13 +92,15 @@ mod tests {
 
     #[test]
     fn test_collection_with_builders() {
-        let collection =
-            PersistenceCollection::new("test-id".to_string(), "Test Collection")
-                .with_description("A test collection")
-                .with_auth(PersistenceAuth::bearer("token"))
-                .with_variable("base_url", "https://api.example.com");
+        let collection = PersistenceCollection::new("test-id".to_string(), "Test Collection")
+            .with_description("A test collection")
+            .with_auth(PersistenceAuth::bearer("token"))
+            .with_variable("base_url", "https://api.example.com");
 
-        assert_eq!(collection.description, Some("A test collection".to_string()));
+        assert_eq!(
+            collection.description,
+            Some("A test collection".to_string())
+        );
         assert!(collection.auth.is_some());
         assert_eq!(
             collection.variables.get("base_url"),

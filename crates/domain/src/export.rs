@@ -1,7 +1,7 @@
 //! Export format types.
 //!
 //! This module provides types for exporting requests and collections
-//! to various formats like OpenAPI, HAR, and cURL.
+//! to various formats like `OpenAPI`, HAR, and cURL.
 
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ExportFormat {
-    /// OpenAPI 3.0 specification.
+    /// `OpenAPI` 3.0 specification.
     #[default]
     OpenApi3,
     /// HTTP Archive (HAR) format.
@@ -42,8 +42,7 @@ impl ExportFormat {
             Self::OpenApi3 => "yaml",
             Self::Har => "har",
             Self::Curl => "sh",
-            Self::PostmanCollection => "json",
-            Self::Insomnia => "json",
+            Self::PostmanCollection | Self::Insomnia => "json",
         }
     }
 
@@ -52,10 +51,8 @@ impl ExportFormat {
     pub const fn mime_type(&self) -> &'static str {
         match self {
             Self::OpenApi3 => "application/x-yaml",
-            Self::Har => "application/json",
+            Self::Har | Self::PostmanCollection | Self::Insomnia => "application/json",
             Self::Curl => "text/x-shellscript",
-            Self::PostmanCollection => "application/json",
-            Self::Insomnia => "application/json",
         }
     }
 
@@ -85,6 +82,7 @@ impl ExportFormat {
 }
 
 /// Export options.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportOptions {
     /// The format to export to.
@@ -108,13 +106,13 @@ pub struct ExportOptions {
     /// Whether to pretty print output.
     #[serde(default = "default_true")]
     pub pretty_print: bool,
-    /// OpenAPI specific: API title.
+    /// `OpenAPI` specific: API title.
     #[serde(default)]
     pub api_title: Option<String>,
-    /// OpenAPI specific: API version.
+    /// `OpenAPI` specific: API version.
     #[serde(default)]
     pub api_version: Option<String>,
-    /// OpenAPI specific: API description.
+    /// `OpenAPI` specific: API description.
     #[serde(default)]
     pub api_description: Option<String>,
 }
@@ -136,7 +134,7 @@ impl Default for ExportOptions {
     }
 }
 
-fn default_true() -> bool {
+const fn default_true() -> bool {
     true
 }
 
@@ -150,7 +148,7 @@ impl ExportOptions {
         }
     }
 
-    /// Set OpenAPI metadata.
+    /// Set `OpenAPI` metadata.
     #[must_use]
     pub fn with_api_info(
         mut self,
@@ -182,7 +180,7 @@ pub struct ExportResult {
 impl ExportResult {
     /// Create a new export result.
     #[must_use]
-    pub fn new(content: String, format: ExportFormat, request_count: usize) -> Self {
+    pub const fn new(content: String, format: ExportFormat, request_count: usize) -> Self {
         Self {
             content,
             format,
@@ -198,7 +196,7 @@ impl ExportResult {
 
     /// Check if there were any warnings.
     #[must_use]
-    pub fn has_warnings(&self) -> bool {
+    pub const fn has_warnings(&self) -> bool {
         !self.warnings.is_empty()
     }
 
@@ -295,8 +293,11 @@ mod tests {
 
     #[test]
     fn test_export_options_with_api_info() {
-        let options = ExportOptions::new(ExportFormat::OpenApi3)
-            .with_api_info("My API", "1.0.0", Some("Description".to_string()));
+        let options = ExportOptions::new(ExportFormat::OpenApi3).with_api_info(
+            "My API",
+            "1.0.0",
+            Some("Description".to_string()),
+        );
 
         assert_eq!(options.api_title, Some("My API".to_string()));
         assert_eq!(options.api_version, Some("1.0.0".to_string()));

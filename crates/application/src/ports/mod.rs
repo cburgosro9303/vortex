@@ -14,7 +14,7 @@ mod workspace_repository;
 
 pub use clock::Clock;
 pub use collection_repository::{
-    slugify, CollectionError, CollectionRepository, CollectionTree, FolderTree,
+    CollectionError, CollectionRepository, CollectionTree, FolderTree, slugify,
 };
 pub use environment_repository::{EnvironmentError, EnvironmentRepository};
 pub use file_system::{FileSystem, FileSystemError};

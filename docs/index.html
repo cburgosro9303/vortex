@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vortex — A Fast, Privacy-First Desktop API Client</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-card: #1c2128;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-light: #79c0ff;
+  --green: #3fb950;
+  --red: #f85149;
+  --blue: #58a6ff;
+  --purple: #bc8cff;
+  --radius: 8px;
+  --max-width: 1100px;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f6f8fa;
+    --bg-card: #ffffff;
+    --border: #d0d7de;
+    --text: #1f2328;
+    --text-muted: #656d76;
+    --accent: #0969da;
+    --accent-light: #0550ae;
+    --green: #1a7f37;
+    --red: #cf222e;
+    --blue: #0969da;
+    --purple: #8250df;
+  }
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.container { max-width: var(--max-width); margin: 0 auto; padding: 0 24px; }
+
+.hero {
+  text-align: center;
+  padding: 80px 24px 60px;
+  background: linear-gradient(135deg, var(--bg) 0%, var(--bg-secondary) 100%);
+  border-bottom: 1px solid var(--border);
+}
+.hero h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+.hero h1 span { color: var(--accent); }
+.hero .tagline {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+  max-width: 600px;
+  margin: 0 auto 32px;
+}
+.stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+.stat { text-align: center; }
+.stat .value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.stat .label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.btn {
+  display: inline-block;
+  padding: 12px 28px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 1rem;
+  transition: opacity 0.2s;
+}
+.btn:hover { opacity: 0.9; text-decoration: none; }
+
+section { padding: 60px 0; }
+section:nth-child(even) { background: var(--bg-secondary); }
+.section-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 12px;
+}
+.section-subtitle {
+  text-align: center;
+  color: var(--text-muted);
+  margin-bottom: 40px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.arch-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex-wrap: wrap;
+  margin: 0 auto;
+  max-width: 900px;
+}
+.arch-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 32px;
+  text-align: center;
+  min-width: 180px;
+}
+.arch-box h3 { font-size: 1.1rem; margin-bottom: 8px; }
+.arch-box p { font-size: 0.85rem; color: var(--text-muted); }
+.arch-arrow {
+  font-size: 2rem;
+  color: var(--accent);
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+.feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.feature-card h3 { font-size: 1.1rem; margin-bottom: 8px; }
+.feature-card .meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.table-wrapper { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+th, td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+td.num { text-align: right; font-family: 'SFMono-Regular', Consolas, monospace; }
+tr:hover { background: var(--bg-secondary); }
+.winner { color: var(--green); font-weight: 600; }
+.loser { color: var(--text-muted); }
+
+.code-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0;
+}
+.code-tab {
+  padding: 8px 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.code-tab.active {
+  background: var(--bg-card);
+  color: var(--text);
+  font-weight: 600;
+}
+pre {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0 var(--radius) var(--radius) var(--radius);
+  padding: 20px;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+.code-panel { display: none; }
+.code-panel.active { display: block; }
+
+.compat-yes { color: var(--green); font-weight: 600; }
+
+footer {
+  text-align: center;
+  padding: 40px 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+footer a { color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .hero h1 { font-size: 2rem; }
+  .stats { gap: 24px; }
+  .arch-flow { flex-direction: column; }
+  .arch-arrow { transform: rotate(90deg); padding: 8px 0; }
+  .feature-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="container">
+    <h1><span>Vortex</span></h1>
+    <p class="tagline">A fast, privacy-first desktop API client built with Rust and Slint. Zero telemetry, sub-second startup.</p>
+    <div class="stats">
+      <div class="stat"><div class="value">13</div><div class="label">Languages</div></div>
+      <div class="stat"><div class="value">0</div><div class="label">Telemetry</div></div>
+      <div class="stat"><div class="value">&lt;1s</div><div class="label">Startup</div></div>
+      <div class="stat"><div class="value">3</div><div class="label">Platforms</div></div>
+    </div>
+    <a href="https://github.com/cburgosro9303/vortex" class="btn">View on GitHub</a>
+  </div>
+</div>
+
+<!-- Architecture -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Architecture</h2>
+    <p class="section-subtitle">Hexagonal architecture with clean separation. Domain has zero I/O dependencies. All dependencies point inward.</p>
+    <div class="arch-flow">
+      <div class="arch-box">
+        <h3>UI</h3>
+        <p>Slint Components<br>View Models<br>Event Handling</p>
+      </div>
+      <div class="arch-arrow">&rarr;</div>
+      <div class="arch-box" style="border-color: var(--accent);">
+        <h3>Application</h3>
+        <p>Use Cases<br>Port Definitions<br>Orchestration</p>
+      </div>
+      <div class="arch-arrow">&rarr;</div>
+      <div class="arch-box">
+        <h3>Infrastructure</h3>
+        <p>HTTP Client<br>File Persistence<br>Import/Export</p>
+      </div>
+      <div class="arch-arrow">&rarr;</div>
+      <div class="arch-box">
+        <h3>Domain</h3>
+        <p>Business Types<br>Value Objects<br>Zero I/O</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Features</h2>
+    <p class="section-subtitle">Everything you need for API development, with none of the bloat.</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>HTTP Client</h3>
+        <div class="meta">HTTP/1.1 and HTTP/2 via reqwest + rustls. All methods, custom headers, query params.</div>
+      </div>
+      <div class="feature-card">
+        <h3>Authentication</h3>
+        <div class="meta">Basic, Bearer, API Key (header/query), OAuth 2.0 with token refresh.</div>
+      </div>
+      <div class="feature-card">
+        <h3>Environments</h3>
+        <div class="meta">Variable substitution with secret separation. Switch contexts instantly.</div>
+      </div>
+      <div class="feature-card">
+        <h3>Collections</h3>
+        <div class="meta">Organize requests into folders. JSON-based, git-friendly format.</div>
+      </div>
+      <div class="feature-card">
+        <h3>Import / Export</h3>
+        <div class="meta">Import from Postman. Export to HAR and OpenAPI 3.0 formats.</div>
+      </div>
+      <div class="feature-card">
+        <h3>Code Generation</h3>
+        <div class="meta">Export requests to 13 languages: cURL, Python, JS, Rust, Go, Java, C#, PHP, Ruby, Swift, Kotlin, Dart, PowerShell.</div>
+      </div>
+      <div class="feature-card">
+        <h3>Testing</h3>
+        <div class="meta">Assertion-based test suites. Status, header, body, and JSON path checks.</div>
+      </div>
+      <div class="feature-card">
+        <h3>Scripting</h3>
+        <div class="meta">Pre-request and post-response scripts for dynamic workflows.</div>
+      </div>
+      <div class="feature-card">
+        <h3>TLS / Proxy</h3>
+        <div class="meta">Client certificates, custom CA, TLS version pinning. HTTP/HTTPS/SOCKS5 proxy.</div>
+      </div>
+      <div class="feature-card">
+        <h3>History</h3>
+        <div class="meta">Automatic request history with search, filter, and replay.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Comparison -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Vortex vs Postman</h2>
+    <p class="section-subtitle">A native desktop app vs an Electron-based cloud platform.</p>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th></th><th>Vortex</th><th>Postman</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Memory Usage</td><td class="winner">~50 MB</td><td class="loser">~500 MB+</td></tr>
+          <tr><td>Startup Time</td><td class="winner">&lt; 1 second</td><td class="loser">5-10 seconds</td></tr>
+          <tr><td>Privacy</td><td class="winner">Zero telemetry, local-only</td><td class="loser">Cloud sync, telemetry</td></tr>
+          <tr><td>Version Control</td><td class="winner">JSON files, git-friendly</td><td class="loser">Proprietary format</td></tr>
+          <tr><td>Cost</td><td class="winner">Free, open source</td><td class="loser">Freemium</td></tr>
+          <tr><td>Telemetry</td><td class="winner">None</td><td class="loser">Extensive</td></tr>
+          <tr><td>Offline</td><td class="winner">Fully offline</td><td class="loser">Requires login</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Code Examples -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Data Formats</h2>
+    <p class="section-subtitle">Git-friendly JSON for collections, environments, and test assertions.</p>
+    <div class="code-tabs">
+      <div class="code-tab active" onclick="showTab(0)">Collection</div>
+      <div class="code-tab" onclick="showTab(1)">Environment</div>
+      <div class="code-tab" onclick="showTab(2)">Test Assertions</div>
+    </div>
+    <div class="code-panel active" id="panel-0">
+<pre><code>{
+  "id": "col_01j...",
+  "name": "My API",
+  "requests": [
+    {
+      "id": "req_01j...",
+      "name": "Get Users",
+      "method": "GET",
+      "url": "{{base_url}}/users",
+      "headers": [
+        { "key": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    }
+  ]
+}</code></pre>
+    </div>
+    <div class="code-panel" id="panel-1">
+<pre><code>{
+  "id": "env_01j...",
+  "name": "Development",
+  "variables": [
+    { "key": "base_url", "value": "http://localhost:8080" },
+    { "key": "token", "value": "", "secret": true }
+  ]
+}</code></pre>
+    </div>
+    <div class="code-panel" id="panel-2">
+<pre><code>{
+  "name": "User API Tests",
+  "assertions": [
+    {
+      "target": "status",
+      "operator": "equals",
+      "expected": "200"
+    },
+    {
+      "target": "json_path",
+      "path": "$.users[0].name",
+      "operator": "contains",
+      "expected": "Alice"
+    },
+    {
+      "target": "header",
+      "key": "content-type",
+      "operator": "contains",
+      "expected": "application/json"
+    }
+  ]
+}</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- Platforms -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Supported Platforms</h2>
+    <p class="section-subtitle">Native binaries for all major desktop platforms.</p>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th>Platform</th><th>Architecture</th><th>Binary</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Linux</td><td>x86_64</td><td><code>vortex-linux-x86_64</code></td><td class="compat-yes">Supported</td></tr>
+          <tr><td>macOS</td><td>ARM64 (Apple Silicon)</td><td><code>vortex-macos-aarch64</code></td><td class="compat-yes">Supported</td></tr>
+          <tr><td>macOS</td><td>x86_64 (Intel)</td><td><code>vortex-macos-x86_64</code></td><td class="compat-yes">Supported</td></tr>
+          <tr><td>Windows</td><td>x86_64</td><td><code>vortex-windows-x86_64.exe</code></td><td class="compat-yes">Supported</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>Vortex is released under the <a href="https://github.com/cburgosro9303/vortex/blob/main/LICENSE">MIT License</a>.</p>
+    <p style="margin-top: 8px;"><a href="https://github.com/cburgosro9303/vortex">GitHub</a></p>
+  </div>
+</footer>
+
+<script>
+function showTab(index) {
+  document.querySelectorAll('.code-tab').forEach((t, i) => t.classList.toggle('active', i === index));
+  document.querySelectorAll('.code-panel').forEach((p, i) => p.classList.toggle('active', i === index));
+}
+</script>
+
+</body>
+</html>

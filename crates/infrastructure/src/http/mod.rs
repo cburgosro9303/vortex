@@ -6,4 +6,4 @@
 
 mod body_builder;
 
-pub use body_builder::{build_body, BodyBuildError, BuiltBody};
+pub use body_builder::{BodyBuildError, BuiltBody, build_body};

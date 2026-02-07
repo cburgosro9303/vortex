@@ -10,39 +10,44 @@ use std::sync::Arc;
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use tokio::sync::mpsc;
 use vortex_application::{
-    CancellationToken, CreateWorkspace, CreateWorkspaceInput, EnvironmentRepository, ExecuteRequest,
-    ExecuteResultExt, VariableResolver,
-    ports::WorkspaceRepository,
+    CancellationToken, CreateWorkspace, CreateWorkspaceInput, EnvironmentRepository,
+    ExecuteRequest, ExecuteResultExt, VariableResolver, ports::WorkspaceRepository,
+};
+use vortex_domain::{
+    FontScale, HistoryAuth, HistoryEntry, HistoryHeader, HistoryParam, RequestHistory, ThemeMode,
+    UserSettings,
 };
 use vortex_domain::{
     RequestState,
     environment::{Environment, ResolutionContext, Variable, VariableMap},
-    persistence::{ApiKeyLocation, PersistenceAuth, PersistenceHttpMethod, PersistenceRequestBody, SavedRequest},
+    persistence::{
+        ApiKeyLocation, PersistenceAuth, PersistenceHttpMethod, PersistenceRequestBody,
+        SavedRequest,
+    },
     request::{HttpMethod, RequestBody, RequestSpec},
 };
-use vortex_domain::{FontScale, HistoryEntry, HistoryHeader, HistoryParam, HistoryAuth, RequestHistory, ThemeMode, UserSettings};
 use vortex_infrastructure::{
-    FileEnvironmentRepository, FileSystemWorkspaceRepository, HistoryRepository,
-    PostmanImporter, ReqwestHttpClient, SettingsRepository, TokioFileSystem, from_json, to_json_stable,
+    FileEnvironmentRepository, FileSystemWorkspaceRepository, HistoryRepository, PostmanImporter,
+    ReqwestHttpClient, SettingsRepository, TokioFileSystem, from_json, to_json_stable,
 };
 
-use crate::MainWindow;
-use crate::TreeItem;
 use crate::EnvironmentInfo;
+use crate::HeaderRow;
 use crate::HistoryItem;
+use crate::MainWindow;
+use crate::QueryParam;
+use crate::ResponseHeader;
+use crate::TreeItem;
 use crate::VariableRow;
 use crate::VortexPalette;
 use crate::VortexTypography;
-use crate::ResponseHeader;
-use crate::QueryParam;
-use crate::HeaderRow;
 // Sprint 06: Tab and Search types
 use crate::RequestTab;
 use crate::SearchResult;
 // Sprint 04: Import Dialog types
 use crate::ImportPreviewData;
-use crate::ImportWarningItem;
 use crate::ImportState;
+use crate::ImportWarningItem;
 use crate::bridge::{
     AuthData, EnvironmentData, HeaderData, HistoryItemData, ImportWarningData, QueryParamData,
     SearchResultData, TabData, TabState, TreeItemData, UiCommand, UiUpdate, VariableData,
@@ -404,15 +409,11 @@ impl AppWindow {
 
         // Sprint 06: Tab callbacks
         window.on_tab_clicked(move |id| {
-            let _ = cmd_tx_tab_clicked.send(UiCommand::TabClicked {
-                id: id.to_string(),
-            });
+            let _ = cmd_tx_tab_clicked.send(UiCommand::TabClicked { id: id.to_string() });
         });
 
         window.on_tab_close_clicked(move |id| {
-            let _ = cmd_tx_tab_close.send(UiCommand::TabCloseClicked {
-                id: id.to_string(),
-            });
+            let _ = cmd_tx_tab_close.send(UiCommand::TabCloseClicked { id: id.to_string() });
         });
 
         window.on_new_tab_clicked(move || {
@@ -494,13 +495,13 @@ impl AppWindow {
 
         // Spawn the async runtime in a separate thread
         let ui_weak_async = ui_weak.clone();
-        let cmd_tx_async = cmd_tx.clone();
+        let cmd_tx_async = cmd_tx;
         std::thread::spawn(move || {
             run_async_runtime(ui_weak_async, cmd_rx, update_tx, cmd_tx_async);
         });
 
         // Process UI updates on the main thread using a timer
-        let ui_weak_update = ui_weak.clone();
+        let ui_weak_update = ui_weak;
         let timer = slint::Timer::default();
         timer.start(
             slint::TimerMode::Repeated,
@@ -627,21 +628,16 @@ impl AppState {
     }
 
     /// Saves current UI state to the active tab.
-    fn save_current_tab_state(
-        &mut self,
-        url: &str,
-        method: i32,
-        body: &str,
-    ) {
-        if let Some(ref active_id) = self.active_tab_id {
-            if let Some(tab) = self.tabs.iter_mut().find(|t| &t.id == active_id) {
-                tab.url = url.to_string();
-                tab.method = method;
-                tab.body = body.to_string();
-                tab.headers = self.request_headers.clone();
-                tab.query_params = self.query_params.clone();
-                tab.auth = self.auth_data.clone();
-            }
+    fn save_current_tab_state(&mut self, url: &str, method: i32, body: &str) {
+        if let Some(ref active_id) = self.active_tab_id
+            && let Some(tab) = self.tabs.iter_mut().find(|t| &t.id == active_id)
+        {
+            tab.url = url.to_string();
+            tab.method = method;
+            tab.body = body.to_string();
+            tab.headers = self.request_headers.clone();
+            tab.query_params = self.query_params.clone();
+            tab.auth = self.auth_data.clone();
         }
     }
 
@@ -668,7 +664,7 @@ impl AppState {
                 method: entry.method.to_string(),
                 url: entry.url.clone(),
                 #[allow(clippy::cast_possible_wrap)]
-                status_code: entry.status_code.map_or(0, |s| s as i32),
+                status_code: entry.status_code.map_or(0, i32::from),
                 time_ago: entry.time_ago(),
                 duration: entry.duration_display(),
             })
@@ -756,11 +752,11 @@ fn run_async_runtime(
                     .await
                     {
                         // Save response to current tab
-                        if let Some(ref active_id) = state.active_tab_id {
-                            if let Some(tab) = state.tabs.iter_mut().find(|t| &t.id == active_id) {
+                        if let Some(ref active_id) = state.active_tab_id
+                            && let Some(tab) = state.tabs.iter_mut().find(|t| &t.id == active_id) {
                                 tab.response_state = result.response_state;
                                 tab.response_body = result.response_body.clone();
-                                tab.status_code = result.status_code.map(|s| s as i32).unwrap_or(0);
+                                tab.status_code = result.status_code.map_or(0, i32::from);
                                 tab.status_text = result.status_text.clone();
                                 tab.duration = result.duration_display.clone();
                                 tab.size = result.size_display.clone();
@@ -768,7 +764,6 @@ fn run_async_runtime(
                                 tab.error_title = result.error_title.clone();
                                 tab.error_message = result.error_message.clone();
                             }
-                        }
 
                         // Also save to state for formatting
                         state.response_body = result.response_body.clone();
@@ -953,7 +948,7 @@ fn run_async_runtime(
 
                 UiCommand::ItemDoubleClicked { id: _, path } => {
                     // Load request into editor - Sprint 06: Opens in a tab
-                    if path.extension().map_or(false, |e| e == "json") {
+                    if path.extension().is_some_and(|e| e == "json") {
                         // Check if this request is already open in a tab
                         let path_str = path.display().to_string();
                         let existing_tab = state.tabs.iter().find(|t| t.file_path.as_ref() == Some(&path_str));
@@ -1110,8 +1105,8 @@ fn run_async_runtime(
                         let collections_dir = ws_path.join("collections");
 
                         // Find the first collection directory
-                        if let Ok(mut entries) = tokio::fs::read_dir(&collections_dir).await {
-                            if let Ok(Some(first_entry)) = entries.next_entry().await {
+                        if let Ok(mut entries) = tokio::fs::read_dir(&collections_dir).await
+                            && let Ok(Some(first_entry)) = entries.next_entry().await {
                                 let collection_path = first_entry.path();
                                 if collection_path.is_dir() {
                                     // Create the requests directory if it doesn't exist
@@ -1121,7 +1116,7 @@ fn run_async_runtime(
                                     // Generate a unique ID and filename
                                     let request_id = uuid::Uuid::now_v7().to_string();
                                     let safe_name = name.to_lowercase().replace(' ', "-");
-                                    let file_name = format!("{}.json", safe_name);
+                                    let file_name = format!("{safe_name}.json");
                                     let file_path = requests_dir.join(&file_name);
 
                                     // Create the request
@@ -1147,29 +1142,27 @@ fn run_async_runtime(
                                     }
                                 }
                             }
-                        }
                     }
                 }
 
                 UiCommand::SaveCollection => {
                     let _ = update_tx.send(UiUpdate::SavingState(true));
-                    
+
                     let mut saved_count = 0;
                     let mut error_count = 0;
-                    
+
                     // Save all tabs with unsaved changes
                     for tab in &mut state.tabs {
-                        if tab.has_unsaved_changes {
-                            if let Some(ref file_path) = tab.file_path {
+                        if tab.has_unsaved_changes
+                            && let Some(ref file_path) = tab.file_path {
                                 let mut saved_request = build_saved_request_from_tab(tab);
-                                
+
                                 // Try to preserve the original ID
-                                if let Ok(existing_content) = std::fs::read_to_string(file_path) {
-                                    if let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
+                                if let Ok(existing_content) = std::fs::read_to_string(file_path)
+                                    && let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
                                         saved_request.id = existing_request.id;
                                     }
-                                }
-                                
+
                                 if let Ok(json) = to_json_stable(&saved_request) {
                                     if tokio::fs::write(file_path, json).await.is_ok() {
                                         tab.has_unsaved_changes = false;
@@ -1181,16 +1174,15 @@ fn run_async_runtime(
                                     error_count += 1;
                                 }
                             }
-                        }
                     }
-                    
+
                     let _ = update_tx.send(UiUpdate::SavingState(false));
                     let _ = update_tx.send(UiUpdate::TabsUpdated(state.tabs_to_ui()));
-                    
+
                     if error_count > 0 {
                         let _ = update_tx.send(UiUpdate::Error {
                             title: "Some requests failed to save".to_string(),
-                            message: format!("Saved {} requests, {} failed", saved_count, error_count),
+                            message: format!("Saved {saved_count} requests, {error_count} failed"),
                         });
                     }
                 }
@@ -1260,8 +1252,8 @@ fn run_async_runtime(
                 }
 
                 UiCommand::DeleteEnvironment { index } => {
-                    if let Some(ref ws_path) = state.workspace_path {
-                        if let Some(env) = state.environments.get(index as usize) {
+                    if let Some(ref ws_path) = state.workspace_path
+                        && let Some(env) = state.environments.get(index as usize) {
                             let env_repo = FileEnvironmentRepository::new(TokioFileSystem);
 
                             match env_repo.delete(ws_path, &env.name).await {
@@ -1273,14 +1265,12 @@ fn run_async_runtime(
                                         state.current_environment_index = None;
                                         let _ = update_tx.send(UiUpdate::CurrentEnvironmentIndex(-1));
                                     } else if let Some(current_idx) = state.current_environment_index
-                                    {
-                                        if current_idx > index as usize {
+                                        && current_idx > index as usize {
                                             state.current_environment_index = Some(current_idx - 1);
                                             let _ = update_tx.send(UiUpdate::CurrentEnvironmentIndex(
                                                 (current_idx - 1) as i32,
                                             ));
                                         }
-                                    }
 
                                     // Update environment names
                                     let names: Vec<String> =
@@ -1321,7 +1311,6 @@ fn run_async_runtime(
                                 }
                             }
                         }
-                    }
                 }
 
                 UiCommand::SelectEnvironmentForEditing { index } => {
@@ -1355,18 +1344,17 @@ fn run_async_runtime(
                 }
 
                 UiCommand::SaveEnvironment => {
-                    if let Some(ref ws_path) = state.workspace_path {
-                        if let Some(ref editing_env) = state.editing_environment {
+                    if let Some(ref ws_path) = state.workspace_path
+                        && let Some(ref editing_env) = state.editing_environment {
                             let env_repo = FileEnvironmentRepository::new(TokioFileSystem);
 
                             match env_repo.save(ws_path, editing_env).await {
                                 Ok(()) => {
                                     // Update the environment in state
-                                    if let Some(idx) = state.editing_environment_index {
-                                        if idx < state.environments.len() {
+                                    if let Some(idx) = state.editing_environment_index
+                                        && idx < state.environments.len() {
                                             state.environments[idx] = editing_env.clone();
                                         }
-                                    }
 
                                     // Update environment list in manager
                                     let env_list: Vec<EnvironmentData> = state
@@ -1391,7 +1379,6 @@ fn run_async_runtime(
                                 }
                             }
                         }
-                    }
                 }
 
                 UiCommand::AddEnvironmentVariable => {
@@ -1756,19 +1743,18 @@ fn run_async_runtime(
 
                 // Sprint 05: Collection Management commands
                 UiCommand::SaveCurrentRequest => {
-                    if let Some(ref active_id) = state.active_tab_id.clone() {
-                        if let Some(tab) = state.tabs.iter_mut().find(|t| &t.id == active_id) {
+                    if let Some(ref active_id) = state.active_tab_id.clone()
+                        && let Some(tab) = state.tabs.iter_mut().find(|t| &t.id == active_id) {
                             if let Some(ref file_path) = tab.file_path.clone() {
                                 // Build and save the request
                                 let mut saved_request = build_saved_request_from_tab(tab);
-                                
+
                                 // Try to preserve the original ID if we can read the existing file
-                                if let Ok(existing_content) = std::fs::read_to_string(&file_path) {
-                                    if let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
+                                if let Ok(existing_content) = std::fs::read_to_string(file_path)
+                                    && let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
                                         saved_request.id = existing_request.id;
                                     }
-                                }
-                                
+
                                 match to_json_stable(&saved_request) {
                                     Ok(json) => {
                                         if let Err(e) = tokio::fs::write(&file_path, json).await {
@@ -1798,7 +1784,6 @@ fn run_async_runtime(
                                 });
                             }
                         }
-                    }
                 }
 
                 UiCommand::RenameItem { id, new_name } => {
@@ -1810,7 +1795,7 @@ fn run_async_runtime(
                         let new_path = if ext.is_empty() {
                             parent.join(&new_name)
                         } else {
-                            parent.join(format!("{}.{}", new_name, ext))
+                            parent.join(format!("{new_name}.{ext}"))
                         };
 
                         if let Err(e) = tokio::fs::rename(&path, &new_path).await {
@@ -1840,7 +1825,7 @@ fn run_async_runtime(
 
                     let _ = update_tx.send(UiUpdate::ShowConfirmDialog {
                         title: format!("Delete {}", if item_type == "request" { "Request" } else { "Collection" }),
-                        message: format!("Are you sure you want to delete '{}'? This action cannot be undone.", name),
+                        message: format!("Are you sure you want to delete '{name}'? This action cannot be undone."),
                         item_id: id,
                         item_type,
                     });
@@ -1856,14 +1841,13 @@ fn run_async_runtime(
                                     message: e.to_string(),
                                 });
                             }
-                        } else if path.is_dir() {
-                            if let Err(e) = tokio::fs::remove_dir_all(&path).await {
+                        } else if path.is_dir()
+                            && let Err(e) = tokio::fs::remove_dir_all(&path).await {
                                 let _ = update_tx.send(UiUpdate::Error {
                                     title: "Failed to delete".to_string(),
                                     message: e.to_string(),
                                 });
                             }
-                        }
 
                         // Refresh tree
                         if let Some(ref ws_path) = state.workspace_path {
@@ -2049,9 +2033,9 @@ fn run_async_runtime(
                 UiCommand::SearchResultClicked { id: _, path } => {
                     // Load the request into a new tab
                     let path = PathBuf::from(&path);
-                    if path.extension().map_or(false, |e| e == "json") {
-                        if let Ok(content) = tokio::fs::read_to_string(&path).await {
-                            if let Ok(request) = from_json::<vortex_domain::persistence::SavedRequest>(&content) {
+                    if path.extension().is_some_and(|e| e == "json")
+                        && let Ok(content) = tokio::fs::read_to_string(&path).await
+                            && let Ok(request) = from_json::<vortex_domain::persistence::SavedRequest>(&content) {
                                 // Create new tab with this request
                                 let method_index = match request.method {
                                     PersistenceHttpMethod::Get => 0,
@@ -2125,8 +2109,6 @@ fn run_async_runtime(
 
                                 resolve_and_update_url(&state, &update_tx);
                             }
-                        }
-                    }
                 }
 
                 // --- Sprint 06: Import/Export Commands ---
@@ -2200,24 +2182,20 @@ fn run_async_runtime(
 
                 // --- Sprint 06: JSON Format Commands ---
                 UiCommand::FormatResponseBody => {
-                    if !state.response_body.is_empty() {
-                        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&state.response_body) {
-                            if let Ok(formatted) = serde_json::to_string_pretty(&parsed) {
+                    if !state.response_body.is_empty()
+                        && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&state.response_body)
+                            && let Ok(formatted) = serde_json::to_string_pretty(&parsed) {
                                 state.response_body = formatted.clone();
                                 let _ = update_tx.send(UiUpdate::FormattedResponseBody(formatted));
                             }
-                        }
-                    }
                 }
 
                 UiCommand::FormatRequestBody { body } => {
-                    if !body.is_empty() {
-                        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&body) {
-                            if let Ok(formatted) = serde_json::to_string_pretty(&parsed) {
+                    if !body.is_empty()
+                        && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&body)
+                            && let Ok(formatted) = serde_json::to_string_pretty(&parsed) {
                                 let _ = update_tx.send(UiUpdate::FormattedRequestBody(formatted));
                             }
-                        }
-                    }
                 }
 
                 UiCommand::CopyFormattedResponse => {
@@ -2257,13 +2235,12 @@ fn run_async_runtime(
                                 .set_title("Import Postman Environment")
                                 .add_filter("JSON files", &["json"])
                                 .pick_file()
-                            {
-                                if let Ok(content) = std::fs::read_to_string(&path) {
+                                && let Ok(content) = std::fs::read_to_string(&path) {
                                     match import_postman_environment(&content, &ws) {
                                         Ok(name) => {
                                             let _ = tx.send(UiUpdate::Error {
                                                 title: "Import Successful".to_string(),
-                                                message: format!("Environment '{}' imported successfully.", name),
+                                                message: format!("Environment '{name}' imported successfully."),
                                             });
                                             // Refresh environments
                                             let _ = cmd_tx_refresh.send(UiCommand::RefreshEnvironments);
@@ -2276,7 +2253,6 @@ fn run_async_runtime(
                                         }
                                     }
                                 }
-                            }
                         });
                     }
                 }
@@ -2304,7 +2280,57 @@ fn run_async_runtime(
                         None => false,
                     };
 
-                    if !is_confirmation {
+                    if is_confirmation {
+                        // PHASE 2: EXECUTE IMPORT
+                        if let Some(ref ws_path) = state.workspace_path.clone() {
+                            let ws = ws_path.clone();
+                            let tx = update_tx.clone();
+                            let cmd_tx_refresh = cmd_tx.clone();
+                            let file = file_path.clone();
+
+                            // Reset state
+                            state.import_file_path = None;
+                            state.import_preview_done = false;
+
+                            std::thread::spawn(move || {
+                                // Read file again (fresh read for import)
+                                let content = match std::fs::read_to_string(&file) {
+                                    Ok(c) => c,
+                                    Err(e) => {
+                                        let _ = tx.send(UiUpdate::ImportError {
+                                            message: format!("Failed to read file: {e}"),
+                                        });
+                                        return;
+                                    }
+                                };
+
+                                let importer = PostmanImporter::new();
+
+                                // Send initial progress
+                                let _ = tx.send(UiUpdate::ImportProgress(0.1));
+
+                                match importer.import_collection(&content, &ws) {
+                                    Ok(result) => {
+                                        let _ = tx.send(UiUpdate::ImportProgress(1.0));
+                                        let _ = tx.send(UiUpdate::ImportDialogComplete {
+                                            name: result.name,
+                                            requests_imported: result.requests_imported,
+                                            folders_imported: result.folders_imported,
+                                            variables_imported: result.variables_imported,
+                                        });
+                                        // Refresh tree and environments
+                                        let _ = cmd_tx_refresh.send(UiCommand::RefreshTree);
+                                        let _ = cmd_tx_refresh.send(UiCommand::RefreshEnvironments);
+                                    }
+                                    Err(e) => {
+                                        let _ = tx.send(UiUpdate::ImportError {
+                                            message: e.to_string(),
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                    } else {
                         // PHASE 1: PREVIEW
                         // Update state to track we are previewing this file
                         state.import_file_path = Some(file_path.clone());
@@ -2322,7 +2348,7 @@ fn run_async_runtime(
                                 Ok(c) => c,
                                 Err(e) => {
                                     let _ = tx.send(UiUpdate::ImportError {
-                                        message: format!("Failed to read file: {}", e),
+                                        message: format!("Failed to read file: {e}"),
                                     });
                                     return;
                                 }
@@ -2368,56 +2394,6 @@ fn run_async_runtime(
                                 }
                             }
                         });
-                    } else {
-                        // PHASE 2: EXECUTE IMPORT
-                        if let Some(ref ws_path) = state.workspace_path.clone() {
-                            let ws = ws_path.clone();
-                            let tx = update_tx.clone();
-                            let cmd_tx_refresh = cmd_tx.clone();
-                            let file = file_path.clone();
-
-                            // Reset state
-                            state.import_file_path = None;
-                            state.import_preview_done = false;
-
-                            std::thread::spawn(move || {
-                                // Read file again (fresh read for import)
-                                let content = match std::fs::read_to_string(&file) {
-                                    Ok(c) => c,
-                                    Err(e) => {
-                                        let _ = tx.send(UiUpdate::ImportError {
-                                            message: format!("Failed to read file: {}", e),
-                                        });
-                                        return;
-                                    }
-                                };
-
-                                let importer = PostmanImporter::new();
-                                
-                                // Send initial progress
-                                let _ = tx.send(UiUpdate::ImportProgress(0.1));
-
-                                match importer.import_collection(&content, &ws) {
-                                    Ok(result) => {
-                                        let _ = tx.send(UiUpdate::ImportProgress(1.0));
-                                        let _ = tx.send(UiUpdate::ImportDialogComplete {
-                                            name: result.name,
-                                            requests_imported: result.requests_imported,
-                                            folders_imported: result.folders_imported,
-                                            variables_imported: result.variables_imported,
-                                        });
-                                        // Refresh tree and environments
-                                        let _ = cmd_tx_refresh.send(UiCommand::RefreshTree);
-                                        let _ = cmd_tx_refresh.send(UiCommand::RefreshEnvironments);
-                                    }
-                                    Err(e) => {
-                                        let _ = tx.send(UiUpdate::ImportError {
-                                            message: e.to_string(),
-                                        });
-                                    }
-                                }
-                            });
-                        }
                     }
                 }
 
@@ -2470,7 +2446,12 @@ fn update_url_from_params(state: &mut AppState, update_tx: &mpsc::UnboundedSende
     // Update current_url with new query string
     let base = if state.base_url.is_empty() {
         // Extract base URL from current_url if not set
-        state.current_url.split('?').next().unwrap_or("").to_string()
+        state
+            .current_url
+            .split('?')
+            .next()
+            .unwrap_or("")
+            .to_string()
     } else {
         state.base_url.clone()
     };
@@ -2530,7 +2511,7 @@ async fn load_environments(
     }
 }
 
-/// Handles the SendRequest command.
+/// Handles the `SendRequest` command.
 /// Result of a request execution for history tracking and tab state saving.
 struct RequestResult {
     method: HttpMethod,
@@ -2538,7 +2519,7 @@ struct RequestResult {
     status_code: Option<u16>,
     duration_ms: Option<u64>,
     // Response data for tab state
-    response_state: i32,  // 2=Success, 3=Error
+    response_state: i32, // 2=Success, 3=Error
     response_body: String,
     status_text: String,
     duration_display: String,
@@ -2568,11 +2549,10 @@ async fn handle_send_request(
     });
 
     // Wait a bit for the UI to respond
-    let request_data =
-        tokio::time::timeout(std::time::Duration::from_millis(100), &mut data_rx)
-            .await
-            .ok()
-            .and_then(|r| r.ok());
+    let request_data = tokio::time::timeout(std::time::Duration::from_millis(100), &mut data_rx)
+        .await
+        .ok()
+        .and_then(std::result::Result::ok);
 
     if let Some((url, method_index, body)) = request_data {
         // Resolve variables in URL and body
@@ -2626,27 +2606,31 @@ async fn handle_send_request(
                     let resolved_token = resolver.resolve(&state.auth_data.bearer_token).resolved;
                     request.headers.add(vortex_domain::request::Header::new(
                         "Authorization",
-                        format!("Bearer {}", resolved_token),
+                        format!("Bearer {resolved_token}"),
                     ));
                 }
             }
             2 => {
                 // Basic auth
                 if !state.auth_data.basic_username.is_empty() {
-                    let resolved_username = resolver.resolve(&state.auth_data.basic_username).resolved;
-                    let resolved_password = resolver.resolve(&state.auth_data.basic_password).resolved;
-                    let credentials = format!("{}:{}", resolved_username, resolved_password);
+                    let resolved_username =
+                        resolver.resolve(&state.auth_data.basic_username).resolved;
+                    let resolved_password =
+                        resolver.resolve(&state.auth_data.basic_password).resolved;
+                    let credentials = format!("{resolved_username}:{resolved_password}");
                     use base64::Engine;
                     let encoded = base64::engine::general_purpose::STANDARD.encode(credentials);
                     request.headers.add(vortex_domain::request::Header::new(
                         "Authorization",
-                        format!("Basic {}", encoded),
+                        format!("Basic {encoded}"),
                     ));
                 }
             }
             3 => {
                 // API Key
-                if !state.auth_data.api_key_name.is_empty() && !state.auth_data.api_key_value.is_empty() {
+                if !state.auth_data.api_key_name.is_empty()
+                    && !state.auth_data.api_key_value.is_empty()
+                {
                     let resolved_value = resolver.resolve(&state.auth_data.api_key_value).resolved;
                     if state.auth_data.api_key_location == 0 {
                         // Header
@@ -2680,7 +2664,18 @@ async fn handle_send_request(
             .await;
 
         // Extract response data for history and tab state
-        let (status_code, duration_ms, response_state, response_body, status_text, duration_display, size_display, response_headers, error_title, error_message) = match &result {
+        let (
+            status_code,
+            duration_ms,
+            response_state,
+            response_body,
+            status_text,
+            duration_display,
+            size_display,
+            response_headers,
+            error_title,
+            error_message,
+        ) = match &result {
             Ok(response) => {
                 let headers: Vec<crate::bridge::ResponseHeaderData> = response
                     .headers_map
@@ -2829,18 +2824,29 @@ fn load_folder_items<'a>(
 
                     // Try to read display name from folder.json, fallback to filesystem name
                     let folder_meta_path = path.join("folder.json");
-                    let folder_name = if let Ok(content) = tokio::fs::read_to_string(&folder_meta_path).await {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                            json.get("name")
-                                .and_then(|n| n.as_str())
-                                .unwrap_or_else(|| path.file_name().and_then(|n| n.to_str()).unwrap_or("Unknown"))
-                                .to_string()
+                    let folder_name =
+                        if let Ok(content) = tokio::fs::read_to_string(&folder_meta_path).await {
+                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                                json.get("name")
+                                    .and_then(|n| n.as_str())
+                                    .unwrap_or_else(|| {
+                                        path.file_name()
+                                            .and_then(|n| n.to_str())
+                                            .unwrap_or("Unknown")
+                                    })
+                                    .to_string()
+                            } else {
+                                path.file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("Unknown")
+                                    .to_string()
+                            }
                         } else {
-                            path.file_name().and_then(|n| n.to_str()).unwrap_or("Unknown").to_string()
-                        }
-                    } else {
-                        path.file_name().and_then(|n| n.to_str()).unwrap_or("Unknown").to_string()
-                    };
+                            path.file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("Unknown")
+                                .to_string()
+                        };
 
                     let is_expanded = expanded_folders.contains(&folder_id);
 
@@ -2858,9 +2864,12 @@ fn load_folder_items<'a>(
                         // Load subfolder contents (check for requests subfolder or direct json files)
                         load_folder_items(&path, depth + 1, expanded_folders, items).await;
                     }
-                } else if path.extension().map_or(false, |e| e == "json") {
+                } else if path.extension().is_some_and(|e| e == "json") {
                     // Skip collection.json and folder.json metadata files
-                    if path.file_name().map_or(false, |n| n == "collection.json" || n == "folder.json") {
+                    if path
+                        .file_name()
+                        .is_some_and(|n| n == "collection.json" || n == "folder.json")
+                    {
                         continue;
                     }
 
@@ -2872,13 +2881,16 @@ fn load_folder_items<'a>(
                         .to_string();
 
                     // Try to read the name and method from the file
-                    let (name, method) = if let Ok(content) = tokio::fs::read_to_string(&path).await {
+                    let (name, method) = if let Ok(content) = tokio::fs::read_to_string(&path).await
+                    {
                         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                            let name = json.get("name")
+                            let name = json
+                                .get("name")
                                 .and_then(|n| n.as_str())
                                 .unwrap_or(&fallback_name)
                                 .to_string();
-                            let method = json.get("method")
+                            let method = json
+                                .get("method")
                                 .and_then(|m| m.as_str())
                                 .unwrap_or("GET")
                                 .to_string();
@@ -2920,7 +2932,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
                 RequestState::Success { response } => {
                     ui.set_response_state(2);
                     #[allow(clippy::cast_possible_wrap)]
-                    ui.set_status_code(response.status as i32);
+                    ui.set_status_code(i32::from(response.status));
                     ui.set_status_text(response.status_text.clone().into());
                     ui.set_response_body(response.body_as_string_lossy().into());
                     ui.set_duration(response.duration_display().into());
@@ -2938,8 +2950,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
                     // Convert suggestions to Slint model
                     let suggestions: Vec<SharedString> =
                         kind.suggestions().iter().map(|s| (*s).into()).collect();
-                    let model: ModelRc<SharedString> =
-                        Rc::new(VecModel::from(suggestions)).into();
+                    let model: ModelRc<SharedString> = Rc::new(VecModel::from(suggestions)).into();
                     ui.set_error_suggestions(model);
                 }
             }
@@ -2988,8 +2999,13 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
 
         // Environment updates (Sprint 03)
         UiUpdate::EnvironmentNames(names) => {
-            let model: ModelRc<SharedString> =
-                Rc::new(VecModel::from(names.into_iter().map(SharedString::from).collect::<Vec<_>>())).into();
+            let model: ModelRc<SharedString> = Rc::new(VecModel::from(
+                names
+                    .into_iter()
+                    .map(SharedString::from)
+                    .collect::<Vec<_>>(),
+            ))
+            .into();
             ui.set_environment_names(model);
         }
 
@@ -3004,8 +3020,13 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         } => {
             ui.set_resolved_url(resolved.into());
             ui.set_has_unresolved_variables(has_unresolved);
-            let unresolved_model: ModelRc<SharedString> =
-                Rc::new(VecModel::from(unresolved_names.into_iter().map(SharedString::from).collect::<Vec<_>>())).into();
+            let unresolved_model: ModelRc<SharedString> = Rc::new(VecModel::from(
+                unresolved_names
+                    .into_iter()
+                    .map(SharedString::from)
+                    .collect::<Vec<_>>(),
+            ))
+            .into();
             ui.set_unresolved_variables(unresolved_model);
         }
 
@@ -3071,7 +3092,8 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
             ui.set_theme_mode_index(theme_index);
             ui.set_font_scale_index(font_scale_index);
             ui.global::<VortexPalette>().set_dark_mode(dark_mode);
-            ui.global::<VortexTypography>().set_scale_factor(font_scale_factor);
+            ui.global::<VortexTypography>()
+                .set_scale_factor(font_scale_factor);
         }
 
         // History updates (Sprint 04)
@@ -3159,7 +3181,12 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         }
 
         // Sprint 05: Confirm dialog updates
-        UiUpdate::ShowConfirmDialog { title, message, item_id, item_type } => {
+        UiUpdate::ShowConfirmDialog {
+            title,
+            message,
+            item_id,
+            item_type,
+        } => {
             ui.set_confirm_dialog_title(title.into());
             ui.set_confirm_dialog_message(message.into());
             ui.set_pending_delete_id(item_id.into());
@@ -3172,7 +3199,14 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         }
 
         // Sprint 05: Load full request (with headers, params, auth)
-        UiUpdate::LoadFullRequest { url, method, body, headers, query_params, auth } => {
+        UiUpdate::LoadFullRequest {
+            url,
+            method,
+            body,
+            headers,
+            query_params,
+            auth,
+        } => {
             ui.set_url(url.into());
             ui.set_method_index(method);
             ui.set_request_body(body.into());
@@ -3261,7 +3295,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         // Sprint 06: Import/Export updates
         UiUpdate::ImportComplete { collection_name } => {
             // Show success - could also refresh tree
-            eprintln!("Imported collection: {}", collection_name);
+            eprintln!("Imported collection: {collection_name}");
         }
 
         // --- Sprint 04: Import Dialog Updates ---
@@ -3303,8 +3337,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
                     severity: w.severity.into(),
                 })
                 .collect();
-            let model: ModelRc<ImportWarningItem> =
-                Rc::new(VecModel::from(slint_warnings)).into();
+            let model: ModelRc<ImportWarningItem> = Rc::new(VecModel::from(slint_warnings)).into();
             ui.set_import_warnings(model);
 
             ui.set_import_state(ImportState::Previewing);
@@ -3321,8 +3354,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
             variables_imported,
         } => {
             eprintln!(
-                "Import complete: {} ({} requests, {} folders, {} variables)",
-                name, requests_imported, folders_imported, variables_imported
+                "Import complete: {name} ({requests_imported} requests, {folders_imported} folders, {variables_imported} variables)"
             );
             ui.set_import_state(ImportState::Complete);
         }
@@ -3333,7 +3365,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         }
 
         UiUpdate::ExportComplete { path } => {
-            eprintln!("Exported to: {}", path);
+            eprintln!("Exported to: {path}");
         }
 
         UiUpdate::CurlExport(curl) => {
@@ -3342,6 +3374,35 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
             {
                 use std::process::Command;
                 let _ = Command::new("pbcopy")
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                    .and_then(|mut child| {
+                        use std::io::Write;
+                        if let Some(ref mut stdin) = child.stdin {
+                            let _ = stdin.write_all(curl.as_bytes());
+                        }
+                        child.wait()
+                    });
+            }
+            #[cfg(target_os = "linux")]
+            {
+                use std::process::Command;
+                let _ = Command::new("xclip")
+                    .args(["-selection", "clipboard"])
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                    .and_then(|mut child| {
+                        use std::io::Write;
+                        if let Some(ref mut stdin) = child.stdin {
+                            let _ = stdin.write_all(curl.as_bytes());
+                        }
+                        child.wait()
+                    });
+            }
+            #[cfg(target_os = "windows")]
+            {
+                use std::process::Command;
+                let _ = Command::new("clip")
                     .stdin(std::process::Stdio::piped())
                     .spawn()
                     .and_then(|mut child| {
@@ -3405,8 +3466,8 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
 /// Also auto-detects and imports Postman environments.
 fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<String, String> {
     // Parse Postman collection JSON
-    let collection: serde_json::Value = serde_json::from_str(content)
-        .map_err(|e| format!("Invalid JSON: {}", e))?;
+    let collection: serde_json::Value =
+        serde_json::from_str(content).map_err(|e| format!("Invalid JSON: {e}"))?;
 
     // Auto-detect: If this is an environment file (has "name" and "values" but no "info"),
     // redirect to environment import
@@ -3418,10 +3479,12 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
     }
 
     // Get collection info
-    let info = collection.get("info")
+    let info = collection
+        .get("info")
         .ok_or("Missing 'info' field in Postman collection")?;
 
-    let collection_name = info.get("name")
+    let collection_name = info
+        .get("name")
         .and_then(|n| n.as_str())
         .unwrap_or("Imported Collection")
         .to_string();
@@ -3430,12 +3493,12 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
     let safe_name = collection_name.to_lowercase().replace(' ', "-");
     let collection_dir = workspace_path.join("collections").join(&safe_name);
     std::fs::create_dir_all(&collection_dir)
-        .map_err(|e| format!("Failed to create directory: {}", e))?;
+        .map_err(|e| format!("Failed to create directory: {e}"))?;
 
     // Create requests directory
     let requests_dir = collection_dir.join("request");
     std::fs::create_dir_all(&requests_dir)
-        .map_err(|e| format!("Failed to create requests directory: {}", e))?;
+        .map_err(|e| format!("Failed to create requests directory: {e}"))?;
 
     // Create collection.json
     let coll_meta = serde_json::json!({
@@ -3446,7 +3509,8 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
     std::fs::write(
         collection_dir.join("collection.json"),
         serde_json::to_string_pretty(&coll_meta).unwrap_or_default(),
-    ).map_err(|e| format!("Failed to write collection.json: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to write collection.json: {e}"))?;
 
     // Import items
     if let Some(items) = collection.get("item").and_then(|i| i.as_array()) {
@@ -3458,10 +3522,15 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
 
 /// Recursively import Postman items.
 fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Result<(), String> {
-    eprintln!("[IMPORT] Processing {} items in {:?}", items.len(), target_dir);
+    eprintln!(
+        "[IMPORT] Processing {} items in {}",
+        items.len(),
+        target_dir.display()
+    );
 
     for item in items {
-        let name = item.get("name")
+        let name = item
+            .get("name")
             .and_then(|n| n.as_str())
             .unwrap_or("Unnamed");
 
@@ -3470,9 +3539,9 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
             // This is a folder - create subdirectory and recurse
             let safe_name = name.to_lowercase().replace(' ', "-");
             let subfolder = target_dir.join(&safe_name);
-            eprintln!("[IMPORT] Folder: {} -> {:?}", name, subfolder);
+            eprintln!("[IMPORT] Folder: {name} -> {}", subfolder.display());
             std::fs::create_dir_all(&subfolder)
-                .map_err(|e| format!("Failed to create folder '{}': {}", name, e))?;
+                .map_err(|e| format!("Failed to create folder '{name}': {e}"))?;
 
             // Create folder.json with display name
             let folder_meta = serde_json::json!({
@@ -3482,21 +3551,24 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
             std::fs::write(
                 subfolder.join("folder.json"),
                 serde_json::to_string_pretty(&folder_meta).unwrap_or_default(),
-            ).map_err(|e| format!("Failed to write folder.json for '{}': {}", name, e))?;
+            )
+            .map_err(|e| format!("Failed to write folder.json for '{name}': {e}"))?;
 
             if let Some(sub_items) = item.get("item").and_then(|i| i.as_array()) {
                 import_postman_items(sub_items, &subfolder)?;
             }
         } else if let Some(request) = item.get("request") {
             // This is a request
-            let method = request.get("method")
+            let method = request
+                .get("method")
                 .and_then(|m| m.as_str())
                 .unwrap_or("GET");
 
             let url = extract_postman_url(request.get("url"));
 
             // Extract headers
-            let headers: std::collections::BTreeMap<String, String> = request.get("header")
+            let headers: std::collections::BTreeMap<String, String> = request
+                .get("header")
                 .and_then(|h| h.as_array())
                 .map(|arr| {
                     arr.iter()
@@ -3510,48 +3582,70 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                 .unwrap_or_default();
 
             // Extract body from Postman format
-            let body = request.get("body").and_then(|body_obj| {
-                let mode = body_obj.get("mode")?.as_str()?;
-                match mode {
-                    "raw" => body_obj.get("raw").and_then(|r| r.as_str()).map(|s| s.to_string()),
-                    "urlencoded" => {
-                        // Convert form-urlencoded to string representation
-                        body_obj.get("urlencoded").and_then(|arr| arr.as_array()).map(|items| {
-                            items.iter()
-                                .filter_map(|item| {
-                                    let key = item.get("key")?.as_str()?;
-                                    let value = item.get("value")?.as_str().unwrap_or("");
-                                    Some(format!("{}={}", key, value))
+            let body = request
+                .get("body")
+                .and_then(|body_obj| {
+                    let mode = body_obj.get("mode")?.as_str()?;
+                    match mode {
+                        "raw" => body_obj
+                            .get("raw")
+                            .and_then(|r| r.as_str())
+                            .map(std::string::ToString::to_string),
+                        "urlencoded" => {
+                            // Convert form-urlencoded to string representation
+                            body_obj
+                                .get("urlencoded")
+                                .and_then(|arr| arr.as_array())
+                                .map(|items| {
+                                    items
+                                        .iter()
+                                        .filter_map(|item| {
+                                            let key = item.get("key")?.as_str()?;
+                                            let value = item.get("value")?.as_str().unwrap_or("");
+                                            Some(format!("{key}={value}"))
+                                        })
+                                        .collect::<Vec<_>>()
+                                        .join("&")
                                 })
-                                .collect::<Vec<_>>()
-                                .join("&")
-                        })
-                    }
-                    "formdata" => {
-                        // Convert form-data to JSON representation for display
-                        body_obj.get("formdata").and_then(|arr| arr.as_array()).map(|items| {
-                            let obj: serde_json::Map<String, serde_json::Value> = items.iter()
-                                .filter_map(|item| {
-                                    let key = item.get("key")?.as_str()?.to_string();
-                                    let value = item.get("value")?.as_str().unwrap_or("").to_string();
-                                    Some((key, serde_json::Value::String(value)))
+                        }
+                        "formdata" => {
+                            // Convert form-data to JSON representation for display
+                            body_obj
+                                .get("formdata")
+                                .and_then(|arr| arr.as_array())
+                                .map(|items| {
+                                    let obj: serde_json::Map<String, serde_json::Value> = items
+                                        .iter()
+                                        .filter_map(|item| {
+                                            let key = item.get("key")?.as_str()?.to_string();
+                                            let value = item
+                                                .get("value")?
+                                                .as_str()
+                                                .unwrap_or("")
+                                                .to_string();
+                                            Some((key, serde_json::Value::String(value)))
+                                        })
+                                        .collect();
+                                    serde_json::to_string_pretty(&obj).unwrap_or_default()
                                 })
-                                .collect();
-                            serde_json::to_string_pretty(&obj).unwrap_or_default()
-                        })
+                        }
+                        _ => None,
                     }
-                    _ => None,
-                }
-            }).unwrap_or_default();
+                })
+                .unwrap_or_default();
 
             // Extract query params from Postman URL as BTreeMap
-            let query_params: std::collections::BTreeMap<String, String> = request.get("url")
+            let query_params: std::collections::BTreeMap<String, String> = request
+                .get("url")
                 .and_then(|url_obj| url_obj.get("query"))
                 .and_then(|q| q.as_array())
                 .map(|arr| {
                     arr.iter()
                         .filter_map(|param| {
-                            let disabled = param.get("disabled").and_then(|d| d.as_bool()).unwrap_or(false);
+                            let disabled = param
+                                .get("disabled")
+                                .and_then(serde_json::Value::as_bool)
+                                .unwrap_or(false);
                             if disabled {
                                 return None;
                             }
@@ -3563,7 +3657,12 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                 })
                 .unwrap_or_default();
 
-            eprintln!("[IMPORT] Request: {} {} (body: {} chars)", method, name, body.len());
+            eprintln!(
+                "[IMPORT] Request: {} {} (body: {} chars)",
+                method,
+                name,
+                body.len()
+            );
 
             // Create Vortex request
             let mut vortex_request = serde_json::json!({
@@ -3596,13 +3695,14 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                 vortex_request["query_params"] = serde_json::json!(query_params);
             }
 
-            let safe_name = name.to_lowercase().replace(' ', "-").replace('/', "-");
-            let file_path = target_dir.join(format!("{}.json", safe_name));
-            eprintln!("[IMPORT] Writing file: {:?}", file_path);
+            let safe_name = name.to_lowercase().replace([' ', '/'], "-");
+            let file_path = target_dir.join(format!("{safe_name}.json"));
+            eprintln!("[IMPORT] Writing file: {}", file_path.display());
             std::fs::write(
                 &file_path,
                 serde_json::to_string_pretty(&vortex_request).unwrap_or_default(),
-            ).map_err(|e| format!("Failed to write request '{}': {}", name, e))?;
+            )
+            .map_err(|e| format!("Failed to write request '{name}': {e}"))?;
         }
     }
 
@@ -3613,12 +3713,11 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
 fn extract_postman_url(url_value: Option<&serde_json::Value>) -> String {
     match url_value {
         Some(serde_json::Value::String(s)) => s.clone(),
-        Some(serde_json::Value::Object(obj)) => {
-            obj.get("raw")
-                .and_then(|r| r.as_str())
-                .unwrap_or("")
-                .to_string()
-        }
+        Some(serde_json::Value::Object(obj)) => obj
+            .get("raw")
+            .and_then(|r| r.as_str())
+            .unwrap_or("")
+            .to_string(),
         _ => String::new(),
     }
 }
@@ -3637,18 +3736,21 @@ fn export_vortex_collection(workspace_path: &PathBuf, output_path: &PathBuf) -> 
     if let Ok(entries) = std::fs::read_dir(&collections_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_dir() {
-                if let Ok(collection) = export_collection_dir(&path) {
-                    if let Some(collections) = export.get_mut("collections").and_then(|c| c.as_array_mut()) {
-                        collections.push(collection);
-                    }
-                }
+            if path.is_dir()
+                && let Ok(collection) = export_collection_dir(&path)
+                && let Some(collections) =
+                    export.get_mut("collections").and_then(|c| c.as_array_mut())
+            {
+                collections.push(collection);
             }
         }
     }
 
-    std::fs::write(output_path, serde_json::to_string_pretty(&export).unwrap_or_default())
-        .map_err(|e| format!("Failed to write export file: {}", e))?;
+    std::fs::write(
+        output_path,
+        serde_json::to_string_pretty(&export).unwrap_or_default(),
+    )
+    .map_err(|e| format!("Failed to write export file: {e}"))?;
 
     Ok(())
 }
@@ -3658,7 +3760,7 @@ fn export_collection_dir(collection_path: &PathBuf) -> Result<serde_json::Value,
     let collection_json = collection_path.join("collection.json");
     let collection_meta: serde_json::Value = if collection_json.exists() {
         let content = std::fs::read_to_string(&collection_json)
-            .map_err(|e| format!("Failed to read collection.json: {}", e))?;
+            .map_err(|e| format!("Failed to read collection.json: {e}"))?;
         serde_json::from_str(&content).unwrap_or_default()
     } else {
         serde_json::json!({
@@ -3684,11 +3786,11 @@ fn collect_requests(dir: &PathBuf, requests: &mut Vec<serde_json::Value>) -> Res
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_file() && path.extension().map_or(false, |e| e == "json") {
-                if let Ok(content) = std::fs::read_to_string(&path) {
-                    if let Ok(req) = serde_json::from_str::<serde_json::Value>(&content) {
-                        requests.push(req);
-                    }
+            if path.is_file() && path.extension().is_some_and(|e| e == "json") {
+                if let Ok(content) = std::fs::read_to_string(&path)
+                    && let Ok(req) = serde_json::from_str::<serde_json::Value>(&content)
+                {
+                    requests.push(req);
                 }
             } else if path.is_dir() {
                 collect_requests(&path, requests)?;
@@ -3703,10 +3805,11 @@ fn generate_curl_command(state: &AppState) -> String {
     let mut parts = vec!["curl".to_string()];
 
     // Method
-    let method = match state.tabs.iter()
+    let method = match state
+        .tabs
+        .iter()
         .find(|t| state.active_tab_id.as_ref() == Some(&t.id))
-        .map(|t| t.method)
-        .unwrap_or(0)
+        .map_or(0, |t| t.method)
     {
         0 => "GET",
         1 => "POST",
@@ -3719,7 +3822,7 @@ fn generate_curl_command(state: &AppState) -> String {
     };
 
     if method != "GET" {
-        parts.push(format!("-X {}", method));
+        parts.push(format!("-X {method}"));
     }
 
     // URL
@@ -3736,27 +3839,40 @@ fn generate_curl_command(state: &AppState) -> String {
     match state.auth_data.auth_type {
         1 => {
             if !state.auth_data.bearer_token.is_empty() {
-                parts.push(format!("-H 'Authorization: Bearer {}'", state.auth_data.bearer_token));
+                parts.push(format!(
+                    "-H 'Authorization: Bearer {}'",
+                    state.auth_data.bearer_token
+                ));
             }
         }
         2 => {
             if !state.auth_data.basic_username.is_empty() {
-                parts.push(format!("-u '{}:{}'", state.auth_data.basic_username, state.auth_data.basic_password));
+                parts.push(format!(
+                    "-u '{}:{}'",
+                    state.auth_data.basic_username, state.auth_data.basic_password
+                ));
             }
         }
         3 => {
             if !state.auth_data.api_key_name.is_empty() && state.auth_data.api_key_location == 0 {
-                parts.push(format!("-H '{}: {}'", state.auth_data.api_key_name, state.auth_data.api_key_value));
+                parts.push(format!(
+                    "-H '{}: {}'",
+                    state.auth_data.api_key_name, state.auth_data.api_key_value
+                ));
             }
         }
         _ => {}
     }
 
     // Body
-    if let Some(tab) = state.tabs.iter().find(|t| state.active_tab_id.as_ref() == Some(&t.id)) {
-        if !tab.body.is_empty() && (method == "POST" || method == "PUT" || method == "PATCH") {
-            parts.push(format!("-d '{}'", tab.body.replace('\'', "'\\''")));
-        }
+    if let Some(tab) = state
+        .tabs
+        .iter()
+        .find(|t| state.active_tab_id.as_ref() == Some(&t.id))
+        && !tab.body.is_empty()
+        && (method == "POST" || method == "PUT" || method == "PATCH")
+    {
+        parts.push(format!("-d '{}'", tab.body.replace('\'', "'\\''")));
     }
 
     parts.join(" \\\n  ")
@@ -3808,38 +3924,41 @@ fn collect_requests_for_search<'a>(
                 if path.is_dir() {
                     // Recurse into subdirectories
                     collect_requests_for_search(&path, collection_name, results).await;
-                } else if path.extension().map_or(false, |e| e == "json") {
+                } else if path.extension().is_some_and(|e| e == "json") {
                     // This is a request file
-                    if let Ok(content) = tokio::fs::read_to_string(&path).await {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                            let name = json.get("name")
-                                .and_then(|n| n.as_str())
-                                .unwrap_or_else(|| {
-                                    path.file_stem()
-                                        .and_then(|s| s.to_str())
-                                        .unwrap_or("Unknown")
-                                })
-                                .to_string();
+                    if let Ok(content) = tokio::fs::read_to_string(&path).await
+                        && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content)
+                    {
+                        let name = json
+                            .get("name")
+                            .and_then(|n| n.as_str())
+                            .unwrap_or_else(|| {
+                                path.file_stem()
+                                    .and_then(|s| s.to_str())
+                                    .unwrap_or("Unknown")
+                            })
+                            .to_string();
 
-                            let method = json.get("method")
-                                .and_then(|m| m.as_str())
-                                .unwrap_or("GET")
-                                .to_string();
+                        let method = json
+                            .get("method")
+                            .and_then(|m| m.as_str())
+                            .unwrap_or("GET")
+                            .to_string();
 
-                            let url = json.get("url")
-                                .and_then(|u| u.as_str())
-                                .unwrap_or("")
-                                .to_string();
+                        let url = json
+                            .get("url")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("")
+                            .to_string();
 
-                            results.push(SearchResultData {
-                                id: path.display().to_string(),
-                                name,
-                                method,
-                                url,
-                                collection_name: collection_name.to_string(),
-                                path: path.display().to_string(),
-                            });
-                        }
+                        results.push(SearchResultData {
+                            id: path.display().to_string(),
+                            name,
+                            method,
+                            url,
+                            collection_name: collection_name.to_string(),
+                            path: path.display().to_string(),
+                        });
                     }
                 }
             }
@@ -3849,31 +3968,37 @@ fn collect_requests_for_search<'a>(
 
 /// Import a Postman environment file.
 fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result<String, String> {
-    let env: serde_json::Value = serde_json::from_str(content)
-        .map_err(|e| format!("Invalid JSON: {}", e))?;
+    let env: serde_json::Value =
+        serde_json::from_str(content).map_err(|e| format!("Invalid JSON: {e}"))?;
 
     // Postman environment format has "name" and "values" at the root level
     // (unlike collections which have "info")
-    let name = env.get("name")
+    let name = env
+        .get("name")
         .and_then(|n| n.as_str())
         .ok_or("Missing 'name' field - this may not be a Postman environment file")?
         .to_string();
 
-    let values = env.get("values")
+    let values = env
+        .get("values")
         .and_then(|v| v.as_array())
         .ok_or("Missing 'values' field - this may not be a Postman environment file")?;
 
     // Create environments directory if it doesn't exist
     let environments_dir = workspace_path.join("environments");
     std::fs::create_dir_all(&environments_dir)
-        .map_err(|e| format!("Failed to create environments directory: {}", e))?;
+        .map_err(|e| format!("Failed to create environments directory: {e}"))?;
 
     // Convert Postman variables to Vortex format
-    let variables: Vec<serde_json::Value> = values.iter()
+    let variables: Vec<serde_json::Value> = values
+        .iter()
         .filter_map(|v| {
             let key = v.get("key")?.as_str()?;
             let value = v.get("value")?.as_str().unwrap_or("");
-            let enabled = v.get("enabled").and_then(|e| e.as_bool()).unwrap_or(true);
+            let enabled = v
+                .get("enabled")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true);
             let secret = v.get("type").and_then(|t| t.as_str()) == Some("secret");
 
             Some(serde_json::json!({
@@ -3894,17 +4019,18 @@ fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result
     });
 
     let safe_name = name.to_lowercase().replace(' ', "-");
-    let file_path = environments_dir.join(format!("{}.json", safe_name));
+    let file_path = environments_dir.join(format!("{safe_name}.json"));
 
     std::fs::write(
         &file_path,
         serde_json::to_string_pretty(&vortex_env).unwrap_or_default(),
-    ).map_err(|e| format!("Failed to write environment file: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to write environment file: {e}"))?;
 
     Ok(name)
 }
 
-/// Converts persistence auth configuration to UI-friendly AuthData.
+/// Converts persistence auth configuration to UI-friendly `AuthData`.
 fn persistence_auth_to_ui(auth: Option<&PersistenceAuth>) -> AuthData {
     match auth {
         None => AuthData::default(),
@@ -3919,7 +4045,11 @@ fn persistence_auth_to_ui(auth: Option<&PersistenceAuth>) -> AuthData {
             basic_password: password.clone(),
             ..AuthData::default()
         },
-        Some(PersistenceAuth::ApiKey { key, value, location }) => AuthData {
+        Some(PersistenceAuth::ApiKey {
+            key,
+            value,
+            location,
+        }) => AuthData {
             auth_type: 3,
             api_key_name: key.clone(),
             api_key_value: value.clone(),
@@ -3930,29 +4060,40 @@ fn persistence_auth_to_ui(auth: Option<&PersistenceAuth>) -> AuthData {
             ..AuthData::default()
         },
         // OAuth2 types default to None for now (not supported in UI yet)
-        Some(PersistenceAuth::Oauth2ClientCredentials { .. }) |
-        Some(PersistenceAuth::Oauth2AuthCode { .. }) => AuthData::default(),
+        Some(
+            PersistenceAuth::Oauth2ClientCredentials { .. }
+            | PersistenceAuth::Oauth2AuthCode { .. },
+        ) => AuthData::default(),
     }
 }
 
-/// Converts UI AuthData back to persistence format for saving.
+/// Converts UI `AuthData` back to persistence format for saving.
 fn ui_auth_to_persistence(auth: &AuthData) -> Option<PersistenceAuth> {
     match auth.auth_type {
         0 => None, // No auth
         1 => Some(PersistenceAuth::bearer(&auth.bearer_token)),
-        2 => Some(PersistenceAuth::basic(&auth.basic_username, &auth.basic_password)),
+        2 => Some(PersistenceAuth::basic(
+            &auth.basic_username,
+            &auth.basic_password,
+        )),
         3 => {
             if auth.api_key_location == 0 {
-                Some(PersistenceAuth::api_key_header(&auth.api_key_name, &auth.api_key_value))
+                Some(PersistenceAuth::api_key_header(
+                    &auth.api_key_name,
+                    &auth.api_key_value,
+                ))
             } else {
-                Some(PersistenceAuth::api_key_query(&auth.api_key_name, &auth.api_key_value))
+                Some(PersistenceAuth::api_key_query(
+                    &auth.api_key_name,
+                    &auth.api_key_value,
+                ))
             }
         }
         _ => None,
     }
 }
 
-/// Builds a SavedRequest from TabState for persistence.
+/// Builds a `SavedRequest` from `TabState` for persistence.
 fn build_saved_request_from_tab(tab: &TabState) -> SavedRequest {
     let method = match tab.method {
         0 => PersistenceHttpMethod::Get,
@@ -3975,14 +4116,18 @@ fn build_saved_request_from_tab(tab: &TabState) -> SavedRequest {
     // Add headers
     for header in &tab.headers {
         if header.enabled {
-            request.headers.insert(header.key.clone(), header.value.clone());
+            request
+                .headers
+                .insert(header.key.clone(), header.value.clone());
         }
     }
 
     // Add query params
     for param in &tab.query_params {
         if param.enabled {
-            request.query_params.insert(param.key.clone(), param.value.clone());
+            request
+                .query_params
+                .insert(param.key.clone(), param.value.clone());
         }
     }
 
@@ -4001,4 +4146,3 @@ fn build_saved_request_from_tab(tab: &TabState) -> SavedRequest {
 
     request
 }
-

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// A test assertion to run after request execution.
 ///
 /// The `type` field is used as the discriminator for JSON serialization.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum TestAssertion {
     /// Assert exact status code.
@@ -59,7 +59,7 @@ pub enum TestAssertion {
     JsonPathExists {
         /// Test name for display.
         name: String,
-        /// JSONPath expression (e.g., `$.data.id`).
+        /// `JSONPath` expression (e.g., `$.data.id`).
         path: String,
     },
 
@@ -67,7 +67,7 @@ pub enum TestAssertion {
     JsonPathEquals {
         /// Test name for display.
         name: String,
-        /// JSONPath expression.
+        /// `JSONPath` expression.
         path: String,
         /// Expected value at path.
         expected: serde_json::Value,
@@ -131,6 +131,7 @@ impl TestAssertion {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

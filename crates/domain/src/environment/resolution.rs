@@ -94,36 +94,36 @@ impl ResolutionContext {
         }
 
         // Environment variables
-        if let Some(var) = self.environment.get(name) {
-            if var.enabled {
-                return Some(ResolvedVariable {
-                    name: name.to_string(),
-                    value: var.value.clone(),
-                    scope: VariableScope::Environment,
-                });
-            }
+        if let Some(var) = self.environment.get(name)
+            && var.enabled
+        {
+            return Some(ResolvedVariable {
+                name: name.to_string(),
+                value: var.value.clone(),
+                scope: VariableScope::Environment,
+            });
         }
 
         // Collection variables
-        if let Some(var) = self.collection.get(name) {
-            if var.enabled {
-                return Some(ResolvedVariable {
-                    name: name.to_string(),
-                    value: var.value.clone(),
-                    scope: VariableScope::Collection,
-                });
-            }
+        if let Some(var) = self.collection.get(name)
+            && var.enabled
+        {
+            return Some(ResolvedVariable {
+                name: name.to_string(),
+                value: var.value.clone(),
+                scope: VariableScope::Collection,
+            });
         }
 
         // Global variables (lowest precedence)
-        if let Some(var) = self.globals.get(name) {
-            if var.enabled {
-                return Some(ResolvedVariable {
-                    name: name.to_string(),
-                    value: var.value.clone(),
-                    scope: VariableScope::Global,
-                });
-            }
+        if let Some(var) = self.globals.get(name)
+            && var.enabled
+        {
+            return Some(ResolvedVariable {
+                name: name.to_string(),
+                value: var.value.clone(),
+                scope: VariableScope::Global,
+            });
         }
 
         None
@@ -159,25 +159,29 @@ impl ResolutionContext {
     }
 
     /// Sets the globals source.
+    #[must_use]
     pub fn with_globals(mut self, globals: &Globals) -> Self {
-        self.globals = globals.variables.clone();
+        self.globals.clone_from(&globals.variables);
         self
     }
 
     /// Sets the collection variables source.
+    #[must_use]
     pub fn with_collection(mut self, collection: &VariableMap) -> Self {
-        self.collection = collection.clone();
+        self.collection.clone_from(collection);
         self
     }
 
     /// Sets the environment source.
+    #[must_use]
     pub fn with_environment(mut self, environment: &Environment) -> Self {
-        self.environment = environment.variables.clone();
-        self.environment_name = environment.name.clone();
+        self.environment.clone_from(&environment.variables);
+        self.environment_name.clone_from(&environment.name);
         self
     }
 
     /// Sets the secrets source.
+    #[must_use]
     pub fn with_secrets(mut self, secrets_store: &SecretsStore, environment_name: &str) -> Self {
         self.secrets = secrets_store
             .get_environment_secrets(environment_name)
@@ -188,6 +192,7 @@ impl ResolutionContext {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::environment::Variable;
@@ -302,8 +307,12 @@ mod tests {
         var.enabled = false;
         env.set_variable("disabled", var);
 
-        let ctx =
-            ResolutionContext::from_sources(&Globals::new(), &VariableMap::new(), &env, &SecretsStore::new());
+        let ctx = ResolutionContext::from_sources(
+            &Globals::new(),
+            &VariableMap::new(),
+            &env,
+            &SecretsStore::new(),
+        );
 
         assert!(ctx.resolve("disabled").is_none());
     }
@@ -328,8 +337,12 @@ mod tests {
         let mut env = Environment::new("test");
         env.set_variable("host", Variable::new("localhost"));
 
-        let ctx =
-            ResolutionContext::from_sources(&Globals::new(), &VariableMap::new(), &env, &SecretsStore::new());
+        let ctx = ResolutionContext::from_sources(
+            &Globals::new(),
+            &VariableMap::new(),
+            &env,
+            &SecretsStore::new(),
+        );
 
         assert_eq!(ctx.resolve_value("host"), Some("localhost".to_string()));
         assert_eq!(ctx.resolve_value("nonexistent"), None);
@@ -351,6 +364,9 @@ mod tests {
             ctx.resolve_value("base_url"),
             Some("http://localhost:3000".to_string())
         );
-        assert_eq!(ctx.resolve_value("api_key"), Some("sk-secret-123".to_string()));
+        assert_eq!(
+            ctx.resolve_value("api_key"),
+            Some("sk-secret-123".to_string())
+        );
     }
 }
