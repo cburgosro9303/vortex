@@ -630,14 +630,15 @@ impl AppState {
     /// Saves current UI state to the active tab.
     fn save_current_tab_state(&mut self, url: &str, method: i32, body: &str) {
         if let Some(ref active_id) = self.active_tab_id
-            && let Some(tab) = self.tabs.iter_mut().find(|t| &t.id == active_id) {
-                tab.url = url.to_string();
-                tab.method = method;
-                tab.body = body.to_string();
-                tab.headers = self.request_headers.clone();
-                tab.query_params = self.query_params.clone();
-                tab.auth = self.auth_data.clone();
-            }
+            && let Some(tab) = self.tabs.iter_mut().find(|t| &t.id == active_id)
+        {
+            tab.url = url.to_string();
+            tab.method = method;
+            tab.body = body.to_string();
+            tab.headers = self.request_headers.clone();
+            tab.query_params = self.query_params.clone();
+            tab.auth = self.auth_data.clone();
+        }
     }
 
     /// Restores tab state to UI.
@@ -3708,11 +3709,11 @@ fn export_vortex_collection(workspace_path: &PathBuf, output_path: &PathBuf) -> 
             let path = entry.path();
             if path.is_dir()
                 && let Ok(collection) = export_collection_dir(&path)
-                    && let Some(collections) =
-                        export.get_mut("collections").and_then(|c| c.as_array_mut())
-                    {
-                        collections.push(collection);
-                    }
+                && let Some(collections) =
+                    export.get_mut("collections").and_then(|c| c.as_array_mut())
+            {
+                collections.push(collection);
+            }
         }
     }
 
@@ -3758,9 +3759,10 @@ fn collect_requests(dir: &PathBuf, requests: &mut Vec<serde_json::Value>) -> Res
             let path = entry.path();
             if path.is_file() && path.extension().is_some_and(|e| e == "json") {
                 if let Ok(content) = std::fs::read_to_string(&path)
-                    && let Ok(req) = serde_json::from_str::<serde_json::Value>(&content) {
-                        requests.push(req);
-                    }
+                    && let Ok(req) = serde_json::from_str::<serde_json::Value>(&content)
+                {
+                    requests.push(req);
+                }
             } else if path.is_dir() {
                 collect_requests(&path, requests)?;
             }
@@ -3838,9 +3840,11 @@ fn generate_curl_command(state: &AppState) -> String {
         .tabs
         .iter()
         .find(|t| state.active_tab_id.as_ref() == Some(&t.id))
-        && !tab.body.is_empty() && (method == "POST" || method == "PUT" || method == "PATCH") {
-            parts.push(format!("-d '{}'", tab.body.replace('\'', "'\\''")));
-        }
+        && !tab.body.is_empty()
+        && (method == "POST" || method == "PUT" || method == "PATCH")
+    {
+        parts.push(format!("-d '{}'", tab.body.replace('\'', "'\\''")));
+    }
 
     parts.join(" \\\n  ")
 }
@@ -3894,38 +3898,39 @@ fn collect_requests_for_search<'a>(
                 } else if path.extension().is_some_and(|e| e == "json") {
                     // This is a request file
                     if let Ok(content) = tokio::fs::read_to_string(&path).await
-                        && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                            let name = json
-                                .get("name")
-                                .and_then(|n| n.as_str())
-                                .unwrap_or_else(|| {
-                                    path.file_stem()
-                                        .and_then(|s| s.to_str())
-                                        .unwrap_or("Unknown")
-                                })
-                                .to_string();
+                        && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content)
+                    {
+                        let name = json
+                            .get("name")
+                            .and_then(|n| n.as_str())
+                            .unwrap_or_else(|| {
+                                path.file_stem()
+                                    .and_then(|s| s.to_str())
+                                    .unwrap_or("Unknown")
+                            })
+                            .to_string();
 
-                            let method = json
-                                .get("method")
-                                .and_then(|m| m.as_str())
-                                .unwrap_or("GET")
-                                .to_string();
+                        let method = json
+                            .get("method")
+                            .and_then(|m| m.as_str())
+                            .unwrap_or("GET")
+                            .to_string();
 
-                            let url = json
-                                .get("url")
-                                .and_then(|u| u.as_str())
-                                .unwrap_or("")
-                                .to_string();
+                        let url = json
+                            .get("url")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("")
+                            .to_string();
 
-                            results.push(SearchResultData {
-                                id: path.display().to_string(),
-                                name,
-                                method,
-                                url,
-                                collection_name: collection_name.to_string(),
-                                path: path.display().to_string(),
-                            });
-                        }
+                        results.push(SearchResultData {
+                            id: path.display().to_string(),
+                            name,
+                            method,
+                            url,
+                            collection_name: collection_name.to_string(),
+                            path: path.display().to_string(),
+                        });
+                    }
                 }
             }
         }
@@ -3961,7 +3966,10 @@ fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result
         .filter_map(|v| {
             let key = v.get("key")?.as_str()?;
             let value = v.get("value")?.as_str().unwrap_or("");
-            let enabled = v.get("enabled").and_then(serde_json::Value::as_bool).unwrap_or(true);
+            let enabled = v
+                .get("enabled")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true);
             let secret = v.get("type").and_then(|t| t.as_str()) == Some("secret");
 
             Some(serde_json::json!({
@@ -4023,8 +4031,10 @@ fn persistence_auth_to_ui(auth: Option<&PersistenceAuth>) -> AuthData {
             ..AuthData::default()
         },
         // OAuth2 types default to None for now (not supported in UI yet)
-        Some(PersistenceAuth::Oauth2ClientCredentials { .. } |
-PersistenceAuth::Oauth2AuthCode { .. }) => AuthData::default(),
+        Some(
+            PersistenceAuth::Oauth2ClientCredentials { .. }
+            | PersistenceAuth::Oauth2AuthCode { .. },
+        ) => AuthData::default(),
     }
 }
 

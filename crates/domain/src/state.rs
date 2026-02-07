@@ -47,7 +47,6 @@ pub enum RequestState {
     },
 }
 
-
 impl RequestState {
     /// Creates a new Loading state with the current timestamp.
     #[must_use]

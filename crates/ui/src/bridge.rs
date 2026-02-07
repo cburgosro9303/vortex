@@ -300,8 +300,7 @@ pub struct ResponseHeaderData {
 }
 
 /// Authentication data for UI (Sprint 05).
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct AuthData {
     pub auth_type: i32,
     pub bearer_token: String,
@@ -311,7 +310,6 @@ pub struct AuthData {
     pub api_key_value: String,
     pub api_key_location: i32,
 }
-
 
 /// Tab data for UI (Sprint 06).
 #[derive(Debug, Clone)]
@@ -349,7 +347,7 @@ pub struct TabState {
 
 impl TabState {
     /// Creates a new empty tab state.
-    #[must_use] 
+    #[must_use]
     pub fn new_empty() -> Self {
         Self {
             id: uuid::Uuid::now_v7().to_string(),
@@ -376,7 +374,7 @@ impl TabState {
     }
 
     /// Converts to `TabData` for UI display.
-    #[must_use] 
+    #[must_use]
     pub fn to_tab_data(&self) -> TabData {
         let method_str = match self.method {
             0 => "GET",

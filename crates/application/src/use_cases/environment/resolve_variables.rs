@@ -24,7 +24,7 @@ pub struct ResolveVariables {
 
 impl ResolveVariables {
     /// Creates a new `ResolveVariables` use case.
-    #[must_use] 
+    #[must_use]
     pub fn new(context: ResolutionContext) -> Self {
         Self {
             resolver: VariableResolver::new(context),
@@ -32,7 +32,7 @@ impl ResolveVariables {
     }
 
     /// Creates with an empty context (for testing).
-    #[must_use] 
+    #[must_use]
     pub fn empty() -> Self {
         Self {
             resolver: VariableResolver::empty(),
@@ -45,7 +45,7 @@ impl ResolveVariables {
     }
 
     /// Returns a reference to the internal resolver.
-    #[must_use] 
+    #[must_use]
     pub const fn resolver(&self) -> &VariableResolver {
         &self.resolver
     }
@@ -237,13 +237,13 @@ impl ResolveVariables {
     }
 
     /// Preview resolution for the URL only (for UI display).
-    #[must_use] 
+    #[must_use]
     pub fn preview_url(&self, url: &str) -> ResolutionResult {
         self.resolver.preview(url)
     }
 
     /// Find unresolved variables in a string.
-    #[must_use] 
+    #[must_use]
     pub fn find_unresolved(&self, input: &str) -> Vec<String> {
         self.resolver.find_unresolved(input)
     }

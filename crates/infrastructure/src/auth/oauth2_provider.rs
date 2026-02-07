@@ -47,7 +47,7 @@ pub struct OAuth2Provider {
 
 impl OAuth2Provider {
     /// Create a new `OAuth2` provider.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             token_store: Arc::new(TokenStore::new()),
@@ -60,7 +60,7 @@ impl OAuth2Provider {
     }
 
     /// Create with custom token store (for sharing between providers).
-    #[must_use] 
+    #[must_use]
     pub fn with_token_store(token_store: Arc<TokenStore>) -> Self {
         Self {
             token_store,
@@ -73,14 +73,14 @@ impl OAuth2Provider {
     }
 
     /// Set the callback port for Authorization Code flow.
-    #[must_use] 
+    #[must_use]
     pub const fn with_callback_port(mut self, port: u16) -> Self {
         self.callback_port = port;
         self
     }
 
     /// Get access to the token store.
-    #[must_use] 
+    #[must_use]
     pub fn token_store(&self) -> &TokenStore {
         &self.token_store
     }
@@ -285,12 +285,13 @@ impl AuthProvider for OAuth2Provider {
                 } => {
                     // Check cache first
                     if let Some(cache_key) = config.cache_key()
-                        && let Some(token) = self.token_store.get_valid(&cache_key).await {
-                            return AuthResolution::Header {
-                                name: "Authorization".to_string(),
-                                value: token.authorization_header(),
-                            };
-                        }
+                        && let Some(token) = self.token_store.get_valid(&cache_key).await
+                    {
+                        return AuthResolution::Header {
+                            name: "Authorization".to_string(),
+                            value: token.authorization_header(),
+                        };
+                    }
 
                     // Fetch new token
                     match self

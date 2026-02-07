@@ -403,7 +403,9 @@ impl ConnectionInfo {
     /// Format duration for display.
     #[must_use]
     pub fn duration_display(&self) -> String {
-        self.duration().map_or_else(|| "-".to_string(), |d| {
+        self.duration().map_or_else(
+            || "-".to_string(),
+            |d| {
                 let secs = d.num_seconds();
                 if secs >= 3600 {
                     format!("{}h {}m", secs / 3600, (secs % 3600) / 60)
@@ -412,7 +414,8 @@ impl ConnectionInfo {
                 } else {
                     format!("{secs}s")
                 }
-            })
+            },
+        )
     }
 }
 

@@ -206,8 +206,7 @@ pub enum PrivateKeySource {
 }
 
 /// TLS protocol version.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum TlsVersion {
     /// TLS 1.0 (deprecated, avoid if possible)
     #[serde(rename = "1.0")]
@@ -223,7 +222,6 @@ pub enum TlsVersion {
     #[serde(rename = "1.3")]
     Tls13,
 }
-
 
 /// TLS security warnings.
 #[derive(Debug, Clone, PartialEq, Eq)]

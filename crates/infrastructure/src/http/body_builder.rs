@@ -188,22 +188,24 @@ fn resolve_path(path: &str, workspace_path: Option<&Path>) -> std::path::PathBuf
 /// Get the content type for a built body.
 impl BuiltBody {
     /// Get the Content-Type header value.
-    #[must_use] 
+    #[must_use]
     pub fn content_type(&self) -> Option<&str> {
         match self {
-            Self::Text { content_type, .. } | Self::Binary { content_type, .. } => Some(content_type),
+            Self::Text { content_type, .. } | Self::Binary { content_type, .. } => {
+                Some(content_type)
+            }
             Self::None | Self::Multipart(_) => None, // reqwest sets this automatically with boundary
         }
     }
 
     /// Check if this is a multipart form.
-    #[must_use] 
+    #[must_use]
     pub const fn is_multipart(&self) -> bool {
         matches!(self, Self::Multipart(_))
     }
 
     /// Check if this body is empty/none.
-    #[must_use] 
+    #[must_use]
     pub const fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }

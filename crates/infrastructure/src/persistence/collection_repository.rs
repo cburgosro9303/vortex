@@ -240,7 +240,10 @@ impl<F: FileSystem + Send + Sync> CollectionRepository for FileSystemCollectionR
         folder_path: Option<&Path>,
         request: &SavedRequest,
     ) -> Result<PathBuf, CollectionError> {
-        let base_dir = folder_path.map_or_else(|| collection_dir.join(REQUESTS_DIR), |folder| collection_dir.join(REQUESTS_DIR).join(folder));
+        let base_dir = folder_path.map_or_else(
+            || collection_dir.join(REQUESTS_DIR),
+            |folder| collection_dir.join(REQUESTS_DIR).join(folder),
+        );
 
         // Ensure directory exists
         self.fs
@@ -295,7 +298,10 @@ impl<F: FileSystem + Send + Sync> CollectionRepository for FileSystemCollectionR
         parent_folder: Option<&Path>,
         folder: &PersistenceFolder,
     ) -> Result<PathBuf, CollectionError> {
-        let base_dir = parent_folder.map_or_else(|| collection_dir.join(REQUESTS_DIR), |parent| collection_dir.join(REQUESTS_DIR).join(parent));
+        let base_dir = parent_folder.map_or_else(
+            || collection_dir.join(REQUESTS_DIR),
+            |parent| collection_dir.join(REQUESTS_DIR).join(parent),
+        );
 
         let folder_name = slugify(&folder.name);
         let folder_path = base_dir.join(&folder_name);

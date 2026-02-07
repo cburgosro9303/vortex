@@ -95,33 +95,36 @@ impl ResolutionContext {
 
         // Environment variables
         if let Some(var) = self.environment.get(name)
-            && var.enabled {
-                return Some(ResolvedVariable {
-                    name: name.to_string(),
-                    value: var.value.clone(),
-                    scope: VariableScope::Environment,
-                });
-            }
+            && var.enabled
+        {
+            return Some(ResolvedVariable {
+                name: name.to_string(),
+                value: var.value.clone(),
+                scope: VariableScope::Environment,
+            });
+        }
 
         // Collection variables
         if let Some(var) = self.collection.get(name)
-            && var.enabled {
-                return Some(ResolvedVariable {
-                    name: name.to_string(),
-                    value: var.value.clone(),
-                    scope: VariableScope::Collection,
-                });
-            }
+            && var.enabled
+        {
+            return Some(ResolvedVariable {
+                name: name.to_string(),
+                value: var.value.clone(),
+                scope: VariableScope::Collection,
+            });
+        }
 
         // Global variables (lowest precedence)
         if let Some(var) = self.globals.get(name)
-            && var.enabled {
-                return Some(ResolvedVariable {
-                    name: name.to_string(),
-                    value: var.value.clone(),
-                    scope: VariableScope::Global,
-                });
-            }
+            && var.enabled
+        {
+            return Some(ResolvedVariable {
+                name: name.to_string(),
+                value: var.value.clone(),
+                scope: VariableScope::Global,
+            });
+        }
 
         None
     }
@@ -156,21 +159,21 @@ impl ResolutionContext {
     }
 
     /// Sets the globals source.
-    #[must_use] 
+    #[must_use]
     pub fn with_globals(mut self, globals: &Globals) -> Self {
         self.globals.clone_from(&globals.variables);
         self
     }
 
     /// Sets the collection variables source.
-    #[must_use] 
+    #[must_use]
     pub fn with_collection(mut self, collection: &VariableMap) -> Self {
         self.collection.clone_from(collection);
         self
     }
 
     /// Sets the environment source.
-    #[must_use] 
+    #[must_use]
     pub fn with_environment(mut self, environment: &Environment) -> Self {
         self.environment.clone_from(&environment.variables);
         self.environment_name.clone_from(&environment.name);
@@ -178,7 +181,7 @@ impl ResolutionContext {
     }
 
     /// Sets the secrets source.
-    #[must_use] 
+    #[must_use]
     pub fn with_secrets(mut self, secrets_store: &SecretsStore, environment_name: &str) -> Self {
         self.secrets = secrets_store
             .get_environment_secrets(environment_name)
