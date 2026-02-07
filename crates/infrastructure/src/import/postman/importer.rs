@@ -336,7 +336,7 @@ impl PostmanImporter {
 
         // Write collection.json
         let collection_meta = serde_json::json!({
-            "id": uuid::Uuid::new_v4().to_string(),
+            "id": uuid::Uuid::now_v7().to_string(),
             "name": mapped.name,
             "description": mapped.description,
             "schema_version": 1,
@@ -414,7 +414,7 @@ impl PostmanImporter {
 
         // Create environment file
         let env_json = serde_json::json!({
-            "id": uuid::Uuid::new_v4().to_string(),
+            "id": uuid::Uuid::now_v7().to_string(),
             "name": mapped.name,
             "variables": variables_json,
             "schema_version": 1,

@@ -7,7 +7,7 @@ use uuid::Uuid;
 /// This is the standard ID format for all Vortex entities.
 #[must_use]
 pub fn generate_id() -> String {
-    Uuid::new_v4().to_string()
+    Uuid::now_v7().to_string()
 }
 
 /// Generates a new UUID v7 as a string.

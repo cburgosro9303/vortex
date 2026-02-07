@@ -17,13 +17,13 @@ use vortex_application::{
 use vortex_domain::{
     RequestState,
     environment::{Environment, ResolutionContext, Variable, VariableMap},
-    persistence::{PersistenceHttpMethod, SavedRequest},
+    persistence::{ApiKeyLocation, PersistenceAuth, PersistenceHttpMethod, PersistenceRequestBody, SavedRequest},
     request::{HttpMethod, RequestBody, RequestSpec},
 };
 use vortex_domain::{FontScale, HistoryEntry, HistoryHeader, HistoryParam, HistoryAuth, RequestHistory, ThemeMode, UserSettings};
 use vortex_infrastructure::{
     FileEnvironmentRepository, FileSystemWorkspaceRepository, HistoryRepository,
-    PostmanImporter, ReqwestHttpClient, SettingsRepository, TokioFileSystem, from_json,
+    PostmanImporter, ReqwestHttpClient, SettingsRepository, TokioFileSystem, from_json, to_json_stable,
 };
 
 use crate::MainWindow;
@@ -582,6 +582,9 @@ struct AppState {
     response_body: String,
     // Flag to prevent circular URL update when params change
     updating_url_from_params: bool,
+    // Sprint 04: Import state
+    import_file_path: Option<String>,
+    import_preview_done: bool,
 }
 
 impl AppState {
@@ -613,6 +616,8 @@ impl AppState {
             all_requests: Vec::new(),
             response_body: String::new(),
             updating_url_from_params: false,
+            import_file_path: None,
+            import_preview_done: false,
         }
     }
 
@@ -1047,7 +1052,7 @@ fn run_async_runtime(
                                     .collect();
 
                                 let new_tab = TabState {
-                                    id: uuid::Uuid::new_v4().to_string(),
+                                    id: uuid::Uuid::now_v7().to_string(),
                                     name: request_name.clone(),
                                     method: method_index,
                                     url: url.clone(),
@@ -1114,7 +1119,7 @@ fn run_async_runtime(
                                     let _ = tokio::fs::create_dir_all(&requests_dir).await;
 
                                     // Generate a unique ID and filename
-                                    let request_id = uuid::Uuid::new_v4().to_string();
+                                    let request_id = uuid::Uuid::now_v7().to_string();
                                     let safe_name = name.to_lowercase().replace(' ', "-");
                                     let file_name = format!("{}.json", safe_name);
                                     let file_path = requests_dir.join(&file_name);
@@ -1148,9 +1153,46 @@ fn run_async_runtime(
 
                 UiCommand::SaveCollection => {
                     let _ = update_tx.send(UiUpdate::SavingState(true));
-                    // TODO: Implement save
-                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    
+                    let mut saved_count = 0;
+                    let mut error_count = 0;
+                    
+                    // Save all tabs with unsaved changes
+                    for tab in &mut state.tabs {
+                        if tab.has_unsaved_changes {
+                            if let Some(ref file_path) = tab.file_path {
+                                let mut saved_request = build_saved_request_from_tab(tab);
+                                
+                                // Try to preserve the original ID
+                                if let Ok(existing_content) = std::fs::read_to_string(file_path) {
+                                    if let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
+                                        saved_request.id = existing_request.id;
+                                    }
+                                }
+                                
+                                if let Ok(json) = to_json_stable(&saved_request) {
+                                    if tokio::fs::write(file_path, json).await.is_ok() {
+                                        tab.has_unsaved_changes = false;
+                                        saved_count += 1;
+                                    } else {
+                                        error_count += 1;
+                                    }
+                                } else {
+                                    error_count += 1;
+                                }
+                            }
+                        }
+                    }
+                    
                     let _ = update_tx.send(UiUpdate::SavingState(false));
+                    let _ = update_tx.send(UiUpdate::TabsUpdated(state.tabs_to_ui()));
+                    
+                    if error_count > 0 {
+                        let _ = update_tx.send(UiUpdate::Error {
+                            title: "Some requests failed to save".to_string(),
+                            message: format!("Saved {} requests, {} failed", saved_count, error_count),
+                        });
+                    }
                 }
 
                 // Environment commands (Sprint 03)
@@ -1714,8 +1756,49 @@ fn run_async_runtime(
 
                 // Sprint 05: Collection Management commands
                 UiCommand::SaveCurrentRequest => {
-                    // TODO: Implement save current request to collection
-                    eprintln!("SaveCurrentRequest not yet implemented");
+                    if let Some(ref active_id) = state.active_tab_id.clone() {
+                        if let Some(tab) = state.tabs.iter_mut().find(|t| &t.id == active_id) {
+                            if let Some(ref file_path) = tab.file_path.clone() {
+                                // Build and save the request
+                                let mut saved_request = build_saved_request_from_tab(tab);
+                                
+                                // Try to preserve the original ID if we can read the existing file
+                                if let Ok(existing_content) = std::fs::read_to_string(&file_path) {
+                                    if let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
+                                        saved_request.id = existing_request.id;
+                                    }
+                                }
+                                
+                                match to_json_stable(&saved_request) {
+                                    Ok(json) => {
+                                        if let Err(e) = tokio::fs::write(&file_path, json).await {
+                                            let _ = update_tx.send(UiUpdate::Error {
+                                                title: "Failed to save request".to_string(),
+                                                message: e.to_string(),
+                                            });
+                                        } else {
+                                            // Mark tab as saved
+                                            tab.has_unsaved_changes = false;
+                                            let _ = update_tx.send(UiUpdate::TabsUpdated(state.tabs_to_ui()));
+                                        }
+                                    }
+                                    Err(e) => {
+                                        let _ = update_tx.send(UiUpdate::Error {
+                                            title: "Failed to serialize request".to_string(),
+                                            message: e.to_string(),
+                                        });
+                                    }
+                                }
+                            } else {
+                                // No file path - need to create a new file
+                                // For now, notify the user
+                                let _ = update_tx.send(UiUpdate::Error {
+                                    title: "Cannot save".to_string(),
+                                    message: "This request has no file path. Use 'New Request' in a collection first.".to_string(),
+                                });
+                            }
+                        }
+                    }
                 }
 
                 UiCommand::RenameItem { id, new_name } => {
@@ -1996,14 +2079,14 @@ fn run_async_runtime(
                                     .collect();
 
                                 let new_tab = TabState {
-                                    id: uuid::Uuid::new_v4().to_string(),
+                                    id: uuid::Uuid::now_v7().to_string(),
                                     name: request.name.clone(),
                                     method: method_index,
                                     url: request.url.clone(),
                                     body: body.clone(),
                                     headers: headers.clone(),
                                     query_params: query_params.clone(),
-                                    auth: AuthData::default(), // TODO: convert request.auth
+                                    auth: persistence_auth_to_ui(request.auth.as_ref()),
                                     has_unsaved_changes: false,
                                     file_path: Some(path.display().to_string()),
                                     // Response defaults
@@ -2025,6 +2108,7 @@ fn run_async_runtime(
                                 state.current_url = request.url.clone();
                                 state.query_params = query_params.clone();
                                 state.request_headers = headers.clone();
+                                state.auth_data = persistence_auth_to_ui(request.auth.as_ref());
 
                                 let _ = update_tx.send(UiUpdate::LoadFullRequest {
                                     url: request.url,
@@ -2032,7 +2116,7 @@ fn run_async_runtime(
                                     body,
                                     headers,
                                     query_params,
-                                    auth: AuthData::default(),
+                                    auth: persistence_auth_to_ui(request.auth.as_ref()),
                                 });
 
                                 let _ = update_tx.send(UiUpdate::TabsUpdated(state.tabs_to_ui()));
@@ -2214,11 +2298,23 @@ fn run_async_runtime(
                 }
 
                 UiCommand::ImportStart { file_path } => {
-                    if let Some(ref ws_path) = state.workspace_path.clone() {
-                        let ws = ws_path.clone();
+                    // Check if this is a confirmation of the current import
+                    let is_confirmation = match &state.import_file_path {
+                        Some(current_path) => current_path == &file_path && state.import_preview_done,
+                        None => false,
+                    };
+
+                    if !is_confirmation {
+                        // PHASE 1: PREVIEW
+                        // Update state to track we are previewing this file
+                        state.import_file_path = Some(file_path.clone());
+                        state.import_preview_done = true;
+
                         let tx = update_tx.clone();
-                        let cmd_tx_refresh = cmd_tx.clone();
                         let file = file_path.clone();
+
+                        // Set UI state to Validating immediately
+                        let _ = tx.send(UiUpdate::ImportValidating);
 
                         std::thread::spawn(move || {
                             // Read file
@@ -2232,10 +2328,10 @@ fn run_async_runtime(
                                 }
                             };
 
-                            // Create importer and preview
+                            // Create importer
                             let importer = PostmanImporter::new();
 
-                            // Validate and preview first
+                            // Validate
                             let validation = importer.validate_file(&content);
                             if !validation.is_valid {
                                 let _ = tx.send(UiUpdate::ImportError {
@@ -2269,33 +2365,59 @@ fn run_async_runtime(
                                     let _ = tx.send(UiUpdate::ImportError {
                                         message: e.to_string(),
                                     });
-                                    return;
-                                }
-                            }
-
-                            // Perform import
-                            let _ = tx.send(UiUpdate::ImportProgress(0.5));
-
-                            match importer.import_collection(&content, &ws) {
-                                Ok(result) => {
-                                    let _ = tx.send(UiUpdate::ImportProgress(1.0));
-                                    let _ = tx.send(UiUpdate::ImportDialogComplete {
-                                        name: result.name,
-                                        requests_imported: result.requests_imported,
-                                        folders_imported: result.folders_imported,
-                                        variables_imported: result.variables_imported,
-                                    });
-                                    // Refresh tree and environments
-                                    let _ = cmd_tx_refresh.send(UiCommand::RefreshTree);
-                                    let _ = cmd_tx_refresh.send(UiCommand::RefreshEnvironments);
-                                }
-                                Err(e) => {
-                                    let _ = tx.send(UiUpdate::ImportError {
-                                        message: e.to_string(),
-                                    });
                                 }
                             }
                         });
+                    } else {
+                        // PHASE 2: EXECUTE IMPORT
+                        if let Some(ref ws_path) = state.workspace_path.clone() {
+                            let ws = ws_path.clone();
+                            let tx = update_tx.clone();
+                            let cmd_tx_refresh = cmd_tx.clone();
+                            let file = file_path.clone();
+
+                            // Reset state
+                            state.import_file_path = None;
+                            state.import_preview_done = false;
+
+                            std::thread::spawn(move || {
+                                // Read file again (fresh read for import)
+                                let content = match std::fs::read_to_string(&file) {
+                                    Ok(c) => c,
+                                    Err(e) => {
+                                        let _ = tx.send(UiUpdate::ImportError {
+                                            message: format!("Failed to read file: {}", e),
+                                        });
+                                        return;
+                                    }
+                                };
+
+                                let importer = PostmanImporter::new();
+                                
+                                // Send initial progress
+                                let _ = tx.send(UiUpdate::ImportProgress(0.1));
+
+                                match importer.import_collection(&content, &ws) {
+                                    Ok(result) => {
+                                        let _ = tx.send(UiUpdate::ImportProgress(1.0));
+                                        let _ = tx.send(UiUpdate::ImportDialogComplete {
+                                            name: result.name,
+                                            requests_imported: result.requests_imported,
+                                            folders_imported: result.folders_imported,
+                                            variables_imported: result.variables_imported,
+                                        });
+                                        // Refresh tree and environments
+                                        let _ = cmd_tx_refresh.send(UiCommand::RefreshTree);
+                                        let _ = cmd_tx_refresh.send(UiCommand::RefreshEnvironments);
+                                    }
+                                    Err(e) => {
+                                        let _ = tx.send(UiUpdate::ImportError {
+                                            message: e.to_string(),
+                                        });
+                                    }
+                                }
+                            });
+                        }
                     }
                 }
 
@@ -3145,6 +3267,11 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         // --- Sprint 04: Import Dialog Updates ---
         UiUpdate::ImportFileSelected { file_path } => {
             ui.set_import_selected_file(file_path.into());
+            // Don't set state to Validating here - let user click Import button
+            // The Import button triggers validation, then shows preview
+        }
+
+        UiUpdate::ImportValidating => {
             ui.set_import_state(ImportState::Validating);
         }
 
@@ -3312,7 +3439,7 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
 
     // Create collection.json
     let coll_meta = serde_json::json!({
-        "id": uuid::Uuid::new_v4().to_string(),
+        "id": uuid::Uuid::now_v7().to_string(),
         "name": collection_name,
         "schema_version": 1,
     });
@@ -3440,7 +3567,7 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
 
             // Create Vortex request
             let mut vortex_request = serde_json::json!({
-                "id": uuid::Uuid::new_v4().to_string(),
+                "id": uuid::Uuid::now_v7().to_string(),
                 "name": name,
                 "method": method.to_uppercase(),
                 "url": url,
@@ -3760,7 +3887,7 @@ fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result
 
     // Create Vortex environment file
     let vortex_env = serde_json::json!({
-        "id": uuid::Uuid::new_v4().to_string(),
+        "id": uuid::Uuid::now_v7().to_string(),
         "name": name,
         "variables": variables,
         "schema_version": 1,
@@ -3776,3 +3903,102 @@ fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result
 
     Ok(name)
 }
+
+/// Converts persistence auth configuration to UI-friendly AuthData.
+fn persistence_auth_to_ui(auth: Option<&PersistenceAuth>) -> AuthData {
+    match auth {
+        None => AuthData::default(),
+        Some(PersistenceAuth::Bearer { token }) => AuthData {
+            auth_type: 1,
+            bearer_token: token.clone(),
+            ..AuthData::default()
+        },
+        Some(PersistenceAuth::Basic { username, password }) => AuthData {
+            auth_type: 2,
+            basic_username: username.clone(),
+            basic_password: password.clone(),
+            ..AuthData::default()
+        },
+        Some(PersistenceAuth::ApiKey { key, value, location }) => AuthData {
+            auth_type: 3,
+            api_key_name: key.clone(),
+            api_key_value: value.clone(),
+            api_key_location: match location {
+                ApiKeyLocation::Header => 0,
+                ApiKeyLocation::Query => 1,
+            },
+            ..AuthData::default()
+        },
+        // OAuth2 types default to None for now (not supported in UI yet)
+        Some(PersistenceAuth::Oauth2ClientCredentials { .. }) |
+        Some(PersistenceAuth::Oauth2AuthCode { .. }) => AuthData::default(),
+    }
+}
+
+/// Converts UI AuthData back to persistence format for saving.
+fn ui_auth_to_persistence(auth: &AuthData) -> Option<PersistenceAuth> {
+    match auth.auth_type {
+        0 => None, // No auth
+        1 => Some(PersistenceAuth::bearer(&auth.bearer_token)),
+        2 => Some(PersistenceAuth::basic(&auth.basic_username, &auth.basic_password)),
+        3 => {
+            if auth.api_key_location == 0 {
+                Some(PersistenceAuth::api_key_header(&auth.api_key_name, &auth.api_key_value))
+            } else {
+                Some(PersistenceAuth::api_key_query(&auth.api_key_name, &auth.api_key_value))
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Builds a SavedRequest from TabState for persistence.
+fn build_saved_request_from_tab(tab: &TabState) -> SavedRequest {
+    let method = match tab.method {
+        0 => PersistenceHttpMethod::Get,
+        1 => PersistenceHttpMethod::Post,
+        2 => PersistenceHttpMethod::Put,
+        3 => PersistenceHttpMethod::Patch,
+        4 => PersistenceHttpMethod::Delete,
+        5 => PersistenceHttpMethod::Head,
+        6 => PersistenceHttpMethod::Options,
+        _ => PersistenceHttpMethod::Get,
+    };
+
+    let mut request = SavedRequest::new(
+        uuid::Uuid::now_v7().to_string(),
+        &tab.name,
+        method,
+        &tab.url,
+    );
+
+    // Add headers
+    for header in &tab.headers {
+        if header.enabled {
+            request.headers.insert(header.key.clone(), header.value.clone());
+        }
+    }
+
+    // Add query params
+    for param in &tab.query_params {
+        if param.enabled {
+            request.query_params.insert(param.key.clone(), param.value.clone());
+        }
+    }
+
+    // Add body if present
+    if !tab.body.is_empty() {
+        // Try to parse as JSON, otherwise use raw text
+        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&tab.body) {
+            request.body = Some(PersistenceRequestBody::json(json_value));
+        } else {
+            request.body = Some(PersistenceRequestBody::text(tab.body.clone()));
+        }
+    }
+
+    // Add auth if present
+    request.auth = ui_auth_to_persistence(&tab.auth);
+
+    request
+}
+
