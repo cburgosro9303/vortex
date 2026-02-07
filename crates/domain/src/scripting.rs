@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 /// A script that can be executed before a request or after a response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Script {
     /// The script content.
     pub content: String,
@@ -18,7 +18,7 @@ pub struct Script {
     pub language: ScriptLanguage,
 }
 
-fn default_enabled() -> bool {
+const fn default_enabled() -> bool {
     true
 }
 
@@ -72,7 +72,7 @@ pub enum ScriptLanguage {
 }
 
 /// A script command that can be executed.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ScriptCommand {
     /// Set a variable: set("name", "value")
     SetVariable {
@@ -100,7 +100,7 @@ pub enum ScriptCommand {
         /// The message to log.
         message: String,
     },
-    /// Skip the request: skip()
+    /// Skip the request: `skip()`
     Skip,
     /// Delay execution: delay(ms)
     Delay {
@@ -191,7 +191,7 @@ impl ScriptResult {
 }
 
 /// Pre-request and post-response scripts for a request.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct RequestScripts {
     /// Script to run before the request.
     #[serde(default, skip_serializing_if = "Script::is_empty")]

@@ -357,12 +357,16 @@ mod duration_millis {
 mod serde_bytes_base64 {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    pub fn serialize<S>(bytes: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         // Simple hex encoding for compatibility
-        let hex = bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        let hex = bytes.iter().fold(String::new(), |mut acc, b| {
+            use std::fmt::Write;
+            let _ = write!(acc, "{b:02x}");
+            acc
+        });
         hex.serialize(serializer)
     }
 

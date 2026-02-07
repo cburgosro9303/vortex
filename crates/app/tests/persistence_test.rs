@@ -2,6 +2,7 @@
 //!
 //! These tests verify the complete flow of creating, saving, and loading
 //! workspaces and collections using the file-based persistence layer.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::path::PathBuf;
 use tempfile::tempdir;

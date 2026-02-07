@@ -253,6 +253,7 @@ impl BuiltinVariables {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -294,7 +295,7 @@ mod tests {
     fn test_random_string_generation() {
         let s = BuiltinVariables::resolve("$randomString").expect("Should resolve $randomString");
         assert_eq!(s.len(), 16);
-        assert!(s.chars().all(|c| c.is_alphanumeric()));
+        assert!(s.chars().all(char::is_alphanumeric));
     }
 
     #[test]
@@ -309,7 +310,7 @@ mod tests {
         let name =
             BuiltinVariables::resolve("$randomFirstName").expect("Should resolve $randomFirstName");
         assert!(!name.is_empty());
-        assert!(name.chars().all(|c| c.is_alphabetic()));
+        assert!(name.chars().all(char::is_alphabetic));
     }
 
     #[test]
@@ -317,7 +318,7 @@ mod tests {
         let name =
             BuiltinVariables::resolve("$randomLastName").expect("Should resolve $randomLastName");
         assert!(!name.is_empty());
-        assert!(name.chars().all(|c| c.is_alphabetic()));
+        assert!(name.chars().all(char::is_alphabetic));
     }
 
     #[test]

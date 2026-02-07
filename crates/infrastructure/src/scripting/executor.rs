@@ -66,6 +66,7 @@ impl ScriptExecutor {
     /// # Errors
     ///
     /// Returns an error if the script fails to parse or execute.
+    #[must_use] 
     pub fn execute(&self, script: &Script, context: &ScriptContext) -> ScriptResult {
         if !script.should_run() {
             return ScriptResult::success();
@@ -82,6 +83,7 @@ impl ScriptExecutor {
     }
 
     /// Execute a list of commands.
+    #[must_use] 
     pub fn execute_commands(
         &self,
         commands: &[ScriptCommand],
@@ -150,7 +152,7 @@ impl ScriptExecutor {
                 if !self.evaluate_condition(condition, context) {
                     let error_msg = message
                         .clone()
-                        .unwrap_or_else(|| format!("Assertion failed: {}", condition));
+                        .unwrap_or_else(|| format!("Assertion failed: {condition}"));
                     return Err(error_msg);
                 }
             }
@@ -159,10 +161,12 @@ impl ScriptExecutor {
         Ok(result)
     }
 
+    #[allow(clippy::unused_self)]
     fn resolve_value(&self, value: &str, context: &ScriptContext) -> String {
         let mut result = value.to_string();
 
         // Replace {{variable}} patterns
+        #[allow(clippy::expect_used)]
         let var_pattern = regex::Regex::new(r"\{\{(\w+)\}\}").expect("valid regex");
         for cap in var_pattern.captures_iter(value) {
             let var_name = &cap[1];
@@ -236,6 +240,7 @@ where
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

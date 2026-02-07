@@ -51,6 +51,7 @@ impl HistoryRepository {
     /// Loads request history from disk.
     ///
     /// Returns empty history if the file doesn't exist.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn load(&self) -> Result<RequestHistory, HistoryError> {
         let Some(path) = Self::history_path() else {
             return Ok(RequestHistory::new(100));
@@ -66,6 +67,7 @@ impl HistoryRepository {
     }
 
     /// Saves request history to disk.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn save(&self, history: &RequestHistory) -> Result<(), HistoryError> {
         let Some(config_dir) = Self::config_dir() else {
             return Err(HistoryError::NoConfigDir);

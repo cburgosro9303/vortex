@@ -27,8 +27,7 @@ impl From<EnvironmentError> for LoadEnvironmentError {
         match error {
             EnvironmentError::NotFound(name) => Self::NotFound(name),
             EnvironmentError::Io(e) => Self::IoError(e.to_string()),
-            EnvironmentError::Serialization(e) => Self::ParseError(e),
-            EnvironmentError::Invalid(e) => Self::ParseError(e),
+            EnvironmentError::Serialization(e) | EnvironmentError::Invalid(e) => Self::ParseError(e),
         }
     }
 }
@@ -46,7 +45,7 @@ pub struct LoadEnvironment<R> {
 
 impl<R: EnvironmentRepository> LoadEnvironment<R> {
     /// Creates a new `LoadEnvironment` use case.
-    pub fn new(repository: R) -> Self {
+    pub const fn new(repository: R) -> Self {
         Self { repository }
     }
 
@@ -70,6 +69,7 @@ impl<R: EnvironmentRepository> LoadEnvironment<R> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::significant_drop_tightening)]
 mod tests {
     use super::*;
     use async_trait::async_trait;

@@ -1,6 +1,6 @@
-//! OpenAPI 3.0 format exporter.
+//! `OpenAPI` 3.0 format exporter.
 //!
-//! Exports requests to OpenAPI 3.0 specification.
+//! Exports requests to `OpenAPI` 3.0 specification.
 
 use std::collections::BTreeMap;
 
@@ -10,11 +10,12 @@ use vortex_domain::request::{HttpMethod, RequestBodyKind, RequestSpec};
 
 use super::ExportError;
 
-/// OpenAPI 3.0 exporter.
+/// `OpenAPI` 3.0 exporter.
 pub struct OpenApiExporter;
 
 impl OpenApiExporter {
-    /// Export requests to OpenAPI 3.0 format.
+    /// Export requests to `OpenAPI` 3.0 format.
+    #[allow(clippy::missing_errors_doc)]
     pub fn export(
         requests: &[RequestSpec],
         options: &ExportOptions,
@@ -40,7 +41,7 @@ impl OpenApiExporter {
                     "options" => path_item.options = Some(operation),
                     _ => {
                         result.add_warning(
-                            ExportWarning::new(format!("Unsupported method: {}", method))
+                            ExportWarning::new(format!("Unsupported method: {method}"))
                                 .with_source(&request.url),
                         );
                     }
@@ -92,7 +93,7 @@ impl OpenApiExporter {
         // Remove query string
         let path = path.split('?').next()?;
 
-        Some((path.to_string(), format!("https://{}", base_url)))
+        Some((path.to_string(), format!("https://{base_url}")))
     }
 
     fn extract_servers(requests: &[RequestSpec]) -> Vec<Server> {
@@ -201,7 +202,8 @@ impl OpenApiExporter {
         params
     }
 
-    fn method_has_body(method: &HttpMethod) -> bool {
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    const fn method_has_body(method: &HttpMethod) -> bool {
         matches!(
             method,
             HttpMethod::Post | HttpMethod::Put | HttpMethod::Patch
@@ -240,7 +242,7 @@ impl OpenApiExporter {
 
     fn generate_operation_id(request: &RequestSpec) -> String {
         // Extract last path segment and combine with method
-        let path = request.url.split('/').last().unwrap_or("resource");
+        let path = request.url.split('/').next_back().unwrap_or("resource");
         let path = path.split('?').next().unwrap_or(path);
         let path = path.trim_matches(|c: char| !c.is_alphanumeric());
 
@@ -279,10 +281,7 @@ impl OpenApiExporter {
 
 fn capitalize(s: &str) -> String {
     let mut c = s.chars();
-    match c.next() {
-        None => String::new(),
-        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-    }
+    c.next().map_or_else(String::new, |f| f.to_uppercase().collect::<String>() + c.as_str())
 }
 
 // OpenAPI structs
@@ -327,6 +326,7 @@ struct PathItem {
     options: Option<Operation>,
 }
 
+#[allow(clippy::struct_field_names)]
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Operation {
@@ -377,6 +377,7 @@ struct Response {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

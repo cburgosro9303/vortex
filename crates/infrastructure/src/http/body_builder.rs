@@ -48,6 +48,7 @@ pub enum BuiltBody {
 }
 
 /// Build an HTTP body from a persistence body type.
+#[allow(clippy::missing_errors_doc)]
 pub async fn build_body(
     body: &PersistenceRequestBody,
     workspace_path: Option<&Path>,
@@ -161,7 +162,7 @@ async fn build_multipart_form(
                     .file_name(filename)
                     .mime_str(&mime_type)
                     .map_err(|e| BodyBuildError::InvalidConfig {
-                        message: format!("Invalid MIME type: {}", e),
+                        message: format!("Invalid MIME type: {e}"),
                     })?;
 
                 form = form.part(name.clone(), part);
@@ -187,27 +188,29 @@ fn resolve_path(path: &str, workspace_path: Option<&Path>) -> std::path::PathBuf
 /// Get the content type for a built body.
 impl BuiltBody {
     /// Get the Content-Type header value.
+    #[must_use] 
     pub fn content_type(&self) -> Option<&str> {
         match self {
-            Self::None => None,
-            Self::Text { content_type, .. } => Some(content_type),
-            Self::Binary { content_type, .. } => Some(content_type),
-            Self::Multipart(_) => None, // reqwest sets this automatically with boundary
+            Self::Text { content_type, .. } | Self::Binary { content_type, .. } => Some(content_type),
+            Self::None | Self::Multipart(_) => None, // reqwest sets this automatically with boundary
         }
     }
 
     /// Check if this is a multipart form.
+    #[must_use] 
     pub const fn is_multipart(&self) -> bool {
         matches!(self, Self::Multipart(_))
     }
 
     /// Check if this body is empty/none.
+    #[must_use] 
     pub const fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;

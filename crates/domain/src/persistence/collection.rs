@@ -12,7 +12,7 @@ use super::common::{CURRENT_SCHEMA_VERSION, Id};
 /// and variables that are inherited by all requests within.
 ///
 /// Fields are ordered alphabetically for deterministic serialization.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistenceCollection {
     /// Authentication inherited by all requests in this collection.
     /// Can be overridden at folder or request level.

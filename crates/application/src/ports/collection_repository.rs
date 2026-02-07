@@ -64,7 +64,7 @@ pub struct FolderTree {
     /// Requests in this folder.
     pub requests: Vec<SavedRequest>,
     /// Nested subfolders.
-    pub subfolders: Vec<FolderTree>,
+    pub subfolders: Vec<Self>,
     /// Relative path from collection root.
     pub path: String,
 }

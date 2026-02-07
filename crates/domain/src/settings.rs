@@ -21,17 +21,17 @@ impl ThemeMode {
     /// Returns true if dark mode should be used based on the preference.
     /// For System mode, this should be determined by the OS preference.
     #[must_use]
-    pub fn is_dark(&self) -> bool {
+    pub const fn is_dark(&self) -> bool {
         match self {
             Self::Light => false,
-            Self::Dark => true,
-            Self::System => true, // Default to dark for System until OS detection is implemented
+            Self::Dark | Self::System => true,
+            // Default to dark for System until OS detection is implemented
         }
     }
 
     /// Convert to index for UI combo box.
     #[must_use]
-    pub fn to_index(self) -> i32 {
+    pub const fn to_index(self) -> i32 {
         match self {
             Self::Light => 0,
             Self::Dark => 1,
@@ -41,7 +41,7 @@ impl ThemeMode {
 
     /// Create from UI combo box index.
     #[must_use]
-    pub fn from_index(index: i32) -> Self {
+    pub const fn from_index(index: i32) -> Self {
         match index {
             0 => Self::Light,
             1 => Self::Dark,
@@ -66,7 +66,7 @@ pub enum FontScale {
 impl FontScale {
     /// Returns the scale factor multiplier.
     #[must_use]
-    pub fn factor(&self) -> f32 {
+    pub const fn factor(&self) -> f32 {
         match self {
             Self::Small => 0.85,
             Self::Medium => 1.0,
@@ -76,7 +76,7 @@ impl FontScale {
 
     /// Convert to index for UI combo box.
     #[must_use]
-    pub fn to_index(self) -> i32 {
+    pub const fn to_index(self) -> i32 {
         match self {
             Self::Small => 0,
             Self::Medium => 1,
@@ -86,7 +86,7 @@ impl FontScale {
 
     /// Create from UI combo box index.
     #[must_use]
-    pub fn from_index(index: i32) -> Self {
+    pub const fn from_index(index: i32) -> Self {
         match index {
             0 => Self::Small,
             2 => Self::Large,
@@ -119,15 +119,15 @@ pub struct UserSettings {
     pub sidebar_width: u32,
 }
 
-fn default_history_visible() -> bool {
+const fn default_history_visible() -> bool {
     true
 }
 
-fn default_history_limit() -> usize {
+const fn default_history_limit() -> usize {
     100
 }
 
-fn default_sidebar_width() -> u32 {
+const fn default_sidebar_width() -> u32 {
     280
 }
 

@@ -1,6 +1,6 @@
-//! OAuth2 authentication provider implementation.
+//! `OAuth2` authentication provider implementation.
 //!
-//! This module provides OAuth2 Client Credentials and Authorization Code
+//! This module provides `OAuth2` Client Credentials and Authorization Code
 //! flow implementations.
 
 #![allow(missing_docs)]
@@ -13,7 +13,7 @@ use vortex_domain::{AuthConfig, AuthError, AuthResolution, OAuth2Token};
 /// Content-Type for form-urlencoded data.
 const FORM_CONTENT_TYPE: &str = "application/x-www-form-urlencoded";
 
-/// OAuth2 token response from token endpoint.
+/// `OAuth2` token response from token endpoint.
 #[derive(Debug, Deserialize)]
 struct TokenResponse {
     access_token: String,
@@ -26,7 +26,7 @@ struct TokenResponse {
     scope: Option<String>,
 }
 
-/// OAuth2 error response.
+/// `OAuth2` error response.
 #[derive(Debug, Deserialize)]
 struct TokenErrorResponse {
     error: String,
@@ -34,9 +34,9 @@ struct TokenErrorResponse {
     error_description: Option<String>,
 }
 
-/// OAuth2 authentication provider.
+/// `OAuth2` authentication provider.
 ///
-/// Handles OAuth2 Client Credentials and Authorization Code flows
+/// Handles `OAuth2` Client Credentials and Authorization Code flows
 /// with automatic token caching and refresh.
 pub struct OAuth2Provider {
     token_store: Arc<TokenStore>,
@@ -46,7 +46,8 @@ pub struct OAuth2Provider {
 }
 
 impl OAuth2Provider {
-    /// Create a new OAuth2 provider.
+    /// Create a new `OAuth2` provider.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             token_store: Arc::new(TokenStore::new()),
@@ -59,6 +60,7 @@ impl OAuth2Provider {
     }
 
     /// Create with custom token store (for sharing between providers).
+    #[must_use] 
     pub fn with_token_store(token_store: Arc<TokenStore>) -> Self {
         Self {
             token_store,
@@ -71,12 +73,14 @@ impl OAuth2Provider {
     }
 
     /// Set the callback port for Authorization Code flow.
-    pub fn with_callback_port(mut self, port: u16) -> Self {
+    #[must_use] 
+    pub const fn with_callback_port(mut self, port: u16) -> Self {
         self.callback_port = port;
         self
     }
 
     /// Get access to the token store.
+    #[must_use] 
     pub fn token_store(&self) -> &TokenStore {
         &self.token_store
     }
@@ -100,7 +104,7 @@ impl OAuth2Provider {
         }
 
         let body = serde_urlencoded::to_string(&params).map_err(|e| AuthError::NetworkError {
-            message: format!("Failed to encode form: {}", e),
+            message: format!("Failed to encode form: {e}"),
         })?;
 
         let response = self
@@ -124,7 +128,7 @@ impl OAuth2Provider {
                 });
             }
             return Err(AuthError::OAuth2AuthorizationFailed {
-                message: format!("Token request failed: {}", error_text),
+                message: format!("Token request failed: {error_text}"),
             });
         }
 
@@ -133,7 +137,7 @@ impl OAuth2Provider {
                 .json()
                 .await
                 .map_err(|e: reqwest::Error| AuthError::NetworkError {
-                    message: format!("Failed to parse token response: {}", e),
+                    message: format!("Failed to parse token response: {e}"),
                 })?;
 
         let scopes: Vec<String> = token_response
@@ -166,7 +170,7 @@ impl OAuth2Provider {
         ];
 
         let body = serde_urlencoded::to_string(&params).map_err(|e| AuthError::NetworkError {
-            message: format!("Failed to encode form: {}", e),
+            message: format!("Failed to encode form: {e}"),
         })?;
 
         let response = self
@@ -192,7 +196,7 @@ impl OAuth2Provider {
                 .json()
                 .await
                 .map_err(|e: reqwest::Error| AuthError::NetworkError {
-                    message: format!("Failed to parse token response: {}", e),
+                    message: format!("Failed to parse token response: {e}"),
                 })?;
 
         let scopes: Vec<String> = token_response
@@ -213,18 +217,18 @@ impl OAuth2Provider {
     fn resolve_bearer(token: &str, prefix: &str) -> AuthResolution {
         AuthResolution::Header {
             name: "Authorization".to_string(),
-            value: format!("{} {}", prefix, token),
+            value: format!("{prefix} {token}"),
         }
     }
 
     /// Resolve Basic auth (base64 encoding).
     fn resolve_basic(username: &str, password: &str) -> AuthResolution {
         use base64::Engine;
-        let credentials = format!("{}:{}", username, password);
+        let credentials = format!("{username}:{password}");
         let encoded = base64::engine::general_purpose::STANDARD.encode(credentials.as_bytes());
         AuthResolution::Header {
             name: "Authorization".to_string(),
-            value: format!("Basic {}", encoded),
+            value: format!("Basic {encoded}"),
         }
     }
 
@@ -280,14 +284,13 @@ impl AuthProvider for OAuth2Provider {
                     ..
                 } => {
                     // Check cache first
-                    if let Some(cache_key) = config.cache_key() {
-                        if let Some(token) = self.token_store.get_valid(&cache_key).await {
+                    if let Some(cache_key) = config.cache_key()
+                        && let Some(token) = self.token_store.get_valid(&cache_key).await {
                             return AuthResolution::Header {
                                 name: "Authorization".to_string(),
                                 value: token.authorization_header(),
                             };
                         }
-                    }
 
                     // Fetch new token
                     match self
@@ -335,6 +338,7 @@ impl AuthProvider for OAuth2Provider {
         Box<dyn std::future::Future<Output = Result<OAuth2Token, AuthError>> + Send + 'a>,
     > {
         Box::pin(async move {
+            #[allow(clippy::manual_let_else)]
             let token_url = match config {
                 AuthConfig::OAuth2ClientCredentials { token_url, .. }
                 | AuthConfig::OAuth2AuthorizationCode { token_url, .. } => token_url,
@@ -345,6 +349,7 @@ impl AuthProvider for OAuth2Provider {
                 }
             };
 
+            #[allow(clippy::manual_let_else)]
             let (client_id, client_secret) = match config {
                 AuthConfig::OAuth2ClientCredentials {
                     client_id,
@@ -402,6 +407,7 @@ impl AuthProvider for OAuth2Provider {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

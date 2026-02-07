@@ -39,13 +39,13 @@ impl ResolutionResult {
 
     /// Returns the count of resolved variables.
     #[must_use]
-    pub fn resolved_count(&self) -> usize {
+    pub const fn resolved_count(&self) -> usize {
         self.resolved_variables.len()
     }
 
     /// Returns the count of unresolved variables.
     #[must_use]
-    pub fn unresolved_count(&self) -> usize {
+    pub const fn unresolved_count(&self) -> usize {
         self.unresolved.len()
     }
 }
@@ -82,12 +82,12 @@ impl VariableResolver {
 
     /// Returns a reference to the current context.
     #[must_use]
-    pub fn context(&self) -> &ResolutionContext {
+    pub const fn context(&self) -> &ResolutionContext {
         &self.context
     }
 
     /// Returns a mutable reference to the current context.
-    pub fn context_mut(&mut self) -> &mut ResolutionContext {
+    pub const fn context_mut(&mut self) -> &mut ResolutionContext {
         &mut self.context
     }
 

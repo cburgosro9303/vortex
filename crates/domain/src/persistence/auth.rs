@@ -33,7 +33,7 @@ pub enum PersistenceAuth {
         location: ApiKeyLocation,
     },
 
-    /// OAuth2 Client Credentials flow.
+    /// `OAuth2` Client Credentials flow.
     Oauth2ClientCredentials {
         /// Token endpoint URL.
         token_url: String,
@@ -46,7 +46,7 @@ pub enum PersistenceAuth {
         scope: Option<String>,
     },
 
-    /// OAuth2 Authorization Code flow.
+    /// `OAuth2` Authorization Code flow.
     Oauth2AuthCode {
         /// Authorization endpoint URL.
         auth_url: String,
@@ -114,6 +114,7 @@ pub enum ApiKeyLocation {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

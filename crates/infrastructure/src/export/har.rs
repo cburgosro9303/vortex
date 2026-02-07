@@ -15,6 +15,7 @@ pub struct HarExporter;
 
 impl HarExporter {
     /// Export requests and responses to HAR format.
+    #[allow(clippy::missing_errors_doc)]
     pub fn export(
         requests: &[RequestSpec],
         responses: &[ResponseSpec],
@@ -71,6 +72,7 @@ impl HarExporter {
         };
 
         // Calculate timings
+        #[allow(clippy::cast_possible_truncation)]
         let time_ms = response.map_or(0, |r| r.duration.as_millis() as i64);
 
         HarEntry {
@@ -87,6 +89,7 @@ impl HarExporter {
         }
     }
 
+    #[allow(clippy::cast_possible_wrap)]
     fn build_request(
         request: &RequestSpec,
         options: &ExportOptions,
@@ -109,11 +112,10 @@ impl HarExporter {
         };
 
         // Add auth header if present
-        if options.include_auth {
-            if let Some(auth_header) = Self::get_auth_header(request) {
+        if options.include_auth
+            && let Some(auth_header) = Self::get_auth_header(request) {
                 headers.push(auth_header);
             }
-        }
 
         // Build query string
         let query_string: Vec<HarQueryParam> = request
@@ -163,6 +165,7 @@ impl HarExporter {
         }
     }
 
+    #[allow(clippy::cast_possible_wrap)]
     fn build_response(response: &ResponseSpec) -> HarResponse {
         let headers: Vec<HarHeader> = response
             .headers_map
@@ -180,7 +183,7 @@ impl HarExporter {
         };
 
         HarResponse {
-            status: response.status as i32,
+            status: i32::from(response.status),
             status_text: response.status_text.clone(),
             http_version: "HTTP/1.1".to_string(),
             headers,
@@ -243,20 +246,19 @@ impl HarExporter {
         use vortex_domain::auth::AuthConfig;
 
         match &request.auth {
-            AuthConfig::None => None,
             AuthConfig::Basic { username, password } => {
                 let credentials = base64::Engine::encode(
                     &base64::engine::general_purpose::STANDARD,
-                    format!("{}:{}", username, password),
+                    format!("{username}:{password}"),
                 );
                 Some(HarHeader {
                     name: "Authorization".to_string(),
-                    value: format!("Basic {}", credentials),
+                    value: format!("Basic {credentials}"),
                 })
             }
             AuthConfig::Bearer { token, prefix } => Some(HarHeader {
                 name: "Authorization".to_string(),
-                value: format!("{} {}", prefix, token),
+                value: format!("{prefix} {token}"),
             }),
             AuthConfig::ApiKey {
                 key,
@@ -269,7 +271,7 @@ impl HarExporter {
                         name: name.clone(),
                         value: key.clone(),
                     }),
-                    _ => None,
+                    ApiKeyLocation::Query => None,
                 }
             }
             _ => None,
@@ -408,6 +410,7 @@ struct HarTimings {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

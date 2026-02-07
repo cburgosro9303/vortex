@@ -11,7 +11,7 @@ use vortex_domain::environment::SecretsStore;
 
 use crate::serialization::{from_json_bytes, to_json_stable_bytes};
 
-/// Converts FileSystemError to std::io::Error for SecretsError.
+/// Converts `FileSystemError` to `std::io::Error` for `SecretsError`.
 fn to_io_error(e: FileSystemError) -> std::io::Error {
     match e {
         FileSystemError::Io(io_err) => io_err,
@@ -26,7 +26,7 @@ fn to_io_error(e: FileSystemError) -> std::io::Error {
             std::io::ErrorKind::AlreadyExists,
             path.display().to_string(),
         ),
-        _ => std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
+        _ => std::io::Error::other(e.to_string()),
     }
 }
 

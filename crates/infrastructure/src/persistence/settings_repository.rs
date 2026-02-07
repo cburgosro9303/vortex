@@ -51,6 +51,7 @@ impl SettingsRepository {
     /// Loads user settings from disk.
     ///
     /// Returns default settings if the file doesn't exist.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn load(&self) -> Result<UserSettings, SettingsError> {
         let Some(path) = Self::settings_path() else {
             return Ok(UserSettings::default());
@@ -66,6 +67,7 @@ impl SettingsRepository {
     }
 
     /// Saves user settings to disk.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn save(&self, settings: &UserSettings) -> Result<(), SettingsError> {
         let Some(config_dir) = Self::config_dir() else {
             return Err(SettingsError::NoConfigDir);

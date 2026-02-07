@@ -41,7 +41,7 @@ pub fn export_request(
     options: &ExportOptions,
 ) -> Result<ExportResult, ExportError> {
     export_requests(
-        &[request.clone()],
+        std::slice::from_ref(request),
         &response.into_iter().cloned().collect::<Vec<_>>(),
         options,
     )
