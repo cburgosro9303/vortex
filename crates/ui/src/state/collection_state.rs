@@ -24,7 +24,7 @@ pub struct TreeNode {
 }
 
 /// Type of tree node.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TreeNodeType {
     /// A collection.
     Collection,
@@ -73,7 +73,7 @@ pub struct FolderData {
     /// Requests in this folder.
     pub requests: Vec<SavedRequest>,
     /// Nested subfolders.
-    pub subfolders: Vec<FolderData>,
+    pub subfolders: Vec<Self>,
     /// Path to the folder.
     pub path: PathBuf,
 }
@@ -99,7 +99,7 @@ impl CollectionState {
         };
 
         // Auto-expand the collection
-        self.expanded_ids.insert(tree.collection.id.clone());
+        self.expanded_ids.insert(tree.collection.id);
 
         self.collections.insert(path, collection_data);
     }
@@ -240,7 +240,7 @@ impl CollectionState {
     /// Finds a request by its ID across all collections.
     #[must_use]
     pub fn find_request(&self, id: &str) -> Option<(&SavedRequest, PathBuf)> {
-        for (_path, data) in &self.collections {
+        for data in self.collections.values() {
             // Check root requests
             for request in &data.requests {
                 if request.id == id {

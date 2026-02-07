@@ -11,7 +11,7 @@ use super::common::{CURRENT_SCHEMA_VERSION, Id};
 /// They can define their own auth that overrides collection-level auth.
 ///
 /// Fields are ordered alphabetically for deterministic serialization.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistenceFolder {
     /// Authentication inherited by all requests in this folder.
     /// Overrides collection-level auth if set.

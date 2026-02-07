@@ -7,11 +7,11 @@ use std::collections::BTreeMap;
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 
 /// A UUID string type for stable identifiers.
-/// Using String instead of uuid::Uuid to avoid external dependency in domain.
+/// Using String instead of `uuid::Uuid` to avoid external dependency in domain.
 pub type Id = String;
 
 /// Ordered key-value map for deterministic serialization.
-/// BTreeMap guarantees alphabetical key ordering.
+/// `BTreeMap` guarantees alphabetical key ordering.
 pub type OrderedMap = BTreeMap<String, String>;
 
 /// Settings that can be applied at various levels (workspace, collection, request).
@@ -96,8 +96,8 @@ impl From<PersistenceHttpMethod> for crate::request::HttpMethod {
             PersistenceHttpMethod::Patch => Self::Patch,
             PersistenceHttpMethod::Delete => Self::Delete,
             PersistenceHttpMethod::Head => Self::Head,
-            PersistenceHttpMethod::Options => Self::Options,
-            PersistenceHttpMethod::Trace => Self::Options, // Map TRACE to OPTIONS as fallback
+            PersistenceHttpMethod::Options | PersistenceHttpMethod::Trace => Self::Options,
+            // Map TRACE to OPTIONS as fallback
         }
     }
 }

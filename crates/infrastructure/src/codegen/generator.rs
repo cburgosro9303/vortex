@@ -15,6 +15,7 @@ pub struct CodeGenerator<'a> {
     options: &'a CodeGenOptions,
 }
 
+#[allow(clippy::format_push_string)]
 impl<'a> CodeGenerator<'a> {
     /// Create a new code generator with the given options.
     #[must_use]
@@ -59,7 +60,7 @@ impl<'a> CodeGenerator<'a> {
         // Body
         if !request.body.content.is_empty() {
             let escaped = request.body.content.replace('\'', "'\\''");
-            parts.push(format!("-d '{}'", escaped));
+            parts.push(format!("-d '{escaped}'"));
         }
 
         // Content-Type from body
@@ -70,12 +71,12 @@ impl<'a> CodeGenerator<'a> {
                 .iter()
                 .any(|h| h.name.eq_ignore_ascii_case("content-type"));
             if !has_ct {
-                parts.push(format!("-H 'Content-Type: {}'", ct));
+                parts.push(format!("-H 'Content-Type: {ct}'"));
             }
         }
 
         // URL (quoted)
-        parts.push(format!("'{}'", url));
+        parts.push(format!("'{url}'"));
 
         let code = if self.options.pretty_format {
             parts.join(" \\\n  ")
@@ -105,7 +106,7 @@ impl<'a> CodeGenerator<'a> {
                     .iter()
                     .any(|h| h.name.eq_ignore_ascii_case("content-type"));
                 if !has_ct {
-                    code.push_str(&format!("{}'Content-Type': '{}',\n", indent, ct));
+                    code.push_str(&format!("{indent}'Content-Type': '{ct}',\n"));
                 }
             }
             code.push_str("}\n\n");
@@ -117,15 +118,15 @@ impl<'a> CodeGenerator<'a> {
         }
 
         // Request
-        code.push_str(&format!("response = requests.{}(\n", method));
-        code.push_str(&format!("{}'{}',\n", indent, url));
+        code.push_str(&format!("response = requests.{method}(\n"));
+        code.push_str(&format!("{indent}'{url}',\n"));
 
         if !headers.is_empty() || request.body.content_type().is_some() {
-            code.push_str(&format!("{}headers=headers,\n", indent));
+            code.push_str(&format!("{indent}headers=headers,\n"));
         }
 
         if !request.body.content.is_empty() {
-            code.push_str(&format!("{}data=data,\n", indent));
+            code.push_str(&format!("{indent}data=data,\n"));
         }
 
         code.push_str(")\n\n");
@@ -158,7 +159,7 @@ impl<'a> CodeGenerator<'a> {
         // Headers
         let headers: Vec<_> = request.enabled_headers().collect();
         if !headers.is_empty() || request.body.content_type().is_some() {
-            code.push_str(&format!("{}headers: {{\n", indent));
+            code.push_str(&format!("{indent}headers: {{\n"));
             for h in &headers {
                 code.push_str(&format!(
                     "{}{}'{}': '{}',\n",
@@ -170,10 +171,10 @@ impl<'a> CodeGenerator<'a> {
                     .iter()
                     .any(|h| h.name.eq_ignore_ascii_case("content-type"));
                 if !has_ct {
-                    code.push_str(&format!("{}{}'Content-Type': '{}',\n", indent, indent, ct));
+                    code.push_str(&format!("{indent}{indent}'Content-Type': '{ct}',\n"));
                 }
             }
-            code.push_str(&format!("{}}},\n", indent));
+            code.push_str(&format!("{indent}}},\n"));
         }
 
         // Body
@@ -183,7 +184,7 @@ impl<'a> CodeGenerator<'a> {
                 .content
                 .replace('\\', "\\\\")
                 .replace('`', "\\`");
-            code.push_str(&format!("{}body: `{}`,\n", indent, escaped));
+            code.push_str(&format!("{indent}body: `{escaped}`,\n"));
         }
 
         code.push_str("});\n\n");
@@ -210,20 +211,20 @@ impl<'a> CodeGenerator<'a> {
             code.push_str("axios({\n");
         }
 
-        code.push_str(&format!("{}method: '{}',\n", indent, method));
-        code.push_str(&format!("{}url: '{}',\n", indent, url));
+        code.push_str(&format!("{indent}method: '{method}',\n"));
+        code.push_str(&format!("{indent}url: '{url}',\n"));
 
         // Headers
         let headers: Vec<_> = request.enabled_headers().collect();
         if !headers.is_empty() {
-            code.push_str(&format!("{}headers: {{\n", indent));
+            code.push_str(&format!("{indent}headers: {{\n"));
             for h in &headers {
                 code.push_str(&format!(
                     "{}{}'{}': '{}',\n",
                     indent, indent, h.name, h.value
                 ));
             }
-            code.push_str(&format!("{}}},\n", indent));
+            code.push_str(&format!("{indent}}},\n"));
         }
 
         // Body
@@ -262,7 +263,7 @@ impl<'a> CodeGenerator<'a> {
         // Headers
         let headers: Vec<_> = request.enabled_headers().collect();
         if !headers.is_empty() || request.body.content_type().is_some() {
-            code.push_str(&format!("{}headers: {{\n", indent));
+            code.push_str(&format!("{indent}headers: {{\n"));
             for h in &headers {
                 code.push_str(&format!(
                     "{}{}'{}': '{}',\n",
@@ -274,10 +275,10 @@ impl<'a> CodeGenerator<'a> {
                     .iter()
                     .any(|h| h.name.eq_ignore_ascii_case("content-type"));
                 if !has_ct {
-                    code.push_str(&format!("{}{}'Content-Type': '{}',\n", indent, indent, ct));
+                    code.push_str(&format!("{indent}{indent}'Content-Type': '{ct}',\n"));
                 }
             }
-            code.push_str(&format!("{}}},\n", indent));
+            code.push_str(&format!("{indent}}},\n"));
         }
 
         if !request.body.content.is_empty() {
@@ -286,7 +287,7 @@ impl<'a> CodeGenerator<'a> {
                 .content
                 .replace('\\', "\\\\")
                 .replace('`', "\\`");
-            code.push_str(&format!("{}body: `{}`,\n", indent, escaped));
+            code.push_str(&format!("{indent}body: `{escaped}`,\n"));
         }
 
         code.push_str("});\n\n");
@@ -303,7 +304,7 @@ impl<'a> CodeGenerator<'a> {
         let mut code = String::new();
 
         code.push_str("let client = reqwest::Client::new();\n\n");
-        code.push_str(&format!("let response = client.{}(\"{}\")\n", method, url));
+        code.push_str(&format!("let response = client.{method}(\"{url}\")\n"));
 
         // Headers
         for h in request.enabled_headers() {
@@ -320,11 +321,11 @@ impl<'a> CodeGenerator<'a> {
                 .content
                 .replace('\\', "\\\\")
                 .replace('"', "\\\"");
-            code.push_str(&format!("{}.body(\"{}\")\n", indent, escaped));
+            code.push_str(&format!("{indent}.body(\"{escaped}\")\n"));
         }
 
-        code.push_str(&format!("{}.send()\n", indent));
-        code.push_str(&format!("{}.await?;\n\n", indent));
+        code.push_str(&format!("{indent}.send()\n"));
+        code.push_str(&format!("{indent}.await?;\n\n"));
 
         code.push_str("println!(\"Status: {}\", response.status());\n");
         code.push_str("let body = response.text().await?;\nprintln!(\"{}\", body);");
@@ -341,24 +342,22 @@ impl<'a> CodeGenerator<'a> {
         let mut code = String::new();
 
         // Body setup
-        if !request.body.content.is_empty() {
+        if request.body.content.is_empty() {
+            code.push_str(&format!(
+                "req, err := http.NewRequest(\"{method}\", \"{url}\", nil)\n"
+            ));
+        } else {
             code.push_str(&format!(
                 "body := strings.NewReader(`{}`)\n",
                 request.body.content
             ));
             code.push_str(&format!(
-                "req, err := http.NewRequest(\"{}\", \"{}\", body)\n",
-                method, url
-            ));
-        } else {
-            code.push_str(&format!(
-                "req, err := http.NewRequest(\"{}\", \"{}\", nil)\n",
-                method, url
+                "req, err := http.NewRequest(\"{method}\", \"{url}\", body)\n"
             ));
         }
 
         code.push_str("if err != nil {\n");
-        code.push_str(&format!("{}log.Fatal(err)\n", indent));
+        code.push_str(&format!("{indent}log.Fatal(err)\n"));
         code.push_str("}\n\n");
 
         // Headers
@@ -376,14 +375,14 @@ impl<'a> CodeGenerator<'a> {
                 .iter()
                 .any(|h| h.name.eq_ignore_ascii_case("content-type"));
             if !has_ct {
-                code.push_str(&format!("req.Header.Set(\"Content-Type\", \"{}\")\n", ct));
+                code.push_str(&format!("req.Header.Set(\"Content-Type\", \"{ct}\")\n"));
             }
         }
 
         code.push_str("\nclient := &http.Client{}\n");
         code.push_str("resp, err := client.Do(req)\n");
         code.push_str("if err != nil {\n");
-        code.push_str(&format!("{}log.Fatal(err)\n", indent));
+        code.push_str(&format!("{indent}log.Fatal(err)\n"));
         code.push_str("}\n");
         code.push_str("defer resp.Body.Close()\n\n");
 
@@ -411,21 +410,20 @@ impl<'a> CodeGenerator<'a> {
         code.push_str("HttpClient client = HttpClient.newHttpClient();\n\n");
 
         code.push_str("HttpRequest request = HttpRequest.newBuilder()\n");
-        code.push_str(&format!("{}.uri(URI.create(\"{}\"))\n", indent, url));
-        code.push_str(&format!("{}.method(\"{}\", ", indent, method));
+        code.push_str(&format!("{indent}.uri(URI.create(\"{url}\"))\n"));
+        code.push_str(&format!("{indent}.method(\"{method}\", "));
 
-        if !request.body.content.is_empty() {
+        if request.body.content.is_empty() {
+            code.push_str("HttpRequest.BodyPublishers.noBody())\n");
+        } else {
             let escaped = request
                 .body
                 .content
                 .replace('\\', "\\\\")
                 .replace('"', "\\\"");
             code.push_str(&format!(
-                "HttpRequest.BodyPublishers.ofString(\"{}\"))\n",
-                escaped
+                "HttpRequest.BodyPublishers.ofString(\"{escaped}\"))\n"
             ));
-        } else {
-            code.push_str("HttpRequest.BodyPublishers.noBody())\n");
         }
 
         // Headers
@@ -444,13 +442,12 @@ impl<'a> CodeGenerator<'a> {
                 .any(|h| h.name.eq_ignore_ascii_case("content-type"));
             if !has_ct {
                 code.push_str(&format!(
-                    "{}.header(\"Content-Type\", \"{}\")\n",
-                    indent, ct
+                    "{indent}.header(\"Content-Type\", \"{ct}\")\n"
                 ));
             }
         }
 
-        code.push_str(&format!("{}.build();\n\n", indent));
+        code.push_str(&format!("{indent}.build();\n\n"));
 
         code.push_str("HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());\n\n");
         code.push_str("System.out.println(response.statusCode());\n");
@@ -482,8 +479,8 @@ impl<'a> CodeGenerator<'a> {
         code.push_str("using var client = new HttpClient();\n\n");
 
         code.push_str("var request = new HttpRequestMessage\n{\n");
-        code.push_str(&format!("{}Method = {},\n", indent, method));
-        code.push_str(&format!("{}RequestUri = new Uri(\"{}\"),\n", indent, url));
+        code.push_str(&format!("{indent}Method = {method},\n"));
+        code.push_str(&format!("{indent}RequestUri = new Uri(\"{url}\"),\n"));
 
         if !request.body.content.is_empty() {
             let ct = request.body.content_type().unwrap_or("text/plain");
@@ -493,8 +490,7 @@ impl<'a> CodeGenerator<'a> {
                 .replace('\\', "\\\\")
                 .replace('"', "\\\"");
             code.push_str(&format!(
-                "{}Content = new StringContent(\"{}\", Encoding.UTF8, \"{}\"),\n",
-                indent, escaped, ct
+                "{indent}Content = new StringContent(\"{escaped}\", Encoding.UTF8, \"{ct}\"),\n"
             ));
         }
 
@@ -517,6 +513,7 @@ impl<'a> CodeGenerator<'a> {
             .with_imports(["using System.Net.Http;", "using System.Text;"])
     }
 
+    #[allow(clippy::unused_self)]
     fn generate_php(&self, request: &RequestSpec) -> CodeSnippet {
         let url = request.full_url();
         let method = request.method.as_str().to_uppercase();
@@ -526,13 +523,12 @@ impl<'a> CodeGenerator<'a> {
         code.push_str("<?php\n\n");
         code.push_str("$ch = curl_init();\n\n");
 
-        code.push_str(&format!("curl_setopt($ch, CURLOPT_URL, '{}');\n", url));
+        code.push_str(&format!("curl_setopt($ch, CURLOPT_URL, '{url}');\n"));
         code.push_str("curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\n");
 
         if method != "GET" {
             code.push_str(&format!(
-                "curl_setopt($ch, CURLOPT_CUSTOMREQUEST, '{}');\n",
-                method
+                "curl_setopt($ch, CURLOPT_CUSTOMREQUEST, '{method}');\n"
             ));
         }
 
@@ -548,7 +544,7 @@ impl<'a> CodeGenerator<'a> {
                     .iter()
                     .any(|h| h.name.eq_ignore_ascii_case("content-type"));
                 if !has_ct {
-                    code.push_str(&format!("    'Content-Type: {}',\n", ct));
+                    code.push_str(&format!("    'Content-Type: {ct}',\n"));
                 }
             }
             code.push_str("];\n");
@@ -559,8 +555,7 @@ impl<'a> CodeGenerator<'a> {
         if !request.body.content.is_empty() {
             let escaped = request.body.content.replace('\'', "\\'");
             code.push_str(&format!(
-                "\ncurl_setopt($ch, CURLOPT_POSTFIELDS, '{}');\n",
-                escaped
+                "\ncurl_setopt($ch, CURLOPT_POSTFIELDS, '{escaped}');\n"
             ));
         }
 
@@ -574,12 +569,13 @@ impl<'a> CodeGenerator<'a> {
         CodeSnippet::new(code, CodeLanguage::Php)
     }
 
+    #[allow(clippy::unused_self)]
     fn generate_ruby(&self, request: &RequestSpec) -> CodeSnippet {
         let url = request.full_url();
 
         let mut code = String::new();
 
-        code.push_str(&format!("uri = URI('{}')\n", url));
+        code.push_str(&format!("uri = URI('{url}')\n"));
         code.push_str("http = Net::HTTP.new(uri.host, uri.port)\n");
         code.push_str("http.use_ssl = uri.scheme == 'https'\n\n");
 
@@ -594,8 +590,7 @@ impl<'a> CodeGenerator<'a> {
         };
 
         code.push_str(&format!(
-            "request = Net::HTTP::{}::new(uri)\n",
-            request_class
+            "request = Net::HTTP::{request_class}::new(uri)\n"
         ));
 
         // Headers
@@ -610,14 +605,14 @@ impl<'a> CodeGenerator<'a> {
                 .iter()
                 .any(|h| h.name.eq_ignore_ascii_case("content-type"));
             if !has_ct {
-                code.push_str(&format!("request['Content-Type'] = '{}'\n", ct));
+                code.push_str(&format!("request['Content-Type'] = '{ct}'\n"));
             }
         }
 
         // Body
         if !request.body.content.is_empty() {
             let escaped = request.body.content.replace('\'', "\\'");
-            code.push_str(&format!("request.body = '{}'\n", escaped));
+            code.push_str(&format!("request.body = '{escaped}'\n"));
         }
 
         code.push_str("\nresponse = http.request(request)\n\n");
@@ -635,9 +630,9 @@ impl<'a> CodeGenerator<'a> {
 
         let mut code = String::new();
 
-        code.push_str(&format!("let url = URL(string: \"{}\")!\n", url));
+        code.push_str(&format!("let url = URL(string: \"{url}\")!\n"));
         code.push_str("var request = URLRequest(url: url)\n");
-        code.push_str(&format!("request.httpMethod = \"{}\"\n", method));
+        code.push_str(&format!("request.httpMethod = \"{method}\"\n"));
 
         // Headers
         for h in request.enabled_headers() {
@@ -655,8 +650,7 @@ impl<'a> CodeGenerator<'a> {
                 .any(|h| h.name.eq_ignore_ascii_case("content-type"));
             if !has_ct {
                 code.push_str(&format!(
-                    "request.setValue(\"{}\", forHTTPHeaderField: \"Content-Type\")\n",
-                    ct
+                    "request.setValue(\"{ct}\", forHTTPHeaderField: \"Content-Type\")\n"
                 ));
             }
         }
@@ -669,27 +663,24 @@ impl<'a> CodeGenerator<'a> {
                 .replace('\\', "\\\\")
                 .replace('"', "\\\"");
             code.push_str(&format!(
-                "request.httpBody = \"{}\".data(using: .utf8)\n",
-                escaped
+                "request.httpBody = \"{escaped}\".data(using: .utf8)\n"
             ));
         }
 
         code.push_str(
             "\nlet task = URLSession.shared.dataTask(with: request) { data, response, error in\n",
         );
-        code.push_str(&format!("{}if let error = error {{\n", indent));
+        code.push_str(&format!("{indent}if let error = error {{\n"));
         code.push_str(&format!(
-            "{}{}print(\"Error: \\(error)\")\n",
-            indent, indent
+            "{indent}{indent}print(\"Error: \\(error)\")\n"
         ));
-        code.push_str(&format!("{}{}return\n", indent, indent));
-        code.push_str(&format!("{}}}\n", indent));
+        code.push_str(&format!("{indent}{indent}return\n"));
+        code.push_str(&format!("{indent}}}\n"));
         code.push_str(&format!(
-            "{}if let data = data, let string = String(data: data, encoding: .utf8) {{\n",
-            indent
+            "{indent}if let data = data, let string = String(data: data, encoding: .utf8) {{\n"
         ));
-        code.push_str(&format!("{}{}print(string)\n", indent, indent));
-        code.push_str(&format!("{}}}\n", indent));
+        code.push_str(&format!("{indent}{indent}print(string)\n"));
+        code.push_str(&format!("{indent}}}\n"));
         code.push_str("}\n");
         code.push_str("task.resume()");
 
@@ -713,20 +704,19 @@ impl<'a> CodeGenerator<'a> {
                 .replace('\\', "\\\\")
                 .replace('"', "\\\"");
             code.push_str(&format!(
-                "val body = \"{}\".toRequestBody(\"{}\".toMediaType())\n\n",
-                escaped, ct
+                "val body = \"{escaped}\".toRequestBody(\"{ct}\".toMediaType())\n\n"
             ));
         }
 
         code.push_str("val request = Request.Builder()\n");
-        code.push_str(&format!("{}.url(\"{}\")\n", indent, url));
+        code.push_str(&format!("{indent}.url(\"{url}\")\n"));
 
         // Method with body
         let method = request.method.as_str().lower();
         if !request.body.content.is_empty() {
-            code.push_str(&format!("{}.{}(body)\n", indent, method));
+            code.push_str(&format!("{indent}.{method}(body)\n"));
         } else if method != "get" {
-            code.push_str(&format!("{}.{}(null)\n", indent, method));
+            code.push_str(&format!("{indent}.{method}(null)\n"));
         }
 
         // Headers
@@ -737,12 +727,12 @@ impl<'a> CodeGenerator<'a> {
             ));
         }
 
-        code.push_str(&format!("{}.build()\n\n", indent));
+        code.push_str(&format!("{indent}.build()\n\n"));
 
         code.push_str("client.newCall(request).execute().use { response ->\n");
-        code.push_str(&format!("{}println(response.code)\n", indent));
-        code.push_str(&format!("{}println(response.body?.string())\n", indent));
-        code.push_str("}");
+        code.push_str(&format!("{indent}println(response.code)\n"));
+        code.push_str(&format!("{indent}println(response.body?.string())\n"));
+        code.push('}');
 
         CodeSnippet::new(code, CodeLanguage::Kotlin).with_imports([
             "import okhttp3.MediaType.Companion.toMediaType",
@@ -842,7 +832,7 @@ mod tests {
         for lang in CodeLanguage::all() {
             let options = CodeGenOptions::for_language(*lang);
             let snippet = generate_code(&req, &options);
-            assert!(!snippet.code.is_empty(), "Empty code for {:?}", lang);
+            assert!(!snippet.code.is_empty(), "Empty code for {lang:?}");
         }
     }
 }

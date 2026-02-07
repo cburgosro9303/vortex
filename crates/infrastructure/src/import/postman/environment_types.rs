@@ -42,18 +42,20 @@ pub struct PostmanEnvVariable {
     pub var_type: Option<String>,
 }
 
-fn default_true() -> bool {
+const fn default_true() -> bool {
     true
 }
 
 impl PostmanEnvVariable {
     /// Check if this variable is a secret type
+    #[must_use] 
     pub fn is_secret(&self) -> bool {
         self.var_type.as_deref() == Some("secret")
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

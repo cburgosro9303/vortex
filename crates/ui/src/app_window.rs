@@ -495,13 +495,13 @@ impl AppWindow {
 
         // Spawn the async runtime in a separate thread
         let ui_weak_async = ui_weak.clone();
-        let cmd_tx_async = cmd_tx.clone();
+        let cmd_tx_async = cmd_tx;
         std::thread::spawn(move || {
             run_async_runtime(ui_weak_async, cmd_rx, update_tx, cmd_tx_async);
         });
 
         // Process UI updates on the main thread using a timer
-        let ui_weak_update = ui_weak.clone();
+        let ui_weak_update = ui_weak;
         let timer = slint::Timer::default();
         timer.start(
             slint::TimerMode::Repeated,
@@ -629,8 +629,8 @@ impl AppState {
 
     /// Saves current UI state to the active tab.
     fn save_current_tab_state(&mut self, url: &str, method: i32, body: &str) {
-        if let Some(ref active_id) = self.active_tab_id {
-            if let Some(tab) = self.tabs.iter_mut().find(|t| &t.id == active_id) {
+        if let Some(ref active_id) = self.active_tab_id
+            && let Some(tab) = self.tabs.iter_mut().find(|t| &t.id == active_id) {
                 tab.url = url.to_string();
                 tab.method = method;
                 tab.body = body.to_string();
@@ -638,7 +638,6 @@ impl AppState {
                 tab.query_params = self.query_params.clone();
                 tab.auth = self.auth_data.clone();
             }
-        }
     }
 
     /// Restores tab state to UI.
@@ -664,7 +663,7 @@ impl AppState {
                 method: entry.method.to_string(),
                 url: entry.url.clone(),
                 #[allow(clippy::cast_possible_wrap)]
-                status_code: entry.status_code.map_or(0, |s| s as i32),
+                status_code: entry.status_code.map_or(0, i32::from),
                 time_ago: entry.time_ago(),
                 duration: entry.duration_display(),
             })
@@ -752,11 +751,11 @@ fn run_async_runtime(
                     .await
                     {
                         // Save response to current tab
-                        if let Some(ref active_id) = state.active_tab_id {
-                            if let Some(tab) = state.tabs.iter_mut().find(|t| &t.id == active_id) {
+                        if let Some(ref active_id) = state.active_tab_id
+                            && let Some(tab) = state.tabs.iter_mut().find(|t| &t.id == active_id) {
                                 tab.response_state = result.response_state;
                                 tab.response_body = result.response_body.clone();
-                                tab.status_code = result.status_code.map(|s| s as i32).unwrap_or(0);
+                                tab.status_code = result.status_code.map_or(0, i32::from);
                                 tab.status_text = result.status_text.clone();
                                 tab.duration = result.duration_display.clone();
                                 tab.size = result.size_display.clone();
@@ -764,7 +763,6 @@ fn run_async_runtime(
                                 tab.error_title = result.error_title.clone();
                                 tab.error_message = result.error_message.clone();
                             }
-                        }
 
                         // Also save to state for formatting
                         state.response_body = result.response_body.clone();
@@ -949,7 +947,7 @@ fn run_async_runtime(
 
                 UiCommand::ItemDoubleClicked { id: _, path } => {
                     // Load request into editor - Sprint 06: Opens in a tab
-                    if path.extension().map_or(false, |e| e == "json") {
+                    if path.extension().is_some_and(|e| e == "json") {
                         // Check if this request is already open in a tab
                         let path_str = path.display().to_string();
                         let existing_tab = state.tabs.iter().find(|t| t.file_path.as_ref() == Some(&path_str));
@@ -1106,8 +1104,8 @@ fn run_async_runtime(
                         let collections_dir = ws_path.join("collections");
 
                         // Find the first collection directory
-                        if let Ok(mut entries) = tokio::fs::read_dir(&collections_dir).await {
-                            if let Ok(Some(first_entry)) = entries.next_entry().await {
+                        if let Ok(mut entries) = tokio::fs::read_dir(&collections_dir).await
+                            && let Ok(Some(first_entry)) = entries.next_entry().await {
                                 let collection_path = first_entry.path();
                                 if collection_path.is_dir() {
                                     // Create the requests directory if it doesn't exist
@@ -1117,7 +1115,7 @@ fn run_async_runtime(
                                     // Generate a unique ID and filename
                                     let request_id = uuid::Uuid::now_v7().to_string();
                                     let safe_name = name.to_lowercase().replace(' ', "-");
-                                    let file_name = format!("{}.json", safe_name);
+                                    let file_name = format!("{safe_name}.json");
                                     let file_path = requests_dir.join(&file_name);
 
                                     // Create the request
@@ -1143,7 +1141,6 @@ fn run_async_runtime(
                                     }
                                 }
                             }
-                        }
                     }
                 }
 
@@ -1155,16 +1152,15 @@ fn run_async_runtime(
 
                     // Save all tabs with unsaved changes
                     for tab in &mut state.tabs {
-                        if tab.has_unsaved_changes {
-                            if let Some(ref file_path) = tab.file_path {
+                        if tab.has_unsaved_changes
+                            && let Some(ref file_path) = tab.file_path {
                                 let mut saved_request = build_saved_request_from_tab(tab);
 
                                 // Try to preserve the original ID
-                                if let Ok(existing_content) = std::fs::read_to_string(file_path) {
-                                    if let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
+                                if let Ok(existing_content) = std::fs::read_to_string(file_path)
+                                    && let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
                                         saved_request.id = existing_request.id;
                                     }
-                                }
 
                                 if let Ok(json) = to_json_stable(&saved_request) {
                                     if tokio::fs::write(file_path, json).await.is_ok() {
@@ -1177,7 +1173,6 @@ fn run_async_runtime(
                                     error_count += 1;
                                 }
                             }
-                        }
                     }
 
                     let _ = update_tx.send(UiUpdate::SavingState(false));
@@ -1186,7 +1181,7 @@ fn run_async_runtime(
                     if error_count > 0 {
                         let _ = update_tx.send(UiUpdate::Error {
                             title: "Some requests failed to save".to_string(),
-                            message: format!("Saved {} requests, {} failed", saved_count, error_count),
+                            message: format!("Saved {saved_count} requests, {error_count} failed"),
                         });
                     }
                 }
@@ -1256,8 +1251,8 @@ fn run_async_runtime(
                 }
 
                 UiCommand::DeleteEnvironment { index } => {
-                    if let Some(ref ws_path) = state.workspace_path {
-                        if let Some(env) = state.environments.get(index as usize) {
+                    if let Some(ref ws_path) = state.workspace_path
+                        && let Some(env) = state.environments.get(index as usize) {
                             let env_repo = FileEnvironmentRepository::new(TokioFileSystem);
 
                             match env_repo.delete(ws_path, &env.name).await {
@@ -1269,14 +1264,12 @@ fn run_async_runtime(
                                         state.current_environment_index = None;
                                         let _ = update_tx.send(UiUpdate::CurrentEnvironmentIndex(-1));
                                     } else if let Some(current_idx) = state.current_environment_index
-                                    {
-                                        if current_idx > index as usize {
+                                        && current_idx > index as usize {
                                             state.current_environment_index = Some(current_idx - 1);
                                             let _ = update_tx.send(UiUpdate::CurrentEnvironmentIndex(
                                                 (current_idx - 1) as i32,
                                             ));
                                         }
-                                    }
 
                                     // Update environment names
                                     let names: Vec<String> =
@@ -1317,7 +1310,6 @@ fn run_async_runtime(
                                 }
                             }
                         }
-                    }
                 }
 
                 UiCommand::SelectEnvironmentForEditing { index } => {
@@ -1351,18 +1343,17 @@ fn run_async_runtime(
                 }
 
                 UiCommand::SaveEnvironment => {
-                    if let Some(ref ws_path) = state.workspace_path {
-                        if let Some(ref editing_env) = state.editing_environment {
+                    if let Some(ref ws_path) = state.workspace_path
+                        && let Some(ref editing_env) = state.editing_environment {
                             let env_repo = FileEnvironmentRepository::new(TokioFileSystem);
 
                             match env_repo.save(ws_path, editing_env).await {
                                 Ok(()) => {
                                     // Update the environment in state
-                                    if let Some(idx) = state.editing_environment_index {
-                                        if idx < state.environments.len() {
+                                    if let Some(idx) = state.editing_environment_index
+                                        && idx < state.environments.len() {
                                             state.environments[idx] = editing_env.clone();
                                         }
-                                    }
 
                                     // Update environment list in manager
                                     let env_list: Vec<EnvironmentData> = state
@@ -1387,7 +1378,6 @@ fn run_async_runtime(
                                 }
                             }
                         }
-                    }
                 }
 
                 UiCommand::AddEnvironmentVariable => {
@@ -1752,18 +1742,17 @@ fn run_async_runtime(
 
                 // Sprint 05: Collection Management commands
                 UiCommand::SaveCurrentRequest => {
-                    if let Some(ref active_id) = state.active_tab_id.clone() {
-                        if let Some(tab) = state.tabs.iter_mut().find(|t| &t.id == active_id) {
+                    if let Some(ref active_id) = state.active_tab_id.clone()
+                        && let Some(tab) = state.tabs.iter_mut().find(|t| &t.id == active_id) {
                             if let Some(ref file_path) = tab.file_path.clone() {
                                 // Build and save the request
                                 let mut saved_request = build_saved_request_from_tab(tab);
 
                                 // Try to preserve the original ID if we can read the existing file
-                                if let Ok(existing_content) = std::fs::read_to_string(&file_path) {
-                                    if let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
+                                if let Ok(existing_content) = std::fs::read_to_string(file_path)
+                                    && let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
                                         saved_request.id = existing_request.id;
                                     }
-                                }
 
                                 match to_json_stable(&saved_request) {
                                     Ok(json) => {
@@ -1794,7 +1783,6 @@ fn run_async_runtime(
                                 });
                             }
                         }
-                    }
                 }
 
                 UiCommand::RenameItem { id, new_name } => {
@@ -1806,7 +1794,7 @@ fn run_async_runtime(
                         let new_path = if ext.is_empty() {
                             parent.join(&new_name)
                         } else {
-                            parent.join(format!("{}.{}", new_name, ext))
+                            parent.join(format!("{new_name}.{ext}"))
                         };
 
                         if let Err(e) = tokio::fs::rename(&path, &new_path).await {
@@ -1836,7 +1824,7 @@ fn run_async_runtime(
 
                     let _ = update_tx.send(UiUpdate::ShowConfirmDialog {
                         title: format!("Delete {}", if item_type == "request" { "Request" } else { "Collection" }),
-                        message: format!("Are you sure you want to delete '{}'? This action cannot be undone.", name),
+                        message: format!("Are you sure you want to delete '{name}'? This action cannot be undone."),
                         item_id: id,
                         item_type,
                     });
@@ -1852,14 +1840,13 @@ fn run_async_runtime(
                                     message: e.to_string(),
                                 });
                             }
-                        } else if path.is_dir() {
-                            if let Err(e) = tokio::fs::remove_dir_all(&path).await {
+                        } else if path.is_dir()
+                            && let Err(e) = tokio::fs::remove_dir_all(&path).await {
                                 let _ = update_tx.send(UiUpdate::Error {
                                     title: "Failed to delete".to_string(),
                                     message: e.to_string(),
                                 });
                             }
-                        }
 
                         // Refresh tree
                         if let Some(ref ws_path) = state.workspace_path {
@@ -2045,9 +2032,9 @@ fn run_async_runtime(
                 UiCommand::SearchResultClicked { id: _, path } => {
                     // Load the request into a new tab
                     let path = PathBuf::from(&path);
-                    if path.extension().map_or(false, |e| e == "json") {
-                        if let Ok(content) = tokio::fs::read_to_string(&path).await {
-                            if let Ok(request) = from_json::<vortex_domain::persistence::SavedRequest>(&content) {
+                    if path.extension().is_some_and(|e| e == "json")
+                        && let Ok(content) = tokio::fs::read_to_string(&path).await
+                            && let Ok(request) = from_json::<vortex_domain::persistence::SavedRequest>(&content) {
                                 // Create new tab with this request
                                 let method_index = match request.method {
                                     PersistenceHttpMethod::Get => 0,
@@ -2121,8 +2108,6 @@ fn run_async_runtime(
 
                                 resolve_and_update_url(&state, &update_tx);
                             }
-                        }
-                    }
                 }
 
                 // --- Sprint 06: Import/Export Commands ---
@@ -2196,24 +2181,20 @@ fn run_async_runtime(
 
                 // --- Sprint 06: JSON Format Commands ---
                 UiCommand::FormatResponseBody => {
-                    if !state.response_body.is_empty() {
-                        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&state.response_body) {
-                            if let Ok(formatted) = serde_json::to_string_pretty(&parsed) {
+                    if !state.response_body.is_empty()
+                        && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&state.response_body)
+                            && let Ok(formatted) = serde_json::to_string_pretty(&parsed) {
                                 state.response_body = formatted.clone();
                                 let _ = update_tx.send(UiUpdate::FormattedResponseBody(formatted));
                             }
-                        }
-                    }
                 }
 
                 UiCommand::FormatRequestBody { body } => {
-                    if !body.is_empty() {
-                        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&body) {
-                            if let Ok(formatted) = serde_json::to_string_pretty(&parsed) {
+                    if !body.is_empty()
+                        && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&body)
+                            && let Ok(formatted) = serde_json::to_string_pretty(&parsed) {
                                 let _ = update_tx.send(UiUpdate::FormattedRequestBody(formatted));
                             }
-                        }
-                    }
                 }
 
                 UiCommand::CopyFormattedResponse => {
@@ -2253,13 +2234,12 @@ fn run_async_runtime(
                                 .set_title("Import Postman Environment")
                                 .add_filter("JSON files", &["json"])
                                 .pick_file()
-                            {
-                                if let Ok(content) = std::fs::read_to_string(&path) {
+                                && let Ok(content) = std::fs::read_to_string(&path) {
                                     match import_postman_environment(&content, &ws) {
                                         Ok(name) => {
                                             let _ = tx.send(UiUpdate::Error {
                                                 title: "Import Successful".to_string(),
-                                                message: format!("Environment '{}' imported successfully.", name),
+                                                message: format!("Environment '{name}' imported successfully."),
                                             });
                                             // Refresh environments
                                             let _ = cmd_tx_refresh.send(UiCommand::RefreshEnvironments);
@@ -2272,7 +2252,6 @@ fn run_async_runtime(
                                         }
                                     }
                                 }
-                            }
                         });
                     }
                 }
@@ -2300,7 +2279,57 @@ fn run_async_runtime(
                         None => false,
                     };
 
-                    if !is_confirmation {
+                    if is_confirmation {
+                        // PHASE 2: EXECUTE IMPORT
+                        if let Some(ref ws_path) = state.workspace_path.clone() {
+                            let ws = ws_path.clone();
+                            let tx = update_tx.clone();
+                            let cmd_tx_refresh = cmd_tx.clone();
+                            let file = file_path.clone();
+
+                            // Reset state
+                            state.import_file_path = None;
+                            state.import_preview_done = false;
+
+                            std::thread::spawn(move || {
+                                // Read file again (fresh read for import)
+                                let content = match std::fs::read_to_string(&file) {
+                                    Ok(c) => c,
+                                    Err(e) => {
+                                        let _ = tx.send(UiUpdate::ImportError {
+                                            message: format!("Failed to read file: {e}"),
+                                        });
+                                        return;
+                                    }
+                                };
+
+                                let importer = PostmanImporter::new();
+
+                                // Send initial progress
+                                let _ = tx.send(UiUpdate::ImportProgress(0.1));
+
+                                match importer.import_collection(&content, &ws) {
+                                    Ok(result) => {
+                                        let _ = tx.send(UiUpdate::ImportProgress(1.0));
+                                        let _ = tx.send(UiUpdate::ImportDialogComplete {
+                                            name: result.name,
+                                            requests_imported: result.requests_imported,
+                                            folders_imported: result.folders_imported,
+                                            variables_imported: result.variables_imported,
+                                        });
+                                        // Refresh tree and environments
+                                        let _ = cmd_tx_refresh.send(UiCommand::RefreshTree);
+                                        let _ = cmd_tx_refresh.send(UiCommand::RefreshEnvironments);
+                                    }
+                                    Err(e) => {
+                                        let _ = tx.send(UiUpdate::ImportError {
+                                            message: e.to_string(),
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                    } else {
                         // PHASE 1: PREVIEW
                         // Update state to track we are previewing this file
                         state.import_file_path = Some(file_path.clone());
@@ -2318,7 +2347,7 @@ fn run_async_runtime(
                                 Ok(c) => c,
                                 Err(e) => {
                                     let _ = tx.send(UiUpdate::ImportError {
-                                        message: format!("Failed to read file: {}", e),
+                                        message: format!("Failed to read file: {e}"),
                                     });
                                     return;
                                 }
@@ -2364,56 +2393,6 @@ fn run_async_runtime(
                                 }
                             }
                         });
-                    } else {
-                        // PHASE 2: EXECUTE IMPORT
-                        if let Some(ref ws_path) = state.workspace_path.clone() {
-                            let ws = ws_path.clone();
-                            let tx = update_tx.clone();
-                            let cmd_tx_refresh = cmd_tx.clone();
-                            let file = file_path.clone();
-
-                            // Reset state
-                            state.import_file_path = None;
-                            state.import_preview_done = false;
-
-                            std::thread::spawn(move || {
-                                // Read file again (fresh read for import)
-                                let content = match std::fs::read_to_string(&file) {
-                                    Ok(c) => c,
-                                    Err(e) => {
-                                        let _ = tx.send(UiUpdate::ImportError {
-                                            message: format!("Failed to read file: {}", e),
-                                        });
-                                        return;
-                                    }
-                                };
-
-                                let importer = PostmanImporter::new();
-
-                                // Send initial progress
-                                let _ = tx.send(UiUpdate::ImportProgress(0.1));
-
-                                match importer.import_collection(&content, &ws) {
-                                    Ok(result) => {
-                                        let _ = tx.send(UiUpdate::ImportProgress(1.0));
-                                        let _ = tx.send(UiUpdate::ImportDialogComplete {
-                                            name: result.name,
-                                            requests_imported: result.requests_imported,
-                                            folders_imported: result.folders_imported,
-                                            variables_imported: result.variables_imported,
-                                        });
-                                        // Refresh tree and environments
-                                        let _ = cmd_tx_refresh.send(UiCommand::RefreshTree);
-                                        let _ = cmd_tx_refresh.send(UiCommand::RefreshEnvironments);
-                                    }
-                                    Err(e) => {
-                                        let _ = tx.send(UiUpdate::ImportError {
-                                            message: e.to_string(),
-                                        });
-                                    }
-                                }
-                            });
-                        }
                     }
                 }
 
@@ -2531,7 +2510,7 @@ async fn load_environments(
     }
 }
 
-/// Handles the SendRequest command.
+/// Handles the `SendRequest` command.
 /// Result of a request execution for history tracking and tab state saving.
 struct RequestResult {
     method: HttpMethod,
@@ -2572,7 +2551,7 @@ async fn handle_send_request(
     let request_data = tokio::time::timeout(std::time::Duration::from_millis(100), &mut data_rx)
         .await
         .ok()
-        .and_then(|r| r.ok());
+        .and_then(std::result::Result::ok);
 
     if let Some((url, method_index, body)) = request_data {
         // Resolve variables in URL and body
@@ -2626,7 +2605,7 @@ async fn handle_send_request(
                     let resolved_token = resolver.resolve(&state.auth_data.bearer_token).resolved;
                     request.headers.add(vortex_domain::request::Header::new(
                         "Authorization",
-                        format!("Bearer {}", resolved_token),
+                        format!("Bearer {resolved_token}"),
                     ));
                 }
             }
@@ -2637,12 +2616,12 @@ async fn handle_send_request(
                         resolver.resolve(&state.auth_data.basic_username).resolved;
                     let resolved_password =
                         resolver.resolve(&state.auth_data.basic_password).resolved;
-                    let credentials = format!("{}:{}", resolved_username, resolved_password);
+                    let credentials = format!("{resolved_username}:{resolved_password}");
                     use base64::Engine;
                     let encoded = base64::engine::general_purpose::STANDARD.encode(credentials);
                     request.headers.add(vortex_domain::request::Header::new(
                         "Authorization",
-                        format!("Basic {}", encoded),
+                        format!("Basic {encoded}"),
                     ));
                 }
             }
@@ -2884,11 +2863,11 @@ fn load_folder_items<'a>(
                         // Load subfolder contents (check for requests subfolder or direct json files)
                         load_folder_items(&path, depth + 1, expanded_folders, items).await;
                     }
-                } else if path.extension().map_or(false, |e| e == "json") {
+                } else if path.extension().is_some_and(|e| e == "json") {
                     // Skip collection.json and folder.json metadata files
                     if path
                         .file_name()
-                        .map_or(false, |n| n == "collection.json" || n == "folder.json")
+                        .is_some_and(|n| n == "collection.json" || n == "folder.json")
                     {
                         continue;
                     }
@@ -2952,7 +2931,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
                 RequestState::Success { response } => {
                     ui.set_response_state(2);
                     #[allow(clippy::cast_possible_wrap)]
-                    ui.set_status_code(response.status as i32);
+                    ui.set_status_code(i32::from(response.status));
                     ui.set_status_text(response.status_text.clone().into());
                     ui.set_response_body(response.body_as_string_lossy().into());
                     ui.set_duration(response.duration_display().into());
@@ -3315,7 +3294,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         // Sprint 06: Import/Export updates
         UiUpdate::ImportComplete { collection_name } => {
             // Show success - could also refresh tree
-            eprintln!("Imported collection: {}", collection_name);
+            eprintln!("Imported collection: {collection_name}");
         }
 
         // --- Sprint 04: Import Dialog Updates ---
@@ -3374,8 +3353,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
             variables_imported,
         } => {
             eprintln!(
-                "Import complete: {} ({} requests, {} folders, {} variables)",
-                name, requests_imported, folders_imported, variables_imported
+                "Import complete: {name} ({requests_imported} requests, {folders_imported} folders, {variables_imported} variables)"
             );
             ui.set_import_state(ImportState::Complete);
         }
@@ -3386,7 +3364,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         }
 
         UiUpdate::ExportComplete { path } => {
-            eprintln!("Exported to: {}", path);
+            eprintln!("Exported to: {path}");
         }
 
         UiUpdate::CurlExport(curl) => {
@@ -3459,7 +3437,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
 fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<String, String> {
     // Parse Postman collection JSON
     let collection: serde_json::Value =
-        serde_json::from_str(content).map_err(|e| format!("Invalid JSON: {}", e))?;
+        serde_json::from_str(content).map_err(|e| format!("Invalid JSON: {e}"))?;
 
     // Auto-detect: If this is an environment file (has "name" and "values" but no "info"),
     // redirect to environment import
@@ -3485,12 +3463,12 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
     let safe_name = collection_name.to_lowercase().replace(' ', "-");
     let collection_dir = workspace_path.join("collections").join(&safe_name);
     std::fs::create_dir_all(&collection_dir)
-        .map_err(|e| format!("Failed to create directory: {}", e))?;
+        .map_err(|e| format!("Failed to create directory: {e}"))?;
 
     // Create requests directory
     let requests_dir = collection_dir.join("request");
     std::fs::create_dir_all(&requests_dir)
-        .map_err(|e| format!("Failed to create requests directory: {}", e))?;
+        .map_err(|e| format!("Failed to create requests directory: {e}"))?;
 
     // Create collection.json
     let coll_meta = serde_json::json!({
@@ -3502,7 +3480,7 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
         collection_dir.join("collection.json"),
         serde_json::to_string_pretty(&coll_meta).unwrap_or_default(),
     )
-    .map_err(|e| format!("Failed to write collection.json: {}", e))?;
+    .map_err(|e| format!("Failed to write collection.json: {e}"))?;
 
     // Import items
     if let Some(items) = collection.get("item").and_then(|i| i.as_array()) {
@@ -3515,9 +3493,9 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
 /// Recursively import Postman items.
 fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Result<(), String> {
     eprintln!(
-        "[IMPORT] Processing {} items in {:?}",
+        "[IMPORT] Processing {} items in {}",
         items.len(),
-        target_dir
+        target_dir.display()
     );
 
     for item in items {
@@ -3531,9 +3509,9 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
             // This is a folder - create subdirectory and recurse
             let safe_name = name.to_lowercase().replace(' ', "-");
             let subfolder = target_dir.join(&safe_name);
-            eprintln!("[IMPORT] Folder: {} -> {:?}", name, subfolder);
+            eprintln!("[IMPORT] Folder: {name} -> {}", subfolder.display());
             std::fs::create_dir_all(&subfolder)
-                .map_err(|e| format!("Failed to create folder '{}': {}", name, e))?;
+                .map_err(|e| format!("Failed to create folder '{name}': {e}"))?;
 
             // Create folder.json with display name
             let folder_meta = serde_json::json!({
@@ -3544,7 +3522,7 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                 subfolder.join("folder.json"),
                 serde_json::to_string_pretty(&folder_meta).unwrap_or_default(),
             )
-            .map_err(|e| format!("Failed to write folder.json for '{}': {}", name, e))?;
+            .map_err(|e| format!("Failed to write folder.json for '{name}': {e}"))?;
 
             if let Some(sub_items) = item.get("item").and_then(|i| i.as_array()) {
                 import_postman_items(sub_items, &subfolder)?;
@@ -3582,7 +3560,7 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                         "raw" => body_obj
                             .get("raw")
                             .and_then(|r| r.as_str())
-                            .map(|s| s.to_string()),
+                            .map(std::string::ToString::to_string),
                         "urlencoded" => {
                             // Convert form-urlencoded to string representation
                             body_obj
@@ -3594,7 +3572,7 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                                         .filter_map(|item| {
                                             let key = item.get("key")?.as_str()?;
                                             let value = item.get("value")?.as_str().unwrap_or("");
-                                            Some(format!("{}={}", key, value))
+                                            Some(format!("{key}={value}"))
                                         })
                                         .collect::<Vec<_>>()
                                         .join("&")
@@ -3636,7 +3614,7 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                         .filter_map(|param| {
                             let disabled = param
                                 .get("disabled")
-                                .and_then(|d| d.as_bool())
+                                .and_then(serde_json::Value::as_bool)
                                 .unwrap_or(false);
                             if disabled {
                                 return None;
@@ -3687,14 +3665,14 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                 vortex_request["query_params"] = serde_json::json!(query_params);
             }
 
-            let safe_name = name.to_lowercase().replace(' ', "-").replace('/', "-");
-            let file_path = target_dir.join(format!("{}.json", safe_name));
-            eprintln!("[IMPORT] Writing file: {:?}", file_path);
+            let safe_name = name.to_lowercase().replace([' ', '/'], "-");
+            let file_path = target_dir.join(format!("{safe_name}.json"));
+            eprintln!("[IMPORT] Writing file: {}", file_path.display());
             std::fs::write(
                 &file_path,
                 serde_json::to_string_pretty(&vortex_request).unwrap_or_default(),
             )
-            .map_err(|e| format!("Failed to write request '{}': {}", name, e))?;
+            .map_err(|e| format!("Failed to write request '{name}': {e}"))?;
         }
     }
 
@@ -3728,15 +3706,13 @@ fn export_vortex_collection(workspace_path: &PathBuf, output_path: &PathBuf) -> 
     if let Ok(entries) = std::fs::read_dir(&collections_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_dir() {
-                if let Ok(collection) = export_collection_dir(&path) {
-                    if let Some(collections) =
+            if path.is_dir()
+                && let Ok(collection) = export_collection_dir(&path)
+                    && let Some(collections) =
                         export.get_mut("collections").and_then(|c| c.as_array_mut())
                     {
                         collections.push(collection);
                     }
-                }
-            }
         }
     }
 
@@ -3744,7 +3720,7 @@ fn export_vortex_collection(workspace_path: &PathBuf, output_path: &PathBuf) -> 
         output_path,
         serde_json::to_string_pretty(&export).unwrap_or_default(),
     )
-    .map_err(|e| format!("Failed to write export file: {}", e))?;
+    .map_err(|e| format!("Failed to write export file: {e}"))?;
 
     Ok(())
 }
@@ -3754,7 +3730,7 @@ fn export_collection_dir(collection_path: &PathBuf) -> Result<serde_json::Value,
     let collection_json = collection_path.join("collection.json");
     let collection_meta: serde_json::Value = if collection_json.exists() {
         let content = std::fs::read_to_string(&collection_json)
-            .map_err(|e| format!("Failed to read collection.json: {}", e))?;
+            .map_err(|e| format!("Failed to read collection.json: {e}"))?;
         serde_json::from_str(&content).unwrap_or_default()
     } else {
         serde_json::json!({
@@ -3780,12 +3756,11 @@ fn collect_requests(dir: &PathBuf, requests: &mut Vec<serde_json::Value>) -> Res
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_file() && path.extension().map_or(false, |e| e == "json") {
-                if let Ok(content) = std::fs::read_to_string(&path) {
-                    if let Ok(req) = serde_json::from_str::<serde_json::Value>(&content) {
+            if path.is_file() && path.extension().is_some_and(|e| e == "json") {
+                if let Ok(content) = std::fs::read_to_string(&path)
+                    && let Ok(req) = serde_json::from_str::<serde_json::Value>(&content) {
                         requests.push(req);
                     }
-                }
             } else if path.is_dir() {
                 collect_requests(&path, requests)?;
             }
@@ -3803,8 +3778,7 @@ fn generate_curl_command(state: &AppState) -> String {
         .tabs
         .iter()
         .find(|t| state.active_tab_id.as_ref() == Some(&t.id))
-        .map(|t| t.method)
-        .unwrap_or(0)
+        .map_or(0, |t| t.method)
     {
         0 => "GET",
         1 => "POST",
@@ -3817,7 +3791,7 @@ fn generate_curl_command(state: &AppState) -> String {
     };
 
     if method != "GET" {
-        parts.push(format!("-X {}", method));
+        parts.push(format!("-X {method}"));
     }
 
     // URL
@@ -3864,11 +3838,9 @@ fn generate_curl_command(state: &AppState) -> String {
         .tabs
         .iter()
         .find(|t| state.active_tab_id.as_ref() == Some(&t.id))
-    {
-        if !tab.body.is_empty() && (method == "POST" || method == "PUT" || method == "PATCH") {
+        && !tab.body.is_empty() && (method == "POST" || method == "PUT" || method == "PATCH") {
             parts.push(format!("-d '{}'", tab.body.replace('\'', "'\\''")));
         }
-    }
 
     parts.join(" \\\n  ")
 }
@@ -3919,10 +3891,10 @@ fn collect_requests_for_search<'a>(
                 if path.is_dir() {
                     // Recurse into subdirectories
                     collect_requests_for_search(&path, collection_name, results).await;
-                } else if path.extension().map_or(false, |e| e == "json") {
+                } else if path.extension().is_some_and(|e| e == "json") {
                     // This is a request file
-                    if let Ok(content) = tokio::fs::read_to_string(&path).await {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Ok(content) = tokio::fs::read_to_string(&path).await
+                        && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
                             let name = json
                                 .get("name")
                                 .and_then(|n| n.as_str())
@@ -3954,7 +3926,6 @@ fn collect_requests_for_search<'a>(
                                 path: path.display().to_string(),
                             });
                         }
-                    }
                 }
             }
         }
@@ -3964,7 +3935,7 @@ fn collect_requests_for_search<'a>(
 /// Import a Postman environment file.
 fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result<String, String> {
     let env: serde_json::Value =
-        serde_json::from_str(content).map_err(|e| format!("Invalid JSON: {}", e))?;
+        serde_json::from_str(content).map_err(|e| format!("Invalid JSON: {e}"))?;
 
     // Postman environment format has "name" and "values" at the root level
     // (unlike collections which have "info")
@@ -3982,7 +3953,7 @@ fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result
     // Create environments directory if it doesn't exist
     let environments_dir = workspace_path.join("environments");
     std::fs::create_dir_all(&environments_dir)
-        .map_err(|e| format!("Failed to create environments directory: {}", e))?;
+        .map_err(|e| format!("Failed to create environments directory: {e}"))?;
 
     // Convert Postman variables to Vortex format
     let variables: Vec<serde_json::Value> = values
@@ -3990,7 +3961,7 @@ fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result
         .filter_map(|v| {
             let key = v.get("key")?.as_str()?;
             let value = v.get("value")?.as_str().unwrap_or("");
-            let enabled = v.get("enabled").and_then(|e| e.as_bool()).unwrap_or(true);
+            let enabled = v.get("enabled").and_then(serde_json::Value::as_bool).unwrap_or(true);
             let secret = v.get("type").and_then(|t| t.as_str()) == Some("secret");
 
             Some(serde_json::json!({
@@ -4011,18 +3982,18 @@ fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result
     });
 
     let safe_name = name.to_lowercase().replace(' ', "-");
-    let file_path = environments_dir.join(format!("{}.json", safe_name));
+    let file_path = environments_dir.join(format!("{safe_name}.json"));
 
     std::fs::write(
         &file_path,
         serde_json::to_string_pretty(&vortex_env).unwrap_or_default(),
     )
-    .map_err(|e| format!("Failed to write environment file: {}", e))?;
+    .map_err(|e| format!("Failed to write environment file: {e}"))?;
 
     Ok(name)
 }
 
-/// Converts persistence auth configuration to UI-friendly AuthData.
+/// Converts persistence auth configuration to UI-friendly `AuthData`.
 fn persistence_auth_to_ui(auth: Option<&PersistenceAuth>) -> AuthData {
     match auth {
         None => AuthData::default(),
@@ -4052,12 +4023,12 @@ fn persistence_auth_to_ui(auth: Option<&PersistenceAuth>) -> AuthData {
             ..AuthData::default()
         },
         // OAuth2 types default to None for now (not supported in UI yet)
-        Some(PersistenceAuth::Oauth2ClientCredentials { .. })
-        | Some(PersistenceAuth::Oauth2AuthCode { .. }) => AuthData::default(),
+        Some(PersistenceAuth::Oauth2ClientCredentials { .. } |
+PersistenceAuth::Oauth2AuthCode { .. }) => AuthData::default(),
     }
 }
 
-/// Converts UI AuthData back to persistence format for saving.
+/// Converts UI `AuthData` back to persistence format for saving.
 fn ui_auth_to_persistence(auth: &AuthData) -> Option<PersistenceAuth> {
     match auth.auth_type {
         0 => None, // No auth
@@ -4083,7 +4054,7 @@ fn ui_auth_to_persistence(auth: &AuthData) -> Option<PersistenceAuth> {
     }
 }
 
-/// Builds a SavedRequest from TabState for persistence.
+/// Builds a `SavedRequest` from `TabState` for persistence.
 fn build_saved_request_from_tab(tab: &TabState) -> SavedRequest {
     let method = match tab.method {
         0 => PersistenceHttpMethod::Get,

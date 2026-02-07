@@ -66,7 +66,7 @@ pub struct ExecuteRequest<C: HttpClient> {
 
 impl<C: HttpClient> ExecuteRequest<C> {
     /// Creates a new `ExecuteRequest` use case with the given HTTP client.
-    pub fn new(client: Arc<C>) -> Self {
+    pub const fn new(client: Arc<C>) -> Self {
         Self { client }
     }
 
@@ -100,6 +100,7 @@ impl<C: HttpClient> ExecuteRequest<C> {
     /// # Returns
     ///
     /// The response, or an error if cancelled or failed.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn execute_with_cancellation(
         &self,
         request: &RequestSpec,
@@ -120,6 +121,7 @@ impl<C: HttpClient> ExecuteRequest<C> {
     }
 
     /// Validates the request before execution.
+    #[allow(clippy::unused_self)]
     fn validate(&self, request: &RequestSpec) -> Result<(), ExecuteRequestError> {
         // Check for empty URL
         if request.url.trim().is_empty() {
@@ -153,6 +155,7 @@ impl ExecuteResultExt for ExecuteResult {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use std::collections::HashMap;

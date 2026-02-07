@@ -14,7 +14,7 @@ use super::test_assertion::TestAssertion;
 /// Variables use `{{variable_name}}` syntax and are resolved at execution time.
 ///
 /// Fields are ordered alphabetically for deterministic serialization.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SavedRequest {
     /// Request-specific authentication. Overrides folder/collection auth if set.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -112,7 +112,7 @@ impl SavedRequest {
 
     /// Sets request-specific settings.
     #[must_use]
-    pub fn with_settings(mut self, settings: RequestSettings) -> Self {
+    pub const fn with_settings(mut self, settings: RequestSettings) -> Self {
         self.settings = Some(settings);
         self
     }

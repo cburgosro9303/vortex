@@ -84,6 +84,7 @@ pub struct HistoryEntry {
 impl HistoryEntry {
     /// Creates a new history entry for a successful request.
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         method: HttpMethod,
         url: String,
@@ -163,6 +164,7 @@ impl HistoryEntry {
     pub fn duration_display(&self) -> String {
         match self.duration_ms {
             Some(ms) if ms < 1000 => format!("{ms}ms"),
+            #[allow(clippy::cast_precision_loss)]
             Some(ms) => format!("{:.1}s", ms as f64 / 1000.0),
             None => "-".to_string(),
         }
@@ -179,14 +181,14 @@ pub struct RequestHistory {
     max_entries: usize,
 }
 
-fn default_max_entries() -> usize {
+const fn default_max_entries() -> usize {
     100
 }
 
 impl RequestHistory {
     /// Creates a new empty history.
     #[must_use]
-    pub fn new(max_entries: usize) -> Self {
+    pub const fn new(max_entries: usize) -> Self {
         Self {
             entries: VecDeque::new(),
             max_entries,
@@ -205,7 +207,7 @@ impl RequestHistory {
 
     /// Returns all entries (newest first).
     #[must_use]
-    pub fn entries(&self) -> &VecDeque<HistoryEntry> {
+    pub const fn entries(&self) -> &VecDeque<HistoryEntry> {
         &self.entries
     }
 

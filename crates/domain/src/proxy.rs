@@ -5,12 +5,12 @@
 use serde::{Deserialize, Serialize};
 
 /// Proxy configuration for HTTP requests.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct ProxyConfig {
     /// Whether to use a proxy.
     #[serde(default)]
     pub enabled: bool,
-    /// Proxy server URL (e.g., "http://proxy.example.com:8080").
+    /// Proxy server URL (e.g., "<http://proxy.example.com:8080>").
     #[serde(default)]
     pub url: String,
     /// Proxy authentication username.
@@ -64,13 +64,13 @@ impl ProxyConfig {
 
     /// Check if the proxy is effectively enabled.
     #[must_use]
-    pub fn is_active(&self) -> bool {
+    pub const fn is_active(&self) -> bool {
         self.enabled && (!self.url.is_empty() || self.use_system_proxy)
     }
 
     /// Check if the proxy has authentication.
     #[must_use]
-    pub fn has_auth(&self) -> bool {
+    pub const fn has_auth(&self) -> bool {
         self.username.is_some() && self.password.is_some()
     }
 
@@ -84,7 +84,7 @@ impl ProxyConfig {
         if let (Some(user), Some(pass)) = (&self.username, &self.password) {
             // Parse URL and insert credentials
             if let Some((scheme, rest)) = self.url.split_once("://") {
-                return Some(format!("{}://{}:{}@{}", scheme, user, pass, rest));
+                return Some(format!("{scheme}://{user}:{pass}@{rest}"));
             }
         }
 
@@ -97,17 +97,12 @@ impl ProxyConfig {
         let host_lower = host.to_lowercase();
         self.bypass_hosts.iter().any(|bypass| {
             let bypass_lower = bypass.to_lowercase().trim().to_string();
-            if bypass_lower.starts_with('*') {
-                // Wildcard match (e.g., "*.example.com")
-                let suffix = &bypass_lower[1..];
-                host_lower.ends_with(suffix)
-            } else {
-                host_lower == bypass_lower || host_lower.ends_with(&format!(".{}", bypass_lower))
-            }
+            bypass_lower.strip_prefix('*').map_or_else(|| host_lower == bypass_lower || host_lower.ends_with(&format!(".{bypass_lower}")), |suffix| host_lower.ends_with(suffix))
         })
     }
 
     /// Validate the proxy configuration.
+    #[allow(clippy::missing_errors_doc)]
     pub fn validate(&self) -> Result<(), ProxyError> {
         if !self.enabled {
             return Ok(());
@@ -117,8 +112,8 @@ impl ProxyConfig {
             return Err(ProxyError::MissingUrl);
         }
 
-        if !self.url.is_empty() {
-            if !self.url.starts_with("http://")
+        if !self.url.is_empty()
+            && !self.url.starts_with("http://")
                 && !self.url.starts_with("https://")
                 && !self.url.starts_with("socks4://")
                 && !self.url.starts_with("socks5://")
@@ -127,7 +122,6 @@ impl ProxyConfig {
                     "URL must start with http://, https://, socks4://, or socks5://".to_string(),
                 ));
             }
-        }
 
         // Check for incomplete auth
         if self.username.is_some() != self.password.is_some() {
@@ -158,8 +152,7 @@ impl ProxyType {
     #[must_use]
     pub const fn default_port(&self) -> u16 {
         match self {
-            Self::Http => 8080,
-            Self::Https => 8080,
+            Self::Http | Self::Https => 8080,
             Self::Socks4 | Self::Socks5 => 1080,
         }
     }
@@ -188,7 +181,7 @@ impl ProxyType {
 }
 
 /// Proxy-related errors.
-#[derive(Debug, Clone, thiserror::Error, PartialEq)]
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum ProxyError {
     /// Missing proxy URL.
     #[error("Proxy URL is required when proxy is enabled")]
@@ -208,7 +201,7 @@ pub enum ProxyError {
 }
 
 /// Global proxy settings for the application.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GlobalProxySettings {
     /// HTTP proxy configuration.
     #[serde(default)]
@@ -224,7 +217,7 @@ pub struct GlobalProxySettings {
     pub global_bypass: Vec<String>,
 }
 
-fn default_true() -> bool {
+const fn default_true() -> bool {
     true
 }
 
@@ -248,7 +241,7 @@ impl GlobalProxySettings {
 
     /// Get the effective proxy for a URL scheme.
     #[must_use]
-    pub fn get_proxy(&self, is_https: bool) -> Option<&ProxyConfig> {
+    pub const fn get_proxy(&self, is_https: bool) -> Option<&ProxyConfig> {
         if self.use_same_proxy {
             if self.http_proxy.is_active() {
                 return Some(&self.http_proxy);
@@ -267,12 +260,13 @@ impl GlobalProxySettings {
         let host_lower = host.to_lowercase();
         self.global_bypass.iter().any(|bypass| {
             let bypass_lower = bypass.to_lowercase().trim().to_string();
-            host_lower == bypass_lower || host_lower.ends_with(&format!(".{}", bypass_lower))
+            host_lower == bypass_lower || host_lower.ends_with(&format!(".{bypass_lower}"))
         })
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

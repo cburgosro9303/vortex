@@ -35,7 +35,7 @@ pub struct SaveEnvironment<R> {
 
 impl<R: EnvironmentRepository> SaveEnvironment<R> {
     /// Creates a new `SaveEnvironment` use case.
-    pub fn new(repository: R) -> Self {
+    pub const fn new(repository: R) -> Self {
         Self { repository }
     }
 
@@ -58,6 +58,7 @@ impl<R: EnvironmentRepository> SaveEnvironment<R> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::significant_drop_tightening)]
 mod tests {
     use super::*;
     use async_trait::async_trait;

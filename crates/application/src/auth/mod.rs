@@ -3,7 +3,7 @@
 //! This module provides:
 //! - In-memory token storage with expiry tracking
 //! - Authentication provider trait for resolving auth configs
-//! - OAuth2 flow state management
+//! - `OAuth2` flow state management
 
 mod provider;
 mod token_store;

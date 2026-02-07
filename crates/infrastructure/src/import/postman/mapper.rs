@@ -121,11 +121,13 @@ pub struct MappedEnvironment {
 }
 
 /// Map HTTP method to Vortex format
+#[must_use] 
 pub fn map_http_method(method: &str) -> String {
     method.to_uppercase()
 }
 
 /// Map headers from Postman format
+#[must_use] 
 pub fn map_headers(headers: &[PostmanHeader]) -> (BTreeMap<String, String>, Vec<ImportWarning>) {
     let mut warnings = Vec::new();
     let mapped: BTreeMap<String, String> = headers
@@ -138,7 +140,7 @@ pub fn map_headers(headers: &[PostmanHeader]) -> (BTreeMap<String, String>, Vec<
     if disabled_count > 0 {
         warnings.push(ImportWarning::new(
             "headers",
-            format!("{} disabled header(s) were skipped", disabled_count),
+            format!("{disabled_count} disabled header(s) were skipped"),
             WarningSeverity::Info,
         ));
     }
@@ -147,6 +149,7 @@ pub fn map_headers(headers: &[PostmanHeader]) -> (BTreeMap<String, String>, Vec<
 }
 
 /// Map query parameters
+#[must_use] 
 pub fn map_query_params(
     params: &[PostmanQueryParam],
 ) -> (BTreeMap<String, String>, Vec<ImportWarning>) {
@@ -161,7 +164,7 @@ pub fn map_query_params(
     if disabled_count > 0 {
         warnings.push(ImportWarning::new(
             "query_params",
-            format!("{} disabled query param(s) were skipped", disabled_count),
+            format!("{disabled_count} disabled query param(s) were skipped"),
             WarningSeverity::Info,
         ));
     }
@@ -170,6 +173,7 @@ pub fn map_query_params(
 }
 
 /// Map body from Postman format
+#[must_use] 
 pub fn map_body(body: &Option<PostmanBody>) -> (Option<MappedBody>, Vec<ImportWarning>) {
     let mut warnings = Vec::new();
 
@@ -189,11 +193,10 @@ pub fn map_body(body: &Option<PostmanBody>) -> (Option<MappedBody>, Vec<ImportWa
                     .and_then(|r| r.language.clone())
                     .unwrap_or_default();
 
-                if language == "json" || raw.trim_start().starts_with('{') || raw.trim_start().starts_with('[') {
-                    if let Ok(json_value) = serde_json::from_str::<Value>(&raw) {
+                if (language == "json" || raw.trim_start().starts_with('{') || raw.trim_start().starts_with('['))
+                    && let Ok(json_value) = serde_json::from_str::<Value>(&raw) {
                         return Some(MappedBody::Json(json_value));
                     }
-                }
                 Some(MappedBody::Text(raw))
             }
             "urlencoded" => {
@@ -233,7 +236,7 @@ pub fn map_body(body: &Option<PostmanBody>) -> (Option<MappedBody>, Vec<ImportWa
                 if file_count > 0 {
                     warnings.push(ImportWarning::new(
                         "body.formdata",
-                        format!("{} file field(s) were imported without actual file content", file_count),
+                        format!("{file_count} file field(s) were imported without actual file content"),
                         WarningSeverity::Warning,
                     ));
                 }
@@ -250,19 +253,15 @@ pub fn map_body(body: &Option<PostmanBody>) -> (Option<MappedBody>, Vec<ImportWa
                 Some(MappedBody::Binary { filename })
             }
             "graphql" => {
-                if let Some(ref gql) = b.graphql {
-                    Some(MappedBody::GraphQL {
+                b.graphql.as_ref().map(|gql| MappedBody::GraphQL {
                         query: gql.query.clone(),
                         variables: gql.variables.clone(),
                     })
-                } else {
-                    None
-                }
             }
             other => {
                 warnings.push(ImportWarning::new(
                     "body",
-                    format!("Unknown body mode '{}' was skipped", other),
+                    format!("Unknown body mode '{other}' was skipped"),
                     WarningSeverity::Warning,
                 ));
                 None
@@ -274,6 +273,7 @@ pub fn map_body(body: &Option<PostmanBody>) -> (Option<MappedBody>, Vec<ImportWa
 }
 
 /// Map authentication
+#[must_use] 
 pub fn map_auth(auth: &Option<PostmanAuth>) -> (Option<MappedAuth>, Vec<ImportWarning>) {
     let mut warnings = Vec::new();
 
@@ -330,7 +330,7 @@ pub fn map_auth(auth: &Option<PostmanAuth>) -> (Option<MappedAuth>, Vec<ImportWa
         other => {
             warnings.push(ImportWarning::new(
                 "auth",
-                format!("Unknown authentication type '{}' was skipped", other),
+                format!("Unknown authentication type '{other}' was skipped"),
                 WarningSeverity::Warning,
             ));
             None
@@ -341,6 +341,7 @@ pub fn map_auth(auth: &Option<PostmanAuth>) -> (Option<MappedAuth>, Vec<ImportWa
 }
 
 /// Map collection variables
+#[must_use] 
 pub fn map_collection_variables(variables: &[PostmanVariable]) -> Vec<MappedVariable> {
     variables
         .iter()
@@ -355,6 +356,7 @@ pub fn map_collection_variables(variables: &[PostmanVariable]) -> Vec<MappedVari
 }
 
 /// Map a single Postman item (recursively handles folders)
+#[must_use] 
 pub fn map_postman_item(
     item: &PostmanItem,
     path: &str,
@@ -374,8 +376,7 @@ pub fn map_postman_item(
             warnings.push(ImportWarning::new(
                 &current_path,
                 format!(
-                    "Folder exceeds maximum depth of {} and was flattened",
-                    max_depth
+                    "Folder exceeds maximum depth of {max_depth} and was flattened"
                 ),
                 WarningSeverity::Warning,
             ));
@@ -441,7 +442,7 @@ pub fn map_postman_item(
             Some(MappedItem::Request(MappedRequest {
                 id: uuid::Uuid::now_v7().to_string(),
                 name: item.name.clone(),
-                description: item.description.clone().or(request.description.clone()),
+                description: item.description.clone().or_else(|| request.description.clone()),
                 method: map_http_method(&request.method),
                 url: request.url.raw(),
                 headers,
@@ -464,6 +465,7 @@ pub fn map_postman_item(
 }
 
 /// Map a complete Postman collection
+#[must_use] 
 pub fn map_postman_collection(
     collection: &PostmanCollection,
     max_depth: usize,
@@ -509,6 +511,7 @@ pub fn map_postman_collection(
 }
 
 /// Map a Postman environment to Vortex format
+#[must_use] 
 pub fn map_postman_environment(env: &PostmanEnvironment) -> MappedEnvironment {
     let warnings = Vec::new();
 
@@ -530,7 +533,8 @@ pub fn map_postman_environment(env: &PostmanEnvironment) -> MappedEnvironment {
     }
 }
 
-/// Convert MappedBody to Vortex JSON format
+/// Convert `MappedBody` to Vortex JSON format
+#[must_use] 
 pub fn body_to_vortex_json(body: &MappedBody) -> Value {
     match body {
         MappedBody::Json(v) => json!({
@@ -589,7 +593,8 @@ pub fn body_to_vortex_json(body: &MappedBody) -> Value {
     }
 }
 
-/// Convert MappedAuth to Vortex JSON format
+/// Convert `MappedAuth` to Vortex JSON format
+#[must_use] 
 pub fn auth_to_vortex_json(auth: &MappedAuth) -> Value {
     match auth {
         MappedAuth::None => json!({ "type": "none" }),
@@ -624,6 +629,7 @@ pub fn auth_to_vortex_json(auth: &MappedAuth) -> Value {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

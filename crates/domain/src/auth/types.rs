@@ -35,7 +35,7 @@ pub enum AuthConfig {
         /// Password (may contain variables)
         password: String,
     },
-    /// OAuth2 Client Credentials flow
+    /// `OAuth2` Client Credentials flow
     #[serde(rename = "oauth2_client_credentials")]
     OAuth2ClientCredentials {
         /// Token endpoint URL
@@ -51,7 +51,7 @@ pub enum AuthConfig {
         #[serde(default)]
         extra_params: BTreeMap<String, String>,
     },
-    /// OAuth2 Authorization Code flow
+    /// `OAuth2` Authorization Code flow
     #[serde(rename = "oauth2_auth_code")]
     OAuth2AuthorizationCode {
         /// Authorization endpoint URL
@@ -95,7 +95,7 @@ impl AuthConfig {
         !matches!(self, Self::None)
     }
 
-    /// Returns true if this is an OAuth2 config that needs token acquisition.
+    /// Returns true if this is an `OAuth2` config that needs token acquisition.
     #[must_use]
     pub const fn is_oauth2(&self) -> bool {
         matches!(
@@ -133,7 +133,7 @@ impl AuthConfig {
     }
 
     /// Generates a unique key for token caching.
-    /// For OAuth2 configs, this creates a hash-like key from the configuration.
+    /// For `OAuth2` configs, this creates a hash-like key from the configuration.
     #[must_use]
     pub fn cache_key(&self) -> Option<String> {
         match self {
@@ -144,7 +144,7 @@ impl AuthConfig {
                 ..
             } => {
                 let scope_part = scope.as_deref().unwrap_or("");
-                Some(format!("cc:{}:{}:{}", token_url, client_id, scope_part))
+                Some(format!("cc:{token_url}:{client_id}:{scope_part}"))
             }
             Self::OAuth2AuthorizationCode {
                 auth_url,
@@ -153,14 +153,14 @@ impl AuthConfig {
                 ..
             } => {
                 let scope_part = scope.as_deref().unwrap_or("");
-                Some(format!("ac:{}:{}:{}", auth_url, client_id, scope_part))
+                Some(format!("ac:{auth_url}:{client_id}:{scope_part}"))
             }
             _ => None,
         }
     }
 }
 
-/// OAuth2 token with metadata for expiry tracking.
+/// `OAuth2` token with metadata for expiry tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OAuth2Token {
     /// The access token string
@@ -189,7 +189,7 @@ impl OAuth2Token {
         scopes: Vec<String>,
     ) -> Self {
         let now = Utc::now();
-        let expires_at = expires_in_secs.map(|secs| now + chrono::Duration::seconds(secs as i64));
+        let expires_at = expires_in_secs.map(|secs| now + chrono::Duration::seconds(secs.cast_signed()));
 
         Self {
             access_token,
@@ -204,18 +204,15 @@ impl OAuth2Token {
     /// Check if the token is expired or will expire within the given buffer.
     #[must_use]
     pub fn is_expired_or_expiring(&self, buffer_seconds: i64) -> bool {
-        match self.expires_at {
-            Some(expires_at) => {
+        self.expires_at.is_some_and(|expires_at| {
                 let buffer = chrono::Duration::seconds(buffer_seconds);
                 Utc::now() + buffer >= expires_at
-            }
-            None => false, // No expiry known, assume valid
-        }
+            })
     }
 
     /// Check if the token can be refreshed.
     #[must_use]
-    pub fn can_refresh(&self) -> bool {
+    pub const fn can_refresh(&self) -> bool {
         self.refresh_token.is_some()
     }
 
@@ -273,12 +270,12 @@ pub enum AuthError {
         /// Error description.
         message: String,
     },
-    /// OAuth2 authorization failed.
+    /// `OAuth2` authorization failed.
     OAuth2AuthorizationFailed {
         /// Error description.
         message: String,
     },
-    /// Invalid OAuth2 configuration.
+    /// Invalid `OAuth2` configuration.
     InvalidConfiguration {
         /// Error description.
         message: String,
@@ -303,18 +300,18 @@ impl std::fmt::Display for AuthError {
             Self::TokenExpiredNoRefresh => {
                 write!(f, "Token expired and no refresh token available")
             }
-            Self::RefreshFailed { message } => write!(f, "Failed to refresh token: {}", message),
+            Self::RefreshFailed { message } => write!(f, "Failed to refresh token: {message}"),
             Self::OAuth2AuthorizationFailed { message } => {
-                write!(f, "OAuth2 authorization failed: {}", message)
+                write!(f, "OAuth2 authorization failed: {message}")
             }
             Self::InvalidConfiguration { message } => {
-                write!(f, "Invalid OAuth2 configuration: {}", message)
+                write!(f, "Invalid OAuth2 configuration: {message}")
             }
             Self::UserCancelled => write!(f, "User cancelled authentication"),
             Self::CallbackServerError { message } => {
-                write!(f, "Callback server error: {}", message)
+                write!(f, "Callback server error: {message}")
             }
-            Self::NetworkError { message } => write!(f, "Network error: {}", message),
+            Self::NetworkError { message } => write!(f, "Network error: {message}"),
         }
     }
 }

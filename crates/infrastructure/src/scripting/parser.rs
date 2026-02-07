@@ -12,7 +12,7 @@ use thiserror::Error;
 use vortex_domain::scripting::ScriptCommand;
 
 /// Error type for script parsing.
-#[derive(Debug, Error, Clone, PartialEq)]
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum ParseError {
     /// Unknown command.
     #[error("Unknown command: {0}")]
@@ -168,6 +168,7 @@ fn parse_line(line: &str, line_num: usize) -> Result<ScriptCommand, ParseError> 
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn parse_arguments(args_str: &str) -> Result<Vec<String>, ParseError> {
     let mut args = Vec::new();
     let mut current = String::new();
@@ -223,6 +224,7 @@ fn parse_arguments(args_str: &str) -> Result<Vec<String>, ParseError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

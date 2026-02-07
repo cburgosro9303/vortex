@@ -19,9 +19,9 @@ pub enum WarningSeverity {
 impl std::fmt::Display for WarningSeverity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            WarningSeverity::Info => write!(f, "info"),
-            WarningSeverity::Warning => write!(f, "warning"),
-            WarningSeverity::Error => write!(f, "error"),
+            Self::Info => write!(f, "info"),
+            Self::Warning => write!(f, "warning"),
+            Self::Error => write!(f, "error"),
         }
     }
 }
@@ -67,7 +67,8 @@ impl ImportWarning {
     }
 
     /// Check if this is an error
-    pub fn is_error(&self) -> bool {
+    #[must_use] 
+    pub const fn is_error(&self) -> bool {
         matches!(self.severity, WarningSeverity::Error)
     }
 }
@@ -91,6 +92,7 @@ pub struct WarningStats {
 
 impl WarningStats {
     /// Calculate stats from a list of warnings
+    #[must_use] 
     pub fn from_warnings(warnings: &[ImportWarning]) -> Self {
         let mut stats = Self::default();
         for w in warnings {
@@ -104,12 +106,14 @@ impl WarningStats {
     }
 
     /// Total count of all warnings
-    pub fn total(&self) -> usize {
+    #[must_use] 
+    pub const fn total(&self) -> usize {
         self.info_count + self.warning_count + self.error_count
     }
 
     /// Check if there are any errors
-    pub fn has_errors(&self) -> bool {
+    #[must_use] 
+    pub const fn has_errors(&self) -> bool {
         self.error_count > 0
     }
 }

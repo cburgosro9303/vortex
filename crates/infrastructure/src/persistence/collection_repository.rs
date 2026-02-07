@@ -68,7 +68,7 @@ impl<F: FileSystem + Send + Sync> FileSystemCollectionRepository<F> {
                         Box::pin(self.load_folder_tree(&entry, &sub_relative)).await?;
                     subfolders.push(subfolder_tree);
                 }
-            } else if file_name.ends_with(".json") {
+            } else if file_name.to_ascii_lowercase().ends_with(".json") {
                 // It's a request file
                 let request = self.load_request(&entry).await?;
                 requests.push(request);
@@ -97,7 +97,7 @@ impl<F: FileSystem + Send + Sync> FileSystemCollectionRepository<F> {
     }
 
     /// Serializes and saves a value to a JSON file.
-    async fn save_json<T: serde::Serialize>(
+    async fn save_json<T: serde::Serialize + Sync>(
         &self,
         path: &Path,
         value: &T,
@@ -159,7 +159,7 @@ impl<F: FileSystem + Send + Sync> CollectionRepository for FileSystemCollectionR
                         let folder_tree = self.load_folder_tree(&entry, &file_name).await?;
                         folders.push(folder_tree);
                     }
-                } else if file_name.ends_with(".json") {
+                } else if file_name.to_ascii_lowercase().ends_with(".json") {
                     let request = self.load_request(&entry).await?;
                     requests.push(request);
                 }
@@ -240,10 +240,7 @@ impl<F: FileSystem + Send + Sync> CollectionRepository for FileSystemCollectionR
         folder_path: Option<&Path>,
         request: &SavedRequest,
     ) -> Result<PathBuf, CollectionError> {
-        let base_dir = match folder_path {
-            Some(folder) => collection_dir.join(REQUESTS_DIR).join(folder),
-            None => collection_dir.join(REQUESTS_DIR),
-        };
+        let base_dir = folder_path.map_or_else(|| collection_dir.join(REQUESTS_DIR), |folder| collection_dir.join(REQUESTS_DIR).join(folder));
 
         // Ensure directory exists
         self.fs
@@ -298,10 +295,7 @@ impl<F: FileSystem + Send + Sync> CollectionRepository for FileSystemCollectionR
         parent_folder: Option<&Path>,
         folder: &PersistenceFolder,
     ) -> Result<PathBuf, CollectionError> {
-        let base_dir = match parent_folder {
-            Some(parent) => collection_dir.join(REQUESTS_DIR).join(parent),
-            None => collection_dir.join(REQUESTS_DIR),
-        };
+        let base_dir = parent_folder.map_or_else(|| collection_dir.join(REQUESTS_DIR), |parent| collection_dir.join(REQUESTS_DIR).join(parent));
 
         let folder_name = slugify(&folder.name);
         let folder_path = base_dir.join(&folder_name);
@@ -331,6 +325,7 @@ impl<F: FileSystem + Send + Sync> CollectionRepository for FileSystemCollectionR
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use vortex_domain::persistence::PersistenceHttpMethod;
 

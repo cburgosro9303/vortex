@@ -53,7 +53,7 @@ pub struct SwitchEnvironment<E, S> {
 
 impl<E: EnvironmentRepository, S: SecretsRepository> SwitchEnvironment<E, S> {
     /// Creates a new `SwitchEnvironment` use case.
-    pub fn new(environment_repo: E, secrets_repo: S) -> Self {
+    pub const fn new(environment_repo: E, secrets_repo: S) -> Self {
         Self {
             environment_repo,
             secrets_repo,
@@ -101,6 +101,7 @@ impl<E: EnvironmentRepository, S: SecretsRepository> SwitchEnvironment<E, S> {
     /// # Arguments
     /// * `workspace` - Path to the workspace root
     /// * `environment_name` - Name of the environment to switch to
+    #[allow(clippy::missing_errors_doc)]
     pub async fn execute_simple(
         &self,
         workspace: &Path,
@@ -117,6 +118,7 @@ impl<E: EnvironmentRepository, S: SecretsRepository> SwitchEnvironment<E, S> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::significant_drop_tightening)]
 mod tests {
     use super::*;
     use async_trait::async_trait;

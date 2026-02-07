@@ -94,37 +94,34 @@ impl ResolutionContext {
         }
 
         // Environment variables
-        if let Some(var) = self.environment.get(name) {
-            if var.enabled {
+        if let Some(var) = self.environment.get(name)
+            && var.enabled {
                 return Some(ResolvedVariable {
                     name: name.to_string(),
                     value: var.value.clone(),
                     scope: VariableScope::Environment,
                 });
             }
-        }
 
         // Collection variables
-        if let Some(var) = self.collection.get(name) {
-            if var.enabled {
+        if let Some(var) = self.collection.get(name)
+            && var.enabled {
                 return Some(ResolvedVariable {
                     name: name.to_string(),
                     value: var.value.clone(),
                     scope: VariableScope::Collection,
                 });
             }
-        }
 
         // Global variables (lowest precedence)
-        if let Some(var) = self.globals.get(name) {
-            if var.enabled {
+        if let Some(var) = self.globals.get(name)
+            && var.enabled {
                 return Some(ResolvedVariable {
                     name: name.to_string(),
                     value: var.value.clone(),
                     scope: VariableScope::Global,
                 });
             }
-        }
 
         None
     }
@@ -159,25 +156,29 @@ impl ResolutionContext {
     }
 
     /// Sets the globals source.
+    #[must_use] 
     pub fn with_globals(mut self, globals: &Globals) -> Self {
-        self.globals = globals.variables.clone();
+        self.globals.clone_from(&globals.variables);
         self
     }
 
     /// Sets the collection variables source.
+    #[must_use] 
     pub fn with_collection(mut self, collection: &VariableMap) -> Self {
-        self.collection = collection.clone();
+        self.collection.clone_from(collection);
         self
     }
 
     /// Sets the environment source.
+    #[must_use] 
     pub fn with_environment(mut self, environment: &Environment) -> Self {
-        self.environment = environment.variables.clone();
-        self.environment_name = environment.name.clone();
+        self.environment.clone_from(&environment.variables);
+        self.environment_name.clone_from(&environment.name);
         self
     }
 
     /// Sets the secrets source.
+    #[must_use] 
     pub fn with_secrets(mut self, secrets_store: &SecretsStore, environment_name: &str) -> Self {
         self.secrets = secrets_store
             .get_environment_secrets(environment_name)
@@ -188,6 +189,7 @@ impl ResolutionContext {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::environment::Variable;

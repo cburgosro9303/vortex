@@ -43,7 +43,7 @@ pub struct PostmanItem {
     pub description: Option<String>,
     /// If present, this item is a folder containing sub-items
     #[serde(default)]
-    pub item: Option<Vec<PostmanItem>>,
+    pub item: Option<Vec<Self>>,
     /// If present, this item is a request
     #[serde(default)]
     pub request: Option<PostmanRequest>,
@@ -60,12 +60,14 @@ pub struct PostmanItem {
 
 impl PostmanItem {
     /// Returns true if this item is a folder (has sub-items)
-    pub fn is_folder(&self) -> bool {
+    #[must_use] 
+    pub const fn is_folder(&self) -> bool {
         self.item.is_some()
     }
 
     /// Returns true if this item is a request
-    pub fn is_request(&self) -> bool {
+    #[must_use] 
+    pub const fn is_request(&self) -> bool {
         self.request.is_some()
     }
 }
@@ -98,18 +100,20 @@ pub enum PostmanUrl {
 
 impl PostmanUrl {
     /// Get the raw URL string
+    #[must_use] 
     pub fn raw(&self) -> String {
         match self {
-            PostmanUrl::Empty => String::new(),
-            PostmanUrl::Simple(s) => s.clone(),
-            PostmanUrl::Structured(s) => s.raw.clone().unwrap_or_default(),
+            Self::Empty => String::new(),
+            Self::Simple(s) => s.clone(),
+            Self::Structured(s) => s.raw.clone().unwrap_or_default(),
         }
     }
 
     /// Get query parameters if available
+    #[must_use] 
     pub fn query_params(&self) -> Vec<PostmanQueryParam> {
         match self {
-            PostmanUrl::Structured(s) => s.query.clone(),
+            Self::Structured(s) => s.query.clone(),
             _ => Vec::new(),
         }
     }
@@ -281,6 +285,7 @@ pub struct PostmanAuth {
 
 impl PostmanAuth {
     /// Get a parameter value by key
+    #[must_use] 
     pub fn get_param(&self, params: &[PostmanAuthParam], key: &str) -> Option<String> {
         params
             .iter()
@@ -333,6 +338,7 @@ pub struct PostmanScript {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

@@ -116,6 +116,7 @@ impl<F: FileSystem + Send + Sync> WorkspaceRepository for FileSystemWorkspaceRep
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

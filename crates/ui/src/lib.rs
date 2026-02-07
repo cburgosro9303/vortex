@@ -6,6 +6,19 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::assigning_clones)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::option_if_let_else)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::struct_excessive_bools)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::ptr_arg)]
+#![allow(clippy::similar_names)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::uninlined_format_args)]
 
 mod app_window;
 pub mod bridge;

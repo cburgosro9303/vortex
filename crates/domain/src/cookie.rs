@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// A single HTTP cookie.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Cookie {
     /// Cookie name.
     pub name: String,
@@ -22,13 +22,13 @@ pub struct Cookie {
     /// Expiration time (None for session cookies).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires: Option<DateTime<Utc>>,
-    /// HttpOnly flag.
+    /// `HttpOnly` flag.
     #[serde(default)]
     pub http_only: bool,
     /// Secure flag.
     #[serde(default)]
     pub secure: bool,
-    /// SameSite attribute.
+    /// `SameSite` attribute.
     #[serde(default)]
     pub same_site: SameSite,
     /// When the cookie was created/received.
@@ -70,12 +70,12 @@ impl Cookie {
 
     /// Set the expiration.
     #[must_use]
-    pub fn with_expires(mut self, expires: DateTime<Utc>) -> Self {
+    pub const fn with_expires(mut self, expires: DateTime<Utc>) -> Self {
         self.expires = Some(expires);
         self
     }
 
-    /// Set HttpOnly flag.
+    /// Set `HttpOnly` flag.
     #[must_use]
     pub const fn with_http_only(mut self, http_only: bool) -> Self {
         self.http_only = http_only;
@@ -89,7 +89,7 @@ impl Cookie {
         self
     }
 
-    /// Set SameSite attribute.
+    /// Set `SameSite` attribute.
     #[must_use]
     pub const fn with_same_site(mut self, same_site: SameSite) -> Self {
         self.same_site = same_site;
@@ -104,7 +104,7 @@ impl Cookie {
 
     /// Check if this is a session cookie (no expiration).
     #[must_use]
-    pub fn is_session(&self) -> bool {
+    pub const fn is_session(&self) -> bool {
         self.expires.is_none()
     }
 
@@ -117,18 +117,16 @@ impl Cookie {
         }
 
         // Check domain (simplified matching)
-        if let Some(host) = extract_host(url) {
-            if !domain_matches(&self.domain, &host) {
+        if let Some(host) = extract_host(url)
+            && !domain_matches(&self.domain, &host) {
                 return false;
             }
-        }
 
         // Check path
-        if let Some(path) = extract_path(url) {
-            if !path.starts_with(&self.path) {
+        if let Some(path) = extract_path(url)
+            && !path.starts_with(&self.path) {
                 return false;
             }
-        }
 
         true
     }
@@ -140,6 +138,7 @@ impl Cookie {
     }
 
     /// Parse from Set-Cookie header.
+    #[must_use] 
     pub fn from_set_cookie(header: &str, request_domain: &str) -> Option<Self> {
         let parts: Vec<&str> = header.split(';').collect();
         if parts.is_empty() {
@@ -148,7 +147,7 @@ impl Cookie {
 
         // First part is name=value
         let (name, value) = parts[0].split_once('=')?;
-        let mut cookie = Cookie::new(name.trim(), value.trim(), request_domain);
+        let mut cookie = Self::new(name.trim(), value.trim(), request_domain);
 
         // Parse attributes
         for part in parts.iter().skip(1) {
@@ -193,7 +192,7 @@ impl Cookie {
     }
 }
 
-/// SameSite attribute values.
+/// `SameSite` attribute values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum SameSite {
@@ -229,7 +228,7 @@ pub struct CookieJar {
     pub enabled: bool,
 }
 
-fn default_enabled() -> bool {
+const fn default_enabled() -> bool {
     true
 }
 
@@ -348,11 +347,10 @@ impl CookieJar {
         }
 
         for (name, value) in headers {
-            if name.eq_ignore_ascii_case("set-cookie") {
-                if let Some(cookie) = Cookie::from_set_cookie(value, request_domain) {
+            if name.eq_ignore_ascii_case("set-cookie")
+                && let Some(cookie) = Cookie::from_set_cookie(value, request_domain) {
                     self.add(cookie);
                 }
-            }
         }
     }
 }
@@ -372,7 +370,7 @@ fn extract_path(url: &str) -> Option<String> {
     let url = url
         .trim_start_matches("http://")
         .trim_start_matches("https://");
-    let path = url.find('/').map(|i| &url[i..]).unwrap_or("/");
+    let path = url.find('/').map_or("/", |i| &url[i..]);
     let path = path.split('?').next()?; // Remove query
     Some(path.to_string())
 }
@@ -387,7 +385,7 @@ fn domain_matches(cookie_domain: &str, request_host: &str) -> bool {
     }
 
     // Domain matching: cookie domain can be a suffix of request host
-    if request_host.ends_with(&format!(".{}", cookie_domain)) {
+    if request_host.ends_with(&format!(".{cookie_domain}")) {
         return true;
     }
 
@@ -395,6 +393,7 @@ fn domain_matches(cookie_domain: &str, request_host: &str) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
