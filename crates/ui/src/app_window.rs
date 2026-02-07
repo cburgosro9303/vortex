@@ -3384,6 +3384,35 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
                         child.wait()
                     });
             }
+            #[cfg(target_os = "linux")]
+            {
+                use std::process::Command;
+                let _ = Command::new("xclip")
+                    .args(["-selection", "clipboard"])
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                    .and_then(|mut child| {
+                        use std::io::Write;
+                        if let Some(ref mut stdin) = child.stdin {
+                            let _ = stdin.write_all(curl.as_bytes());
+                        }
+                        child.wait()
+                    });
+            }
+            #[cfg(target_os = "windows")]
+            {
+                use std::process::Command;
+                let _ = Command::new("clip")
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                    .and_then(|mut child| {
+                        use std::io::Write;
+                        if let Some(ref mut stdin) = child.stdin {
+                            let _ = stdin.write_all(curl.as_bytes());
+                        }
+                        child.wait()
+                    });
+            }
             eprintln!("cURL command copied to clipboard");
         }
 
