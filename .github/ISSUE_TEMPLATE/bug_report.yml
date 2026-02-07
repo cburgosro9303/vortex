@@ -1,0 +1,98 @@
+name: Bug Report
+description: Report a bug in Vortex
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please provide as much detail as possible.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Clear and concise description of the bug.
+      placeholder: When I send a request with...
+    validations:
+      required: true
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Open Vortex
+        2. Create a new request...
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened. Include error messages or screenshots if possible.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which area of Vortex is affected?
+      options:
+        - HTTP Execution
+        - Collections
+        - Environments
+        - Auth
+        - Body
+        - Import/Export
+        - Code Gen
+        - Testing
+        - UI
+        - Settings
+        - File Persistence
+        - Not applicable
+      default: 11
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which crate/layer is affected?
+      options:
+        - Domain
+        - Application
+        - Infrastructure
+        - UI
+        - CI / Build
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      placeholder: "macOS 15.2 ARM64 / Ubuntu 24.04 x86_64 / Windows 11"
+    validations:
+      required: true
+  - type: input
+    id: rust-version
+    attributes:
+      label: Rust Version
+      placeholder: "rustc 1.93.0"
+    validations:
+      required: false
+  - type: input
+    id: vortex-version
+    attributes:
+      label: Vortex Version
+      placeholder: "v0.1.0"
+    validations:
+      required: false
