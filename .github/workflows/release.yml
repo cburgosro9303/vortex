@@ -1,0 +1,257 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 1.0.0)'
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Calculate Version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      skip: ${{ steps.version.outputs.skip }}
+      next_version: ${{ steps.version.outputs.next_version }}
+      next_tag: ${{ steps.version.outputs.next_tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      notes: ${{ steps.notes.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Calculate next version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            NEXT_VERSION="${{ inputs.version }}"
+            NEXT_TAG="v${NEXT_VERSION}"
+            echo "next_version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+            echo "next_tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Manual release: $NEXT_TAG"
+            exit 0
+          fi
+
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+
+          VERSION="${LATEST_TAG#v}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+
+          if [ "$LATEST_TAG" = "v0.0.0" ]; then
+            COMMITS=$(git log --pretty=format:"%s" HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"%s" "${LATEST_TAG}..HEAD")
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BUMP="patch"
+          if echo "$COMMITS" | grep -qE "^[a-z]+(\(.+\))?!:|BREAKING CHANGE"; then
+            BUMP="major"
+          elif echo "$COMMITS" | grep -qE "^feat(\(.+\))?:"; then
+            BUMP="minor"
+          fi
+
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+
+          NEXT_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          NEXT_TAG="v${NEXT_VERSION}"
+
+          if [ "$BUMP" = "major" ]; then
+            PRERELEASE="false"
+          else
+            PRERELEASE="true"
+          fi
+
+          echo "next_version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "next_tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+          echo "Bump: $BUMP ($LATEST_TAG -> $NEXT_TAG, prerelease=$PRERELEASE)"
+
+      - name: Generate release notes
+        id: notes
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+
+          if [ "$LATEST_TAG" = "v0.0.0" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="${LATEST_TAG}..HEAD"
+          fi
+
+          {
+            echo "notes<<RELEASE_NOTES_EOF"
+
+            BREAKING=$(git log --pretty=format:"%s" "$RANGE" | grep -E "^[a-z]+(\(.+\))?!:|BREAKING CHANGE" || true)
+            if [ -n "$BREAKING" ]; then
+              echo "### Breaking Changes"
+              echo "$BREAKING" | while read -r line; do echo "- $line"; done
+              echo ""
+            fi
+
+            FEATURES=$(git log --pretty=format:"%s" "$RANGE" | grep -E "^feat(\(.+\))?:" || true)
+            if [ -n "$FEATURES" ]; then
+              echo "### Features"
+              echo "$FEATURES" | while read -r line; do echo "- $line"; done
+              echo ""
+            fi
+
+            FIXES=$(git log --pretty=format:"%s" "$RANGE" | grep -E "^fix(\(.+\))?:" || true)
+            if [ -n "$FIXES" ]; then
+              echo "### Bug Fixes"
+              echo "$FIXES" | while read -r line; do echo "- $line"; done
+              echo ""
+            fi
+
+            OTHER=$(git log --pretty=format:"%s" "$RANGE" | grep -vE "^(feat|fix)(\(.+\))?(!)?\:" || true)
+            if [ -n "$OTHER" ]; then
+              echo "### Other Changes"
+              echo "$OTHER" | while read -r line; do echo "- $line"; done
+              echo ""
+            fi
+
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create tag
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.next_tag }}" -m "Release ${{ steps.version.outputs.next_tag }}"
+          git push origin "${{ steps.version.outputs.next_tag }}"
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: version
+    if: needs.version.outputs.skip != 'true'
+    strategy:
+      matrix:
+        include:
+          - name: linux-x86_64
+            target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: vortex-linux-x86_64
+          - name: macos-x86_64
+            target: x86_64-apple-darwin
+            os: macos-13
+            artifact: vortex-macos-x86_64
+          - name: macos-aarch64
+            target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: vortex-macos-aarch64
+          - name: windows-x86_64
+            target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: vortex-windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.93.0
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libfreetype6-dev
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} -p vortex
+
+      - name: Rename binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cp target/${{ matrix.target }}/release/vortex ${{ matrix.artifact }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          copy target\${{ matrix.target }}\release\vortex.exe ${{ matrix.artifact }}.exe
+
+      - name: Upload artifact (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.exe
+
+  release:
+    name: Create Release
+    needs: [version, build]
+    if: needs.version.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f | head -20
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.next_tag }}
+          name: ${{ needs.version.outputs.next_tag }}
+          body: ${{ needs.version.outputs.notes }}
+          prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
+          generate_release_notes: false
+          files: |
+            artifacts/vortex-linux-x86_64/vortex-linux-x86_64
+            artifacts/vortex-macos-x86_64/vortex-macos-x86_64
+            artifacts/vortex-macos-aarch64/vortex-macos-aarch64
+            artifacts/vortex-windows-x86_64/vortex-windows-x86_64.exe
