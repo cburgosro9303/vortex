@@ -57,35 +57,36 @@ pub fn parse_variables(input: &str) -> Vec<VariableReference> {
         if ch == '{' {
             // Check for {{
             if let Some((_, next_ch)) = chars.peek()
-                && *next_ch == '{' {
-                    chars.next(); // consume second {
-                    let start = i;
-                    let mut name = String::new();
-                    let mut found_end = false;
+                && *next_ch == '{'
+            {
+                chars.next(); // consume second {
+                let start = i;
+                let mut name = String::new();
+                let mut found_end = false;
 
-                    // Read until }}
-                    while let Some((_, ch)) = chars.next() {
-                        if ch == '}'
-                            && let Some((end_idx, '}')) = chars.peek() {
-                                let end = *end_idx + 1;
-                                chars.next(); // consume second }
+                // Read until }}
+                while let Some((_, ch)) = chars.next() {
+                    if ch == '}'
+                        && let Some((end_idx, '}')) = chars.peek()
+                    {
+                        let end = *end_idx + 1;
+                        chars.next(); // consume second }
 
-                                let trimmed_name = name.trim().to_string();
-                                if !trimmed_name.is_empty() {
-                                    references
-                                        .push(VariableReference::new(trimmed_name, start..end));
-                                }
-                                found_end = true;
-                                break;
-                            }
-                        name.push(ch);
-                    }
-
-                    // If we didn't find the closing }}, skip to avoid infinite loop
-                    if !found_end {
+                        let trimmed_name = name.trim().to_string();
+                        if !trimmed_name.is_empty() {
+                            references.push(VariableReference::new(trimmed_name, start..end));
+                        }
+                        found_end = true;
                         break;
                     }
+                    name.push(ch);
                 }
+
+                // If we didn't find the closing }}, skip to avoid infinite loop
+                if !found_end {
+                    break;
+                }
+            }
         }
     }
 
@@ -109,9 +110,11 @@ pub fn is_valid_variable_name(name: &str) -> bool {
     // First character must be letter or underscore
     let mut chars = name.chars();
     if let Some(first) = chars.next()
-        && !first.is_alphabetic() && first != '_' {
-            return false;
-        }
+        && !first.is_alphabetic()
+        && first != '_'
+    {
+        return false;
+    }
 
     // Remaining characters must be alphanumeric, underscore, or hyphen
     chars.all(|c| c.is_alphanumeric() || c == '_' || c == '-')

@@ -27,7 +27,9 @@ impl From<EnvironmentError> for LoadEnvironmentError {
         match error {
             EnvironmentError::NotFound(name) => Self::NotFound(name),
             EnvironmentError::Io(e) => Self::IoError(e.to_string()),
-            EnvironmentError::Serialization(e) | EnvironmentError::Invalid(e) => Self::ParseError(e),
+            EnvironmentError::Serialization(e) | EnvironmentError::Invalid(e) => {
+                Self::ParseError(e)
+            }
         }
     }
 }
@@ -69,7 +71,12 @@ impl<R: EnvironmentRepository> LoadEnvironment<R> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::significant_drop_tightening)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::significant_drop_tightening
+)]
 mod tests {
     use super::*;
     use async_trait::async_trait;

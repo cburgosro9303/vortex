@@ -189,7 +189,8 @@ impl OAuth2Token {
         scopes: Vec<String>,
     ) -> Self {
         let now = Utc::now();
-        let expires_at = expires_in_secs.map(|secs| now + chrono::Duration::seconds(secs.cast_signed()));
+        let expires_at =
+            expires_in_secs.map(|secs| now + chrono::Duration::seconds(secs.cast_signed()));
 
         Self {
             access_token,
@@ -205,9 +206,9 @@ impl OAuth2Token {
     #[must_use]
     pub fn is_expired_or_expiring(&self, buffer_seconds: i64) -> bool {
         self.expires_at.is_some_and(|expires_at| {
-                let buffer = chrono::Duration::seconds(buffer_seconds);
-                Utc::now() + buffer >= expires_at
-            })
+            let buffer = chrono::Duration::seconds(buffer_seconds);
+            Utc::now() + buffer >= expires_at
+        })
     }
 
     /// Check if the token can be refreshed.

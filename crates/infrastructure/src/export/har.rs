@@ -113,9 +113,10 @@ impl HarExporter {
 
         // Add auth header if present
         if options.include_auth
-            && let Some(auth_header) = Self::get_auth_header(request) {
-                headers.push(auth_header);
-            }
+            && let Some(auth_header) = Self::get_auth_header(request)
+        {
+            headers.push(auth_header);
+        }
 
         // Build query string
         let query_string: Vec<HarQueryParam> = request

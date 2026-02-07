@@ -118,15 +118,17 @@ impl Cookie {
 
         // Check domain (simplified matching)
         if let Some(host) = extract_host(url)
-            && !domain_matches(&self.domain, &host) {
-                return false;
-            }
+            && !domain_matches(&self.domain, &host)
+        {
+            return false;
+        }
 
         // Check path
         if let Some(path) = extract_path(url)
-            && !path.starts_with(&self.path) {
-                return false;
-            }
+            && !path.starts_with(&self.path)
+        {
+            return false;
+        }
 
         true
     }
@@ -138,7 +140,7 @@ impl Cookie {
     }
 
     /// Parse from Set-Cookie header.
-    #[must_use] 
+    #[must_use]
     pub fn from_set_cookie(header: &str, request_domain: &str) -> Option<Self> {
         let parts: Vec<&str> = header.split(';').collect();
         if parts.is_empty() {
@@ -348,9 +350,10 @@ impl CookieJar {
 
         for (name, value) in headers {
             if name.eq_ignore_ascii_case("set-cookie")
-                && let Some(cookie) = Cookie::from_set_cookie(value, request_domain) {
-                    self.add(cookie);
-                }
+                && let Some(cookie) = Cookie::from_set_cookie(value, request_domain)
+            {
+                self.add(cookie);
+            }
         }
     }
 }

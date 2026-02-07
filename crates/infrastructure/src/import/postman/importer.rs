@@ -137,7 +137,7 @@ pub struct PostmanImporter {
 
 impl PostmanImporter {
     /// Create a new importer with default config
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: ImportConfig::default(),
@@ -145,13 +145,13 @@ impl PostmanImporter {
     }
 
     /// Create a new importer with custom config
-    #[must_use] 
+    #[must_use]
     pub const fn with_config(config: ImportConfig) -> Self {
         Self { config }
     }
 
     /// Validate a file before importing
-    #[must_use] 
+    #[must_use]
     pub fn validate_file(&self, content: &str) -> ValidationResult {
         let mut issues = Vec::new();
 

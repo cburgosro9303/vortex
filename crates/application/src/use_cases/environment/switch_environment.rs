@@ -118,7 +118,12 @@ impl<E: EnvironmentRepository, S: SecretsRepository> SwitchEnvironment<E, S> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::significant_drop_tightening)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::significant_drop_tightening
+)]
 mod tests {
     use super::*;
     use async_trait::async_trait;

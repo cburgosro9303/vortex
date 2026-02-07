@@ -60,13 +60,13 @@ pub struct PostmanItem {
 
 impl PostmanItem {
     /// Returns true if this item is a folder (has sub-items)
-    #[must_use] 
+    #[must_use]
     pub const fn is_folder(&self) -> bool {
         self.item.is_some()
     }
 
     /// Returns true if this item is a request
-    #[must_use] 
+    #[must_use]
     pub const fn is_request(&self) -> bool {
         self.request.is_some()
     }
@@ -100,7 +100,7 @@ pub enum PostmanUrl {
 
 impl PostmanUrl {
     /// Get the raw URL string
-    #[must_use] 
+    #[must_use]
     pub fn raw(&self) -> String {
         match self {
             Self::Empty => String::new(),
@@ -110,7 +110,7 @@ impl PostmanUrl {
     }
 
     /// Get query parameters if available
-    #[must_use] 
+    #[must_use]
     pub fn query_params(&self) -> Vec<PostmanQueryParam> {
         match self {
             Self::Structured(s) => s.query.clone(),
@@ -285,7 +285,7 @@ pub struct PostmanAuth {
 
 impl PostmanAuth {
     /// Get a parameter value by key
-    #[must_use] 
+    #[must_use]
     pub fn get_param(&self, params: &[PostmanAuthParam], key: &str) -> Option<String> {
         params
             .iter()

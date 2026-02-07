@@ -66,7 +66,7 @@ impl ScriptExecutor {
     /// # Errors
     ///
     /// Returns an error if the script fails to parse or execute.
-    #[must_use] 
+    #[must_use]
     pub fn execute(&self, script: &Script, context: &ScriptContext) -> ScriptResult {
         if !script.should_run() {
             return ScriptResult::success();
@@ -83,7 +83,7 @@ impl ScriptExecutor {
     }
 
     /// Execute a list of commands.
-    #[must_use] 
+    #[must_use]
     pub fn execute_commands(
         &self,
         commands: &[ScriptCommand],

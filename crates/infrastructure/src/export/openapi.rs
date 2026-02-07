@@ -281,7 +281,9 @@ impl OpenApiExporter {
 
 fn capitalize(s: &str) -> String {
     let mut c = s.chars();
-    c.next().map_or_else(String::new, |f| f.to_uppercase().collect::<String>() + c.as_str())
+    c.next().map_or_else(String::new, |f| {
+        f.to_uppercase().collect::<String>() + c.as_str()
+    })
 }
 
 // OpenAPI structs

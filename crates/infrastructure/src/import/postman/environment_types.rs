@@ -48,7 +48,7 @@ const fn default_true() -> bool {
 
 impl PostmanEnvVariable {
     /// Check if this variable is a secret type
-    #[must_use] 
+    #[must_use]
     pub fn is_secret(&self) -> bool {
         self.var_type.as_deref() == Some("secret")
     }

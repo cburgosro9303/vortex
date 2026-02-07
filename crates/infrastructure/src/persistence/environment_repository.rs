@@ -126,9 +126,10 @@ impl<F: FileSystem + Sync> EnvironmentRepository for FileEnvironmentRepository<F
         let mut names = Vec::new();
         for entry in entries {
             if let Some(stem) = entry.file_stem()
-                && entry.extension().is_some_and(|ext| ext == "json") {
-                    names.push(stem.to_string_lossy().into_owned());
-                }
+                && entry.extension().is_some_and(|ext| ext == "json")
+            {
+                names.push(stem.to_string_lossy().into_owned());
+            }
         }
 
         names.sort();

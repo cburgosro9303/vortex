@@ -332,7 +332,7 @@ impl TestSuite {
     }
 
     /// Add an assertion (builder pattern).
-    #[must_use] 
+    #[must_use]
     pub fn with_assertion(mut self, assertion: Assertion) -> Self {
         self.assertions.push(assertion);
         self
@@ -403,13 +403,20 @@ impl TestResults {
             100.0
         } else {
             #[allow(clippy::cast_precision_loss)]
-            { (self.passed as f64 / self.total as f64) * 100.0 }
+            {
+                (self.passed as f64 / self.total as f64) * 100.0
+            }
         }
     }
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::float_cmp)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::float_cmp
+)]
 mod tests {
     use super::*;
 

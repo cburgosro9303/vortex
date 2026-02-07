@@ -17,7 +17,11 @@ pub struct TestRunner {
     stop_on_failure: bool,
 }
 
-#[allow(clippy::unused_self, clippy::option_if_let_else, clippy::cast_possible_truncation)]
+#[allow(
+    clippy::unused_self,
+    clippy::option_if_let_else,
+    clippy::cast_possible_truncation
+)]
 impl TestRunner {
     /// Create a new test runner.
     #[must_use]
@@ -159,9 +163,7 @@ impl TestRunner {
                     AssertionResult::pass_with_value(assertion.clone(), actual_value.clone())
                 }
             }
-            None => {
-                AssertionResult::fail(assertion.clone(), format!("Header '{name}' not found"))
-            }
+            None => AssertionResult::fail(assertion.clone(), format!("Header '{name}' not found")),
         }
     }
 
@@ -192,9 +194,7 @@ impl TestRunner {
                     format!("Invalid regex pattern '{pattern}': {e}"),
                 ),
             },
-            None => {
-                AssertionResult::fail(assertion.clone(), format!("Header '{name}' not found"))
-            }
+            None => AssertionResult::fail(assertion.clone(), format!("Header '{name}' not found")),
         }
     }
 
@@ -544,11 +544,12 @@ fn split_path_segments(path: &str) -> Vec<String> {
 /// Parse array access like "field[0]" into ("field", "0").
 fn parse_array_access(segment: &str) -> Option<(String, String)> {
     if let Some(bracket_start) = segment.find('[')
-        && segment.ends_with(']') {
-            let name = segment[..bracket_start].to_string();
-            let index = segment[bracket_start + 1..segment.len() - 1].to_string();
-            return Some((name, index));
-        }
+        && segment.ends_with(']')
+    {
+        let name = segment[..bracket_start].to_string();
+        let index = segment[bracket_start + 1..segment.len() - 1].to_string();
+        return Some((name, index));
+    }
     None
 }
 

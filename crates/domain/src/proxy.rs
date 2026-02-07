@@ -97,7 +97,10 @@ impl ProxyConfig {
         let host_lower = host.to_lowercase();
         self.bypass_hosts.iter().any(|bypass| {
             let bypass_lower = bypass.to_lowercase().trim().to_string();
-            bypass_lower.strip_prefix('*').map_or_else(|| host_lower == bypass_lower || host_lower.ends_with(&format!(".{bypass_lower}")), |suffix| host_lower.ends_with(suffix))
+            bypass_lower.strip_prefix('*').map_or_else(
+                || host_lower == bypass_lower || host_lower.ends_with(&format!(".{bypass_lower}")),
+                |suffix| host_lower.ends_with(suffix),
+            )
         })
     }
 
@@ -114,14 +117,14 @@ impl ProxyConfig {
 
         if !self.url.is_empty()
             && !self.url.starts_with("http://")
-                && !self.url.starts_with("https://")
-                && !self.url.starts_with("socks4://")
-                && !self.url.starts_with("socks5://")
-            {
-                return Err(ProxyError::InvalidUrl(
-                    "URL must start with http://, https://, socks4://, or socks5://".to_string(),
-                ));
-            }
+            && !self.url.starts_with("https://")
+            && !self.url.starts_with("socks4://")
+            && !self.url.starts_with("socks5://")
+        {
+            return Err(ProxyError::InvalidUrl(
+                "URL must start with http://, https://, socks4://, or socks5://".to_string(),
+            ));
+        }
 
         // Check for incomplete auth
         if self.username.is_some() != self.password.is_some() {

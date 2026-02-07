@@ -62,9 +62,9 @@ impl TokenStore {
     /// Check if a token needs refresh (exists but expiring soon).
     pub async fn needs_refresh(&self, key: &str) -> bool {
         let tokens = self.tokens.read().await;
-        tokens
-            .get(key)
-            .is_some_and(|t| t.is_expired_or_expiring(self.refresh_buffer_seconds) && t.can_refresh())
+        tokens.get(key).is_some_and(|t| {
+            t.is_expired_or_expiring(self.refresh_buffer_seconds) && t.can_refresh()
+        })
     }
 
     /// Remove a token.
@@ -88,7 +88,10 @@ impl TokenStore {
     /// Get token status for UI display.
     pub async fn get_status(&self, key: &str) -> TokenStatus {
         let tokens = self.tokens.read().await;
-        tokens.get(key).map_or(TokenStatus::NotAuthenticated, |token| if token.is_expired_or_expiring(0) {
+        tokens
+            .get(key)
+            .map_or(TokenStatus::NotAuthenticated, |token| {
+                if token.is_expired_or_expiring(0) {
                     TokenStatus::Expired {
                         can_refresh: token.can_refresh(),
                     }
@@ -101,7 +104,8 @@ impl TokenStore {
                     TokenStatus::Valid {
                         seconds_remaining: token.seconds_until_expiry(),
                     }
-                })
+                }
+            })
     }
 
     /// Get count of stored tokens.

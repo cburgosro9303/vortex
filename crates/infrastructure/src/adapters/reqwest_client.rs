@@ -110,15 +110,19 @@ impl ReqwestHttpClient {
             if message.to_lowercase().contains("dns") || message.to_lowercase().contains("resolve")
             {
                 return HttpClientError::DnsError {
-                    host: error
-                        .url().map_or_else(|| "unknown".to_string(), |u| u.host_str().unwrap_or("unknown").to_string()),
+                    host: error.url().map_or_else(
+                        || "unknown".to_string(),
+                        |u| u.host_str().unwrap_or("unknown").to_string(),
+                    ),
                     message,
                 };
             }
             if message.to_lowercase().contains("refused") {
                 return HttpClientError::ConnectionRefused {
-                    host: error
-                        .url().map_or_else(|| "unknown".to_string(), |u| u.host_str().unwrap_or("unknown").to_string()),
+                    host: error.url().map_or_else(
+                        || "unknown".to_string(),
+                        |u| u.host_str().unwrap_or("unknown").to_string(),
+                    ),
                     port: error.url().and_then(reqwest::Url::port).unwrap_or(80),
                 };
             }

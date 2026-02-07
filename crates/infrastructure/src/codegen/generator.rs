@@ -441,9 +441,7 @@ impl<'a> CodeGenerator<'a> {
                 .iter()
                 .any(|h| h.name.eq_ignore_ascii_case("content-type"));
             if !has_ct {
-                code.push_str(&format!(
-                    "{indent}.header(\"Content-Type\", \"{ct}\")\n"
-                ));
+                code.push_str(&format!("{indent}.header(\"Content-Type\", \"{ct}\")\n"));
             }
         }
 
@@ -589,9 +587,7 @@ impl<'a> CodeGenerator<'a> {
             vortex_domain::request::HttpMethod::Options => "Options",
         };
 
-        code.push_str(&format!(
-            "request = Net::HTTP::{request_class}::new(uri)\n"
-        ));
+        code.push_str(&format!("request = Net::HTTP::{request_class}::new(uri)\n"));
 
         // Headers
         for h in request.enabled_headers() {
@@ -671,9 +667,7 @@ impl<'a> CodeGenerator<'a> {
             "\nlet task = URLSession.shared.dataTask(with: request) { data, response, error in\n",
         );
         code.push_str(&format!("{indent}if let error = error {{\n"));
-        code.push_str(&format!(
-            "{indent}{indent}print(\"Error: \\(error)\")\n"
-        ));
+        code.push_str(&format!("{indent}{indent}print(\"Error: \\(error)\")\n"));
         code.push_str(&format!("{indent}{indent}return\n"));
         code.push_str(&format!("{indent}}}\n"));
         code.push_str(&format!(

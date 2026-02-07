@@ -67,7 +67,7 @@ impl ImportWarning {
     }
 
     /// Check if this is an error
-    #[must_use] 
+    #[must_use]
     pub const fn is_error(&self) -> bool {
         matches!(self.severity, WarningSeverity::Error)
     }
@@ -92,7 +92,7 @@ pub struct WarningStats {
 
 impl WarningStats {
     /// Calculate stats from a list of warnings
-    #[must_use] 
+    #[must_use]
     pub fn from_warnings(warnings: &[ImportWarning]) -> Self {
         let mut stats = Self::default();
         for w in warnings {
@@ -106,13 +106,13 @@ impl WarningStats {
     }
 
     /// Total count of all warnings
-    #[must_use] 
+    #[must_use]
     pub const fn total(&self) -> usize {
         self.info_count + self.warning_count + self.error_count
     }
 
     /// Check if there are any errors
-    #[must_use] 
+    #[must_use]
     pub const fn has_errors(&self) -> bool {
         self.error_count > 0
     }
