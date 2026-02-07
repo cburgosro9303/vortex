@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use tokio::fs;
 use vortex_application::ports::{FileSystem, FileSystemError};
 
-/// Real file system implementation using tokio::fs.
+/// Real file system implementation using `tokio::fs`.
 #[derive(Debug, Clone, Default)]
 pub struct TokioFileSystem;
 

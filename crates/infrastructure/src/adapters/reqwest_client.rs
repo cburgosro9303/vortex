@@ -99,6 +99,7 @@ impl ReqwestHttpClient {
     }
 
     /// Maps reqwest errors to domain `HttpClientError`.
+    #[allow(clippy::needless_pass_by_value)]
     fn map_error(error: reqwest::Error, timeout_ms: u64) -> HttpClientError {
         if error.is_timeout() {
             return HttpClientError::Timeout { timeout_ms };
@@ -109,20 +110,20 @@ impl ReqwestHttpClient {
             if message.to_lowercase().contains("dns") || message.to_lowercase().contains("resolve")
             {
                 return HttpClientError::DnsError {
-                    host: error
-                        .url()
-                        .map(|u| u.host_str().unwrap_or("unknown").to_string())
-                        .unwrap_or_else(|| "unknown".to_string()),
+                    host: error.url().map_or_else(
+                        || "unknown".to_string(),
+                        |u| u.host_str().unwrap_or("unknown").to_string(),
+                    ),
                     message,
                 };
             }
             if message.to_lowercase().contains("refused") {
                 return HttpClientError::ConnectionRefused {
-                    host: error
-                        .url()
-                        .map(|u| u.host_str().unwrap_or("unknown").to_string())
-                        .unwrap_or_else(|| "unknown".to_string()),
-                    port: error.url().and_then(|u| u.port()).unwrap_or(80),
+                    host: error.url().map_or_else(
+                        || "unknown".to_string(),
+                        |u| u.host_str().unwrap_or("unknown").to_string(),
+                    ),
+                    port: error.url().and_then(reqwest::Url::port).unwrap_or(80),
                 };
             }
             return HttpClientError::ConnectionFailed(message);
@@ -138,6 +139,7 @@ impl ReqwestHttpClient {
 
 impl Default for ReqwestHttpClient {
     fn default() -> Self {
+        #[allow(clippy::expect_used)]
         Self::new().expect("Failed to create default HTTP client")
     }
 }

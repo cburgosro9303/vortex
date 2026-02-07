@@ -5,25 +5,29 @@
 use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
-use vortex_application::ports::{EnvironmentError, EnvironmentRepository, FileSystem, FileSystemError};
+use vortex_application::ports::{
+    EnvironmentError, EnvironmentRepository, FileSystem, FileSystemError,
+};
 use vortex_domain::environment::Environment;
 
 use crate::serialization::{from_json_bytes, to_json_stable_bytes};
 
-/// Converts FileSystemError to std::io::Error for EnvironmentError.
+/// Converts `FileSystemError` to `std::io::Error` for `EnvironmentError`.
 fn to_io_error(e: FileSystemError) -> std::io::Error {
     match e {
         FileSystemError::Io(io_err) => io_err,
         FileSystemError::NotFound(path) => {
             std::io::Error::new(std::io::ErrorKind::NotFound, path.display().to_string())
         }
-        FileSystemError::PermissionDenied(path) => {
-            std::io::Error::new(std::io::ErrorKind::PermissionDenied, path.display().to_string())
-        }
-        FileSystemError::AlreadyExists(path) => {
-            std::io::Error::new(std::io::ErrorKind::AlreadyExists, path.display().to_string())
-        }
-        _ => std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
+        FileSystemError::PermissionDenied(path) => std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            path.display().to_string(),
+        ),
+        FileSystemError::AlreadyExists(path) => std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            path.display().to_string(),
+        ),
+        _ => std::io::Error::other(e.to_string()),
     }
 }
 
@@ -121,10 +125,10 @@ impl<F: FileSystem + Sync> EnvironmentRepository for FileEnvironmentRepository<F
 
         let mut names = Vec::new();
         for entry in entries {
-            if let Some(stem) = entry.file_stem() {
-                if entry.extension().is_some_and(|ext| ext == "json") {
-                    names.push(stem.to_string_lossy().into_owned());
-                }
+            if let Some(stem) = entry.file_stem()
+                && entry.extension().is_some_and(|ext| ext == "json")
+            {
+                names.push(stem.to_string_lossy().into_owned());
             }
         }
 
@@ -176,8 +180,14 @@ mod tests {
     #[test]
     fn test_environment_path() {
         let workspace = PathBuf::from("/test/workspace");
-        let path = FileEnvironmentRepository::<TokioFileSystem>::environment_path(&workspace, "Development");
-        assert_eq!(path, PathBuf::from("/test/workspace/environments/development.json"));
+        let path = FileEnvironmentRepository::<TokioFileSystem>::environment_path(
+            &workspace,
+            "Development",
+        );
+        assert_eq!(
+            path,
+            PathBuf::from("/test/workspace/environments/development.json")
+        );
     }
 
     #[test]

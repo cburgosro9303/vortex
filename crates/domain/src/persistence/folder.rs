@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::auth::PersistenceAuth;
-use super::common::{Id, CURRENT_SCHEMA_VERSION};
+use super::common::{CURRENT_SCHEMA_VERSION, Id};
 
 /// Folder metadata stored in `folder.json` within a folder directory.
 ///
@@ -11,7 +11,7 @@ use super::common::{Id, CURRENT_SCHEMA_VERSION};
 /// They can define their own auth that overrides collection-level auth.
 ///
 /// Fields are ordered alphabetically for deterministic serialization.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistenceFolder {
     /// Authentication inherited by all requests in this folder.
     /// Overrides collection-level auth if set.

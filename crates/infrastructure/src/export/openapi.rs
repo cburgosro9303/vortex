@@ -1,6 +1,6 @@
-//! OpenAPI 3.0 format exporter.
+//! `OpenAPI` 3.0 format exporter.
 //!
-//! Exports requests to OpenAPI 3.0 specification.
+//! Exports requests to `OpenAPI` 3.0 specification.
 
 use std::collections::BTreeMap;
 
@@ -10,11 +10,12 @@ use vortex_domain::request::{HttpMethod, RequestBodyKind, RequestSpec};
 
 use super::ExportError;
 
-/// OpenAPI 3.0 exporter.
+/// `OpenAPI` 3.0 exporter.
 pub struct OpenApiExporter;
 
 impl OpenApiExporter {
-    /// Export requests to OpenAPI 3.0 format.
+    /// Export requests to `OpenAPI` 3.0 format.
+    #[allow(clippy::missing_errors_doc)]
     pub fn export(
         requests: &[RequestSpec],
         options: &ExportOptions,
@@ -40,15 +41,14 @@ impl OpenApiExporter {
                     "options" => path_item.options = Some(operation),
                     _ => {
                         result.add_warning(
-                            ExportWarning::new(format!("Unsupported method: {}", method))
+                            ExportWarning::new(format!("Unsupported method: {method}"))
                                 .with_source(&request.url),
                         );
                     }
                 }
             } else {
                 result.add_warning(
-                    ExportWarning::new("Could not parse URL")
-                        .with_source(&request.url),
+                    ExportWarning::new("Could not parse URL").with_source(&request.url),
                 );
             }
         }
@@ -57,8 +57,14 @@ impl OpenApiExporter {
         let spec = OpenApiSpec {
             openapi: "3.0.0".to_string(),
             info: Info {
-                title: options.api_title.clone().unwrap_or_else(|| "API".to_string()),
-                version: options.api_version.clone().unwrap_or_else(|| "1.0.0".to_string()),
+                title: options
+                    .api_title
+                    .clone()
+                    .unwrap_or_else(|| "API".to_string()),
+                version: options
+                    .api_version
+                    .clone()
+                    .unwrap_or_else(|| "1.0.0".to_string()),
                 description: options.api_description.clone(),
             },
             servers: Self::extract_servers(requests),
@@ -66,8 +72,8 @@ impl OpenApiExporter {
         };
 
         // Serialize to YAML
-        let content = serde_yaml::to_string(&spec)
-            .map_err(|e| ExportError::Serialization(e.to_string()))?;
+        let content =
+            serde_yaml::to_string(&spec).map_err(|e| ExportError::Serialization(e.to_string()))?;
 
         result.content = content;
         Ok(result)
@@ -75,7 +81,9 @@ impl OpenApiExporter {
 
     fn extract_path(url: &str) -> Option<(String, String)> {
         // Remove protocol
-        let url = url.trim_start_matches("http://").trim_start_matches("https://");
+        let url = url
+            .trim_start_matches("http://")
+            .trim_start_matches("https://");
 
         // Find the path start
         let path_start = url.find('/')?;
@@ -85,7 +93,7 @@ impl OpenApiExporter {
         // Remove query string
         let path = path.split('?').next()?;
 
-        Some((path.to_string(), format!("https://{}", base_url)))
+        Some((path.to_string(), format!("https://{base_url}")))
     }
 
     fn extract_servers(requests: &[RequestSpec]) -> Vec<Server> {
@@ -157,7 +165,11 @@ impl OpenApiExporter {
             operation_id: Some(operation_id),
             summary: None,
             description: request.description.clone(),
-            parameters: if parameters.is_empty() { None } else { Some(parameters) },
+            parameters: if parameters.is_empty() {
+                None
+            } else {
+                Some(parameters)
+            },
             request_body,
             responses: Self::default_responses(),
         }
@@ -190,8 +202,12 @@ impl OpenApiExporter {
         params
     }
 
-    fn method_has_body(method: &HttpMethod) -> bool {
-        matches!(method, HttpMethod::Post | HttpMethod::Put | HttpMethod::Patch)
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    const fn method_has_body(method: &HttpMethod) -> bool {
+        matches!(
+            method,
+            HttpMethod::Post | HttpMethod::Put | HttpMethod::Patch
+        )
     }
 
     fn create_request_body(request: &RequestSpec) -> Option<RequestBody> {
@@ -200,21 +216,23 @@ impl OpenApiExporter {
             RequestBodyKind::Raw { content_type } => {
                 (content_type.clone(), Some(request.body.content.clone()))
             }
-            RequestBodyKind::FormUrlEncoded => {
-                ("application/x-www-form-urlencoded".to_string(), Some(request.body.content.clone()))
-            }
-            RequestBodyKind::FormData => {
-                ("multipart/form-data".to_string(), None)
-            }
+            RequestBodyKind::FormUrlEncoded => (
+                "application/x-www-form-urlencoded".to_string(),
+                Some(request.body.content.clone()),
+            ),
+            RequestBodyKind::FormData => ("multipart/form-data".to_string(), None),
         };
 
         let mut content = BTreeMap::new();
-        content.insert(media_type, MediaType {
-            schema: Schema {
-                schema_type: "object".to_string(),
-                example,
+        content.insert(
+            media_type,
+            MediaType {
+                schema: Schema {
+                    schema_type: "object".to_string(),
+                    example,
+                },
             },
-        });
+        );
 
         Some(RequestBody {
             required: true,
@@ -224,7 +242,7 @@ impl OpenApiExporter {
 
     fn generate_operation_id(request: &RequestSpec) -> String {
         // Extract last path segment and combine with method
-        let path = request.url.split('/').last().unwrap_or("resource");
+        let path = request.url.split('/').next_back().unwrap_or("resource");
         let path = path.split('?').next().unwrap_or(path);
         let path = path.trim_matches(|c: char| !c.is_alphanumeric());
 
@@ -239,25 +257,33 @@ impl OpenApiExporter {
 
     fn default_responses() -> BTreeMap<String, Response> {
         let mut responses = BTreeMap::new();
-        responses.insert("200".to_string(), Response {
-            description: "Successful response".to_string(),
-        });
-        responses.insert("400".to_string(), Response {
-            description: "Bad request".to_string(),
-        });
-        responses.insert("500".to_string(), Response {
-            description: "Internal server error".to_string(),
-        });
+        responses.insert(
+            "200".to_string(),
+            Response {
+                description: "Successful response".to_string(),
+            },
+        );
+        responses.insert(
+            "400".to_string(),
+            Response {
+                description: "Bad request".to_string(),
+            },
+        );
+        responses.insert(
+            "500".to_string(),
+            Response {
+                description: "Internal server error".to_string(),
+            },
+        );
         responses
     }
 }
 
 fn capitalize(s: &str) -> String {
     let mut c = s.chars();
-    match c.next() {
-        None => String::new(),
-        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-    }
+    c.next().map_or_else(String::new, |f| {
+        f.to_uppercase().collect::<String>() + c.as_str()
+    })
 }
 
 // OpenAPI structs
@@ -302,6 +328,7 @@ struct PathItem {
     options: Option<Operation>,
 }
 
+#[allow(clippy::struct_field_names)]
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Operation {
@@ -352,6 +379,7 @@ struct Response {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -383,8 +411,11 @@ mod tests {
     #[test]
     fn test_export_with_api_info() {
         let request = RequestSpec::get("https://api.example.com/users");
-        let options = ExportOptions::new(ExportFormat::OpenApi3)
-            .with_api_info("My API", "2.0.0", Some("API Description".to_string()));
+        let options = ExportOptions::new(ExportFormat::OpenApi3).with_api_info(
+            "My API",
+            "2.0.0",
+            Some("API Description".to_string()),
+        );
 
         let result = OpenApiExporter::export(&[request], &options).unwrap();
 

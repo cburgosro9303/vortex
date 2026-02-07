@@ -1,7 +1,7 @@
 //! JSON serialization helpers for deterministic output.
 
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_json::ser::{PrettyFormatter, Serializer};
 use std::io;
 
@@ -30,7 +30,7 @@ pub enum SerializationError {
 /// Output format:
 /// - 2-space indentation
 /// - Trailing newline
-/// - Keys sorted alphabetically (requires BTreeMap in source types)
+/// - Keys sorted alphabetically (requires `BTreeMap` in source types)
 ///
 /// # Errors
 ///
@@ -92,6 +92,7 @@ pub fn validate_json(json: &str) -> Result<serde_json::Value, SerializationError
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;

@@ -53,7 +53,7 @@ pub struct SwitchEnvironment<E, S> {
 
 impl<E: EnvironmentRepository, S: SecretsRepository> SwitchEnvironment<E, S> {
     /// Creates a new `SwitchEnvironment` use case.
-    pub fn new(environment_repo: E, secrets_repo: S) -> Self {
+    pub const fn new(environment_repo: E, secrets_repo: S) -> Self {
         Self {
             environment_repo,
             secrets_repo,
@@ -84,19 +84,11 @@ impl<E: EnvironmentRepository, S: SecretsRepository> SwitchEnvironment<E, S> {
             .await?;
 
         // Load secrets (don't fail if secrets file doesn't exist)
-        let secrets = self
-            .secrets_repo
-            .load(workspace)
-            .await
-            .unwrap_or_default();
+        let secrets = self.secrets_repo.load(workspace).await.unwrap_or_default();
 
         // Create the resolution context
-        let resolution_context = ResolutionContext::from_sources(
-            globals,
-            collection_variables,
-            &environment,
-            &secrets,
-        );
+        let resolution_context =
+            ResolutionContext::from_sources(globals, collection_variables, &environment, &secrets);
 
         Ok(SwitchEnvironmentOutput {
             environment,
@@ -109,6 +101,7 @@ impl<E: EnvironmentRepository, S: SecretsRepository> SwitchEnvironment<E, S> {
     /// # Arguments
     /// * `workspace` - Path to the workspace root
     /// * `environment_name` - Name of the environment to switch to
+    #[allow(clippy::missing_errors_doc)]
     pub async fn execute_simple(
         &self,
         workspace: &Path,
@@ -125,6 +118,12 @@ impl<E: EnvironmentRepository, S: SecretsRepository> SwitchEnvironment<E, S> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::significant_drop_tightening
+)]
 mod tests {
     use super::*;
     use async_trait::async_trait;
@@ -272,12 +271,7 @@ mod tests {
 
         let use_case = SwitchEnvironment::new(env_repo, secrets_repo);
         let result = use_case
-            .execute(
-                &PathBuf::from("/test"),
-                "production",
-                &globals,
-                &collection,
-            )
+            .execute(&PathBuf::from("/test"), "production", &globals, &collection)
             .await;
 
         assert!(result.is_ok());

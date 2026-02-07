@@ -4,4 +4,4 @@
 
 mod generator;
 
-pub use generator::{generate_code, CodeGenerator};
+pub use generator::{CodeGenerator, generate_code};

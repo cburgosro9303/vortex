@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-use vortex_application::ports::{slugify, CollectionTree, FolderTree};
+use vortex_application::ports::{CollectionTree, FolderTree, slugify};
 use vortex_domain::persistence::{PersistenceCollection, PersistenceFolder, SavedRequest};
 
 /// Represents a node in the UI tree view.
@@ -24,7 +24,7 @@ pub struct TreeNode {
 }
 
 /// Type of tree node.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TreeNodeType {
     /// A collection.
     Collection,
@@ -73,7 +73,7 @@ pub struct FolderData {
     /// Requests in this folder.
     pub requests: Vec<SavedRequest>,
     /// Nested subfolders.
-    pub subfolders: Vec<FolderData>,
+    pub subfolders: Vec<Self>,
     /// Path to the folder.
     pub path: PathBuf,
 }
@@ -99,7 +99,7 @@ impl CollectionState {
         };
 
         // Auto-expand the collection
-        self.expanded_ids.insert(tree.collection.id.clone());
+        self.expanded_ids.insert(tree.collection.id);
 
         self.collections.insert(path, collection_data);
     }
@@ -240,7 +240,7 @@ impl CollectionState {
     /// Finds a request by its ID across all collections.
     #[must_use]
     pub fn find_request(&self, id: &str) -> Option<(&SavedRequest, PathBuf)> {
-        for (_path, data) in &self.collections {
+        for data in self.collections.values() {
             // Check root requests
             for request in &data.requests {
                 if request.id == id {
@@ -267,9 +267,7 @@ impl CollectionState {
         for folder in folders {
             for request in &folder.requests {
                 if request.id == id {
-                    let request_path = folder
-                        .path
-                        .join(format!("{}.json", slugify(&request.name)));
+                    let request_path = folder.path.join(format!("{}.json", slugify(&request.name)));
                     return Some((request, request_path));
                 }
             }

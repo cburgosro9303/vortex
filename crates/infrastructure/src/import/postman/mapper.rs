@@ -10,7 +10,7 @@ use super::types::{
     PostmanVariable,
 };
 use super::warning::{ImportWarning, WarningSeverity};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 
 /// Result of mapping a collection
@@ -59,8 +59,13 @@ pub enum MappedBody {
     Text(String),
     FormUrlEncoded(Vec<(String, String)>),
     FormData(Vec<FormDataField>),
-    Binary { filename: Option<String> },
-    GraphQL { query: String, variables: Option<String> },
+    Binary {
+        filename: Option<String>,
+    },
+    GraphQL {
+        query: String,
+        variables: Option<String>,
+    },
 }
 
 /// Form data field
@@ -80,10 +85,22 @@ pub enum FormDataValue {
 #[derive(Debug, Clone)]
 pub enum MappedAuth {
     None,
-    Bearer { token: String },
-    Basic { username: String, password: String },
-    ApiKey { key: String, value: String, in_header: bool },
-    OAuth2 { access_token: Option<String>, token_url: Option<String> },
+    Bearer {
+        token: String,
+    },
+    Basic {
+        username: String,
+        password: String,
+    },
+    ApiKey {
+        key: String,
+        value: String,
+        in_header: bool,
+    },
+    OAuth2 {
+        access_token: Option<String>,
+        token_url: Option<String>,
+    },
 }
 
 /// Mapped variable
@@ -104,11 +121,13 @@ pub struct MappedEnvironment {
 }
 
 /// Map HTTP method to Vortex format
+#[must_use]
 pub fn map_http_method(method: &str) -> String {
     method.to_uppercase()
 }
 
 /// Map headers from Postman format
+#[must_use]
 pub fn map_headers(headers: &[PostmanHeader]) -> (BTreeMap<String, String>, Vec<ImportWarning>) {
     let mut warnings = Vec::new();
     let mapped: BTreeMap<String, String> = headers
@@ -121,7 +140,7 @@ pub fn map_headers(headers: &[PostmanHeader]) -> (BTreeMap<String, String>, Vec<
     if disabled_count > 0 {
         warnings.push(ImportWarning::new(
             "headers",
-            format!("{} disabled header(s) were skipped", disabled_count),
+            format!("{disabled_count} disabled header(s) were skipped"),
             WarningSeverity::Info,
         ));
     }
@@ -130,6 +149,7 @@ pub fn map_headers(headers: &[PostmanHeader]) -> (BTreeMap<String, String>, Vec<
 }
 
 /// Map query parameters
+#[must_use]
 pub fn map_query_params(
     params: &[PostmanQueryParam],
 ) -> (BTreeMap<String, String>, Vec<ImportWarning>) {
@@ -144,7 +164,7 @@ pub fn map_query_params(
     if disabled_count > 0 {
         warnings.push(ImportWarning::new(
             "query_params",
-            format!("{} disabled query param(s) were skipped", disabled_count),
+            format!("{disabled_count} disabled query param(s) were skipped"),
             WarningSeverity::Info,
         ));
     }
@@ -153,6 +173,7 @@ pub fn map_query_params(
 }
 
 /// Map body from Postman format
+#[must_use]
 pub fn map_body(body: &Option<PostmanBody>) -> (Option<MappedBody>, Vec<ImportWarning>) {
     let mut warnings = Vec::new();
 
@@ -172,11 +193,10 @@ pub fn map_body(body: &Option<PostmanBody>) -> (Option<MappedBody>, Vec<ImportWa
                     .and_then(|r| r.language.clone())
                     .unwrap_or_default();
 
-                if language == "json" || raw.trim_start().starts_with('{') || raw.trim_start().starts_with('[') {
-                    if let Ok(json_value) = serde_json::from_str::<Value>(&raw) {
+                if (language == "json" || raw.trim_start().starts_with('{') || raw.trim_start().starts_with('['))
+                    && let Ok(json_value) = serde_json::from_str::<Value>(&raw) {
                         return Some(MappedBody::Json(json_value));
                     }
-                }
                 Some(MappedBody::Text(raw))
             }
             "urlencoded" => {
@@ -216,7 +236,7 @@ pub fn map_body(body: &Option<PostmanBody>) -> (Option<MappedBody>, Vec<ImportWa
                 if file_count > 0 {
                     warnings.push(ImportWarning::new(
                         "body.formdata",
-                        format!("{} file field(s) were imported without actual file content", file_count),
+                        format!("{file_count} file field(s) were imported without actual file content"),
                         WarningSeverity::Warning,
                     ));
                 }
@@ -233,19 +253,15 @@ pub fn map_body(body: &Option<PostmanBody>) -> (Option<MappedBody>, Vec<ImportWa
                 Some(MappedBody::Binary { filename })
             }
             "graphql" => {
-                if let Some(ref gql) = b.graphql {
-                    Some(MappedBody::GraphQL {
+                b.graphql.as_ref().map(|gql| MappedBody::GraphQL {
                         query: gql.query.clone(),
                         variables: gql.variables.clone(),
                     })
-                } else {
-                    None
-                }
             }
             other => {
                 warnings.push(ImportWarning::new(
                     "body",
-                    format!("Unknown body mode '{}' was skipped", other),
+                    format!("Unknown body mode '{other}' was skipped"),
                     WarningSeverity::Warning,
                 ));
                 None
@@ -257,59 +273,67 @@ pub fn map_body(body: &Option<PostmanBody>) -> (Option<MappedBody>, Vec<ImportWa
 }
 
 /// Map authentication
+#[must_use]
 pub fn map_auth(auth: &Option<PostmanAuth>) -> (Option<MappedAuth>, Vec<ImportWarning>) {
     let mut warnings = Vec::new();
 
-    let mapped = auth.as_ref().and_then(|a| {
-        match a.auth_type.as_str() {
-            "noauth" => Some(MappedAuth::None),
-            "bearer" => {
-                let token = a.get_param(&a.bearer, "token").unwrap_or_default();
-                Some(MappedAuth::Bearer { token })
-            }
-            "basic" => {
-                let username = a.get_param(&a.basic, "username").unwrap_or_default();
-                let password = a.get_param(&a.basic, "password").unwrap_or_default();
-                Some(MappedAuth::Basic { username, password })
-            }
-            "apikey" => {
-                let key = a.get_param(&a.apikey, "key").unwrap_or_default();
-                let value = a.get_param(&a.apikey, "value").unwrap_or_default();
-                let in_location = a.get_param(&a.apikey, "in").unwrap_or_else(|| "header".to_string());
-                Some(MappedAuth::ApiKey {
-                    key,
-                    value,
-                    in_header: in_location == "header",
-                })
-            }
-            "oauth2" => {
-                let access_token = a.get_param(&a.oauth2, "accessToken");
-                let token_url = a.get_param(&a.oauth2, "accessTokenUrl");
+    let mapped = auth.as_ref().and_then(|a| match a.auth_type.as_str() {
+        "noauth" => Some(MappedAuth::None),
+        "bearer" => {
+            let token = a.get_param(&a.bearer, "token").unwrap_or_default();
+            Some(MappedAuth::Bearer { token })
+        }
+        "basic" => {
+            let username = a.get_param(&a.basic, "username").unwrap_or_default();
+            let password = a.get_param(&a.basic, "password").unwrap_or_default();
+            Some(MappedAuth::Basic { username, password })
+        }
+        "apikey" => {
+            let key = a.get_param(&a.apikey, "key").unwrap_or_default();
+            let value = a.get_param(&a.apikey, "value").unwrap_or_default();
+            let in_location = a
+                .get_param(&a.apikey, "in")
+                .unwrap_or_else(|| "header".to_string());
+            Some(MappedAuth::ApiKey {
+                key,
+                value,
+                in_header: in_location == "header",
+            })
+        }
+        "oauth2" => {
+            let access_token = a.get_param(&a.oauth2, "accessToken");
+            let token_url = a.get_param(&a.oauth2, "accessTokenUrl");
 
-                warnings.push(ImportWarning::new(
-                    "auth.oauth2",
-                    "OAuth2 configuration imported partially. You may need to re-configure tokens.".to_string(),
-                    WarningSeverity::Warning,
-                ));
+            warnings.push(ImportWarning::new(
+                "auth.oauth2",
+                "OAuth2 configuration imported partially. You may need to re-configure tokens."
+                    .to_string(),
+                WarningSeverity::Warning,
+            ));
 
-                Some(MappedAuth::OAuth2 { access_token, token_url })
-            }
-            "digest" | "hawk" | "ntlm" | "awsv4" => {
-                warnings.push(ImportWarning::new(
-                    "auth",
-                    format!("Authentication type '{}' is not supported and was skipped", a.auth_type),
-                    WarningSeverity::Warning,
-                ));
-                None
-            }
-            other => {
-                warnings.push(ImportWarning::new(
-                    "auth",
-                    format!("Unknown authentication type '{}' was skipped", other),
-                    WarningSeverity::Warning,
-                ));
-                None
-            }
+            Some(MappedAuth::OAuth2 {
+                access_token,
+                token_url,
+            })
+        }
+        "digest" | "hawk" | "ntlm" | "awsv4" => {
+            warnings.push(ImportWarning::new(
+                "auth",
+                format!(
+                    "Authentication type '{}' is not supported and was skipped",
+                    a.auth_type
+                ),
+                WarningSeverity::Warning,
+            ));
+            None
+        }
+        other => {
+            warnings.push(ImportWarning::new(
+                "auth",
+                format!("Unknown authentication type '{other}' was skipped"),
+                WarningSeverity::Warning,
+            ));
+            None
         }
     });
 
@@ -317,6 +341,7 @@ pub fn map_auth(auth: &Option<PostmanAuth>) -> (Option<MappedAuth>, Vec<ImportWa
 }
 
 /// Map collection variables
+#[must_use]
 pub fn map_collection_variables(variables: &[PostmanVariable]) -> Vec<MappedVariable> {
     variables
         .iter()
@@ -331,6 +356,7 @@ pub fn map_collection_variables(variables: &[PostmanVariable]) -> Vec<MappedVari
 }
 
 /// Map a single Postman item (recursively handles folders)
+#[must_use]
 pub fn map_postman_item(
     item: &PostmanItem,
     path: &str,
@@ -349,7 +375,7 @@ pub fn map_postman_item(
         if depth >= max_depth {
             warnings.push(ImportWarning::new(
                 &current_path,
-                format!("Folder exceeds maximum depth of {} and was flattened", max_depth),
+                format!("Folder exceeds maximum depth of {max_depth} and was flattened"),
                 WarningSeverity::Warning,
             ));
         }
@@ -358,7 +384,8 @@ pub fn map_postman_item(
         if !item.event.is_empty() {
             warnings.push(ImportWarning::new(
                 &current_path,
-                "Folder-level scripts (pre-request/test) are not supported and were skipped".to_string(),
+                "Folder-level scripts (pre-request/test) are not supported and were skipped"
+                    .to_string(),
                 WarningSeverity::Info,
             ));
         }
@@ -413,7 +440,10 @@ pub fn map_postman_item(
             Some(MappedItem::Request(MappedRequest {
                 id: uuid::Uuid::now_v7().to_string(),
                 name: item.name.clone(),
-                description: item.description.clone().or(request.description.clone()),
+                description: item
+                    .description
+                    .clone()
+                    .or_else(|| request.description.clone()),
                 method: map_http_method(&request.method),
                 url: request.url.raw(),
                 headers,
@@ -436,6 +466,7 @@ pub fn map_postman_item(
 }
 
 /// Map a complete Postman collection
+#[must_use]
 pub fn map_postman_collection(
     collection: &PostmanCollection,
     max_depth: usize,
@@ -481,6 +512,7 @@ pub fn map_postman_collection(
 }
 
 /// Map a Postman environment to Vortex format
+#[must_use]
 pub fn map_postman_environment(env: &PostmanEnvironment) -> MappedEnvironment {
     let warnings = Vec::new();
 
@@ -502,7 +534,8 @@ pub fn map_postman_environment(env: &PostmanEnvironment) -> MappedEnvironment {
     }
 }
 
-/// Convert MappedBody to Vortex JSON format
+/// Convert `MappedBody` to Vortex JSON format
+#[must_use]
 pub fn body_to_vortex_json(body: &MappedBody) -> Value {
     match body {
         MappedBody::Json(v) => json!({
@@ -526,19 +559,17 @@ pub fn body_to_vortex_json(body: &MappedBody) -> Value {
         MappedBody::FormData(fields) => {
             let arr: Vec<Value> = fields
                 .iter()
-                .map(|f| {
-                    match &f.value {
-                        FormDataValue::Text(s) => json!({
-                            "key": f.key,
-                            "type": "text",
-                            "value": s
-                        }),
-                        FormDataValue::File { src } => json!({
-                            "key": f.key,
-                            "type": "file",
-                            "src": src
-                        }),
-                    }
+                .map(|f| match &f.value {
+                    FormDataValue::Text(s) => json!({
+                        "key": f.key,
+                        "type": "text",
+                        "value": s
+                    }),
+                    FormDataValue::File { src } => json!({
+                        "key": f.key,
+                        "type": "file",
+                        "src": src
+                    }),
                 })
                 .collect();
             json!({
@@ -563,7 +594,8 @@ pub fn body_to_vortex_json(body: &MappedBody) -> Value {
     }
 }
 
-/// Convert MappedAuth to Vortex JSON format
+/// Convert `MappedAuth` to Vortex JSON format
+#[must_use]
 pub fn auth_to_vortex_json(auth: &MappedAuth) -> Value {
     match auth {
         MappedAuth::None => json!({ "type": "none" }),
@@ -576,13 +608,20 @@ pub fn auth_to_vortex_json(auth: &MappedAuth) -> Value {
             "username": username,
             "password": password
         }),
-        MappedAuth::ApiKey { key, value, in_header } => json!({
+        MappedAuth::ApiKey {
+            key,
+            value,
+            in_header,
+        } => json!({
             "type": "apikey",
             "key": key,
             "value": value,
             "in": if *in_header { "header" } else { "query" }
         }),
-        MappedAuth::OAuth2 { access_token, token_url } => json!({
+        MappedAuth::OAuth2 {
+            access_token,
+            token_url,
+        } => json!({
             "type": "oauth2",
             "access_token": access_token,
             "token_url": token_url
@@ -591,6 +630,7 @@ pub fn auth_to_vortex_json(auth: &MappedAuth) -> Value {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

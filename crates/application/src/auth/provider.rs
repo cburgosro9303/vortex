@@ -12,13 +12,13 @@ use vortex_domain::{AuthConfig, AuthError, AuthResolution, OAuth2Token};
 ///
 /// Implementations handle the actual authentication process,
 /// whether that's simply formatting a bearer token or performing
-/// a full OAuth2 flow.
+/// a full `OAuth2` flow.
 pub trait AuthProvider: Send + Sync {
     /// Resolve an auth configuration into concrete credentials.
     ///
     /// This may involve:
     /// - Formatting bearer tokens or basic auth headers
-    /// - Fetching OAuth2 tokens (from cache or server)
+    /// - Fetching `OAuth2` tokens (from cache or server)
     /// - Triggering browser-based authorization
     ///
     /// # Arguments
@@ -31,10 +31,10 @@ pub trait AuthProvider: Send + Sync {
         config: &'a AuthConfig,
     ) -> Pin<Box<dyn Future<Output = AuthResolution> + Send + 'a>>;
 
-    /// Refresh an OAuth2 token.
+    /// Refresh an `OAuth2` token.
     ///
     /// # Arguments
-    /// * `config` - The OAuth2 configuration.
+    /// * `config` - The `OAuth2` configuration.
     /// * `refresh_token` - The refresh token to use.
     ///
     /// # Returns
@@ -48,7 +48,7 @@ pub trait AuthProvider: Send + Sync {
     /// Revoke a token (if supported by the provider).
     ///
     /// # Arguments
-    /// * `config` - The OAuth2 configuration.
+    /// * `config` - The `OAuth2` configuration.
     /// * `token` - The token to revoke.
     fn revoke_token<'a>(
         &'a self,
@@ -56,14 +56,14 @@ pub trait AuthProvider: Send + Sync {
         token: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<(), AuthError>> + Send + 'a>>;
 
-    /// Get the current token for an OAuth2 config (from cache).
+    /// Get the current token for an `OAuth2` config (from cache).
     fn get_cached_token(&self, config: &AuthConfig) -> Option<OAuth2Token>;
 
     /// Clear cached token for a config.
     fn clear_cached_token(&self, config: &AuthConfig);
 }
 
-/// Authorization state for tracking OAuth2 flows.
+/// Authorization state for tracking `OAuth2` flows.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthorizationState {
     /// Not started.
@@ -107,7 +107,7 @@ impl AuthorizationState {
 
     /// Get a user-friendly message.
     #[must_use]
-    pub fn message(&self) -> &str {
+    pub const fn message(&self) -> &str {
         match self {
             Self::Idle => "Ready to authenticate",
             Self::WaitingForBrowser { .. } => "Waiting for authorization in browser...",
@@ -119,7 +119,7 @@ impl AuthorizationState {
     }
 }
 
-/// Events emitted during OAuth2 flows for UI updates.
+/// Events emitted during `OAuth2` flows for UI updates.
 #[derive(Debug, Clone)]
 pub enum AuthEvent {
     /// Flow started.

@@ -46,11 +46,11 @@ impl Default for WebSocketConfig {
     }
 }
 
-fn default_timeout() -> u64 {
+const fn default_timeout() -> u64 {
     30
 }
 
-fn default_max_reconnects() -> u32 {
+const fn default_max_reconnects() -> u32 {
     5
 }
 
@@ -102,9 +102,12 @@ impl WebSocketConfig {
     }
 
     /// Validate the configuration.
+    #[allow(clippy::missing_errors_doc)]
     pub fn validate(&self) -> Result<(), WebSocketError> {
         if self.url.is_empty() {
-            return Err(WebSocketError::InvalidUrl("URL cannot be empty".to_string()));
+            return Err(WebSocketError::InvalidUrl(
+                "URL cannot be empty".to_string(),
+            ));
         }
 
         if !self.url.starts_with("ws://") && !self.url.starts_with("wss://") {
@@ -265,6 +268,7 @@ impl WebSocketMessage {
     /// Format the size for display.
     #[must_use]
     pub fn size_display(&self) -> String {
+        #[allow(clippy::cast_precision_loss)]
         if self.size >= 1024 * 1024 {
             format!("{:.2} MB", self.size as f64 / (1024.0 * 1024.0))
         } else if self.size >= 1024 {
@@ -374,18 +378,18 @@ impl ConnectionInfo {
     }
 
     /// Mark as disconnected.
-    pub fn disconnected(&mut self) {
+    pub const fn disconnected(&mut self) {
         self.state = ConnectionState::Disconnected;
     }
 
     /// Record a sent message.
-    pub fn record_sent(&mut self, size: usize) {
+    pub const fn record_sent(&mut self, size: usize) {
         self.messages_sent = self.messages_sent.saturating_add(1);
         self.bytes_sent = self.bytes_sent.saturating_add(size as u64);
     }
 
     /// Record a received message.
-    pub fn record_received(&mut self, size: usize) {
+    pub const fn record_received(&mut self, size: usize) {
         self.messages_received = self.messages_received.saturating_add(1);
         self.bytes_received = self.bytes_received.saturating_add(size as u64);
     }
@@ -399,19 +403,19 @@ impl ConnectionInfo {
     /// Format duration for display.
     #[must_use]
     pub fn duration_display(&self) -> String {
-        match self.duration() {
-            Some(d) => {
+        self.duration().map_or_else(
+            || "-".to_string(),
+            |d| {
                 let secs = d.num_seconds();
                 if secs >= 3600 {
                     format!("{}h {}m", secs / 3600, (secs % 3600) / 60)
                 } else if secs >= 60 {
                     format!("{}m {}s", secs / 60, secs % 60)
                 } else {
-                    format!("{}s", secs)
+                    format!("{secs}s")
                 }
-            }
-            None => "-".to_string(),
-        }
+            },
+        )
     }
 }
 

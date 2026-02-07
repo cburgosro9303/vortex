@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 /// Request body with multiple format support.
 ///
 /// The `type` field is used as the discriminator for JSON serialization.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PersistenceRequestBody {
     /// JSON body with structured content.
@@ -51,9 +51,9 @@ pub enum PersistenceRequestBody {
 }
 
 impl PersistenceRequestBody {
-    /// Creates a JSON body from a serde_json::Value.
+    /// Creates a JSON body from a `serde_json::Value`.
     #[must_use]
-    pub fn json(content: JsonValue) -> Self {
+    pub const fn json(content: JsonValue) -> Self {
         Self::Json { content }
     }
 
@@ -67,13 +67,13 @@ impl PersistenceRequestBody {
 
     /// Creates a form-urlencoded body from key-value pairs.
     #[must_use]
-    pub fn form_urlencoded(fields: BTreeMap<String, String>) -> Self {
+    pub const fn form_urlencoded(fields: BTreeMap<String, String>) -> Self {
         Self::FormUrlencoded { fields }
     }
 
     /// Creates a multipart form-data body.
     #[must_use]
-    pub fn form_data(fields: Vec<FormDataField>) -> Self {
+    pub const fn form_data(fields: Vec<FormDataField>) -> Self {
         Self::FormData { fields }
     }
 
@@ -94,7 +94,7 @@ impl PersistenceRequestBody {
 }
 
 /// A field in a multipart form-data body.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum FormDataField {
     /// Text field.
@@ -134,6 +134,7 @@ impl FormDataField {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -169,7 +170,7 @@ mod tests {
                 assert_eq!(name, "username");
                 assert_eq!(value, "john");
             }
-            _ => panic!("Expected Text field"),
+            FormDataField::File { .. } => panic!("Expected Text field"),
         }
 
         match file_field {
@@ -177,7 +178,7 @@ mod tests {
                 assert_eq!(name, "avatar");
                 assert_eq!(path, "uploads/avatar.png");
             }
-            _ => panic!("Expected File field"),
+            FormDataField::Text { .. } => panic!("Expected File field"),
         }
     }
 }

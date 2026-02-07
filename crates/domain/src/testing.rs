@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// A test assertion to run against a response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Assertion {
     /// Check response status code.
@@ -48,14 +48,14 @@ pub enum Assertion {
     },
     /// Check JSON path exists and optionally its value.
     JsonPath {
-        /// JSONPath expression (e.g., "$.data.id").
+        /// `JSONPath` expression (e.g., "$.data.id").
         path: String,
         /// Expected value (as JSON).
         expected: Option<serde_json::Value>,
     },
     /// Check JSON path value matches condition.
     JsonPathMatches {
-        /// JSONPath expression.
+        /// `JSONPath` expression.
         path: String,
         /// Comparison operator.
         operator: ComparisonOperator,
@@ -91,27 +91,40 @@ impl Assertion {
     pub fn description(&self) -> String {
         match self {
             Self::StatusCode { expected } => format!("Status code {}", expected.description()),
-            Self::ResponseTime { max_ms } => format!("Response time < {}ms", max_ms),
-            Self::HeaderExists { name, value: Some(v) } => {
-                format!("Header '{}' equals '{}'", name, v)
+            Self::ResponseTime { max_ms } => format!("Response time < {max_ms}ms"),
+            Self::HeaderExists {
+                name,
+                value: Some(v),
+            } => {
+                format!("Header '{name}' equals '{v}'")
             }
-            Self::HeaderExists { name, value: None } => format!("Header '{}' exists", name),
+            Self::HeaderExists { name, value: None } => format!("Header '{name}' exists"),
             Self::HeaderMatches { name, pattern } => {
-                format!("Header '{}' matches /{}/", name, pattern)
+                format!("Header '{name}' matches /{pattern}/")
             }
-            Self::BodyContains { text, .. } => format!("Body contains '{}'", text),
-            Self::BodyMatches { pattern } => format!("Body matches /{}/", pattern),
-            Self::JsonPath { path, expected: Some(v) } => {
-                format!("JSON {} equals {}", path, v)
+            Self::BodyContains { text, .. } => format!("Body contains '{text}'"),
+            Self::BodyMatches { pattern } => format!("Body matches /{pattern}/"),
+            Self::JsonPath {
+                path,
+                expected: Some(v),
+            } => {
+                format!("JSON {path} equals {v}")
             }
-            Self::JsonPath { path, expected: None } => format!("JSON {} exists", path),
-            Self::JsonPathMatches { path, operator, value } => {
+            Self::JsonPath {
+                path,
+                expected: None,
+            } => format!("JSON {path} exists"),
+            Self::JsonPathMatches {
+                path,
+                operator,
+                value,
+            } => {
                 format!("JSON {} {} {}", path, operator.symbol(), value)
             }
             Self::BodyEquals { .. } => "Body equals expected".to_string(),
             Self::IsJson => "Body is valid JSON".to_string(),
             Self::IsXml => "Body is valid XML".to_string(),
-            Self::ContentType { expected } => format!("Content-Type contains '{}'", expected),
+            Self::ContentType { expected } => format!("Content-Type contains '{expected}'"),
             Self::BodyLength { operator, length } => {
                 format!("Body length {} {}", operator.symbol(), length)
             }
@@ -120,7 +133,7 @@ impl Assertion {
 }
 
 /// Expected status code value or range.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum StatusExpectation {
     /// Exact status code.
@@ -151,8 +164,8 @@ impl StatusExpectation {
     #[must_use]
     pub fn description(&self) -> String {
         match self {
-            Self::Exact(code) => format!("= {}", code),
-            Self::Range { min, max } => format!("in {}-{}", min, max),
+            Self::Exact(code) => format!("= {code}"),
+            Self::Range { min, max } => format!("in {min}-{max}"),
             Self::OneOf(codes) => {
                 let codes_str: Vec<_> = codes.iter().map(ToString::to_string).collect();
                 format!("in [{}]", codes_str.join(", "))
@@ -234,7 +247,7 @@ pub struct AssertionResult {
 impl AssertionResult {
     /// Create a passed result.
     #[must_use]
-    pub fn pass(assertion: Assertion) -> Self {
+    pub const fn pass(assertion: Assertion) -> Self {
         Self {
             assertion,
             passed: true,
@@ -319,6 +332,7 @@ impl TestSuite {
     }
 
     /// Add an assertion (builder pattern).
+    #[must_use]
     pub fn with_assertion(mut self, assertion: Assertion) -> Self {
         self.assertions.push(assertion);
         self
@@ -326,13 +340,13 @@ impl TestSuite {
 
     /// Check if the suite is empty.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.assertions.is_empty()
     }
 
     /// Get the number of assertions.
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.assertions.len()
     }
 }
@@ -357,7 +371,11 @@ pub struct TestResults {
 impl TestResults {
     /// Create new test results.
     #[must_use]
-    pub fn new(suite_name: impl Into<String>, results: Vec<AssertionResult>, duration_ms: u64) -> Self {
+    pub fn new(
+        suite_name: impl Into<String>,
+        results: Vec<AssertionResult>,
+        duration_ms: u64,
+    ) -> Self {
         let total = results.len();
         let passed = results.iter().filter(|r| r.passed).count();
         let failed = total - passed;
@@ -374,7 +392,7 @@ impl TestResults {
 
     /// Check if all tests passed.
     #[must_use]
-    pub fn all_passed(&self) -> bool {
+    pub const fn all_passed(&self) -> bool {
         self.failed == 0
     }
 
@@ -384,12 +402,21 @@ impl TestResults {
         if self.total == 0 {
             100.0
         } else {
-            (self.passed as f64 / self.total as f64) * 100.0
+            #[allow(clippy::cast_precision_loss)]
+            {
+                (self.passed as f64 / self.total as f64) * 100.0
+            }
         }
     }
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::float_cmp
+)]
 mod tests {
     use super::*;
 

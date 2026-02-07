@@ -1,0 +1,70 @@
+name: Improvement
+description: Suggest an improvement to an existing feature
+title: "[Improvement]: "
+labels: ["enhancement", "improvement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Suggest an improvement to an existing feature or behavior.
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current Behavior
+      description: Describe how the feature currently works.
+      placeholder: Currently, Vortex does...
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-improvement
+    attributes:
+      label: Proposed Improvement
+      description: Describe how you would like it to work instead.
+      placeholder: It would be better if...
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this improvement needed? What problem does it solve?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which area of Vortex does this affect?
+      options:
+        - HTTP Execution
+        - Collections
+        - Environments
+        - Auth
+        - Import/Export
+        - Code Gen
+        - Testing
+        - UI
+        - Settings
+        - File Persistence
+        - Documentation
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      description: How significant is this improvement?
+      options:
+        - Low — cosmetic or minor convenience
+        - Medium — noticeable improvement in usability or performance
+        - High — significant impact on functionality or performance
+      default: 1
+    validations:
+      required: true
+  - type: checkboxes
+    id: breaking-change
+    attributes:
+      label: Breaking Change
+      options:
+        - label: This improvement would require breaking changes

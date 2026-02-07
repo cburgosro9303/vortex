@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// TLS configuration for HTTP requests.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TlsConfig {
     /// Whether to verify server certificates.
     #[serde(default = "default_true")]
@@ -44,7 +44,7 @@ impl Default for TlsConfig {
     }
 }
 
-fn default_true() -> bool {
+const fn default_true() -> bool {
     true
 }
 
@@ -110,14 +110,14 @@ impl TlsConfig {
 
     /// Set minimum TLS version.
     #[must_use]
-    pub fn with_min_tls_version(mut self, version: TlsVersion) -> Self {
+    pub const fn with_min_tls_version(mut self, version: TlsVersion) -> Self {
         self.min_tls_version = Some(version);
         self
     }
 }
 
 /// Source for a certificate.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CertificateSource {
     /// Load from a PEM file.
@@ -140,7 +140,7 @@ pub enum CertificateSource {
 }
 
 /// Client certificate for mTLS authentication.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClientCertificate {
     /// Certificate source.
     pub certificate: CertificateSource,
@@ -180,7 +180,7 @@ impl ClientCertificate {
 }
 
 /// Source for a private key.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PrivateKeySource {
     /// Load from a PEM file.
@@ -206,7 +206,7 @@ pub enum PrivateKeySource {
 }
 
 /// TLS protocol version.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum TlsVersion {
     /// TLS 1.0 (deprecated, avoid if possible)
     #[serde(rename = "1.0")]
@@ -216,16 +216,11 @@ pub enum TlsVersion {
     Tls11,
     /// TLS 1.2 (recommended minimum)
     #[serde(rename = "1.2")]
+    #[default]
     Tls12,
     /// TLS 1.3 (most secure)
     #[serde(rename = "1.3")]
     Tls13,
-}
-
-impl Default for TlsVersion {
-    fn default() -> Self {
-        Self::Tls12
-    }
 }
 
 /// TLS security warnings.
@@ -310,6 +305,7 @@ impl CertificateInfo {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

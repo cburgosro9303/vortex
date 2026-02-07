@@ -1,0 +1,61 @@
+name: Feature Request
+description: Suggest a new feature for Vortex
+title: "[Feature]: "
+labels: ["enhancement", "new feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! Please fill out the details below.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Clear and concise description of the feature you'd like.
+      placeholder: I would like Vortex to support...
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Describe the problem this feature would solve or the use case it enables.
+      placeholder: This would be useful when...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which area of Vortex does this feature affect?
+      options:
+        - HTTP Execution
+        - Collections
+        - Environments
+        - Auth
+        - Import/Export
+        - Code Gen
+        - Testing
+        - UI
+        - WebSocket / gRPC
+        - Scripting
+        - CLI
+        - Documentation
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: If you have an idea of how this could be implemented, describe it here.
+      placeholder: A possible approach would be...
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or features you've considered.
+    validations:
+      required: false

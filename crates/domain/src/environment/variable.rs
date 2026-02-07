@@ -280,7 +280,10 @@ mod tests {
         env.set_variable("port", Variable::new("8080"));
 
         assert_eq!(env.variable_count(), 2);
-        assert_eq!(env.get_variable("host").map(|v| v.value.as_str()), Some("localhost"));
+        assert_eq!(
+            env.get_variable("host").map(|v| v.value.as_str()),
+            Some("localhost")
+        );
         assert_eq!(env.resolve("port"), Some("8080"));
     }
 
@@ -327,7 +330,11 @@ mod tests {
 
     #[test]
     fn test_resolved_variable() {
-        let resolved = ResolvedVariable::new("base_url", "https://api.example.com", VariableScope::Environment);
+        let resolved = ResolvedVariable::new(
+            "base_url",
+            "https://api.example.com",
+            VariableScope::Environment,
+        );
         assert_eq!(resolved.name, "base_url");
         assert_eq!(resolved.value, "https://api.example.com");
         assert_eq!(resolved.scope, VariableScope::Environment);

@@ -24,17 +24,17 @@ pub enum CodeLanguage {
     Rust,
     /// Go with net/http
     Go,
-    /// Java with HttpClient
+    /// Java with `HttpClient`
     Java,
-    /// C# with HttpClient
+    /// C# with `HttpClient`
     CSharp,
     /// PHP with cURL
     Php,
-    /// Ruby with Net::HTTP
+    /// Ruby with `Net::HTTP`
     Ruby,
-    /// Swift with URLSession
+    /// Swift with `URLSession`
     Swift,
-    /// Kotlin with OkHttp
+    /// Kotlin with `OkHttp`
     Kotlin,
 }
 
@@ -106,6 +106,7 @@ impl std::fmt::Display for CodeLanguage {
 }
 
 /// Options for code generation.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodeGenOptions {
     /// Target programming language.
@@ -197,18 +198,21 @@ impl CodeSnippet {
     }
 
     /// Add an import.
+    #[must_use]
     pub fn with_import(mut self, import: impl Into<String>) -> Self {
         self.imports.push(import.into());
         self
     }
 
     /// Add multiple imports.
+    #[must_use]
     pub fn with_imports(mut self, imports: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.imports.extend(imports.into_iter().map(Into::into));
         self
     }
 
     /// Add setup code.
+    #[must_use]
     pub fn with_setup(mut self, setup: impl Into<String>) -> Self {
         self.setup = Some(setup.into());
         self

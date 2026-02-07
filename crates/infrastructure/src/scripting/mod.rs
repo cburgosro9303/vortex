@@ -6,4 +6,4 @@ mod executor;
 mod parser;
 
 pub use executor::ScriptExecutor;
-pub use parser::{parse_script, ParseError};
+pub use parser::{ParseError, parse_script};

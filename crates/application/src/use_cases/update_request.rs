@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use vortex_domain::persistence::SavedRequest;
 
-use crate::ports::{slugify, CollectionError, CollectionRepository};
+use crate::ports::{CollectionError, CollectionRepository, slugify};
 
 /// Input for updating a request.
 #[derive(Debug, Clone)]

@@ -24,6 +24,7 @@ pub struct ResolveVariables {
 
 impl ResolveVariables {
     /// Creates a new `ResolveVariables` use case.
+    #[must_use]
     pub fn new(context: ResolutionContext) -> Self {
         Self {
             resolver: VariableResolver::new(context),
@@ -31,6 +32,7 @@ impl ResolveVariables {
     }
 
     /// Creates with an empty context (for testing).
+    #[must_use]
     pub fn empty() -> Self {
         Self {
             resolver: VariableResolver::empty(),
@@ -43,12 +45,13 @@ impl ResolveVariables {
     }
 
     /// Returns a reference to the internal resolver.
-    pub fn resolver(&self) -> &VariableResolver {
+    #[must_use]
+    pub const fn resolver(&self) -> &VariableResolver {
         &self.resolver
     }
 
     /// Returns a mutable reference to the internal resolver.
-    pub fn resolver_mut(&mut self) -> &mut VariableResolver {
+    pub const fn resolver_mut(&mut self) -> &mut VariableResolver {
         &mut self.resolver
     }
 
@@ -68,7 +71,7 @@ impl ResolveVariables {
 
         // Resolve URL
         let url_result = self.resolver.resolve(&request.url);
-        resolved_request.url = url_result.resolved.clone();
+        resolved_request.url.clone_from(&url_result.resolved);
         all_unresolved.extend(url_result.unresolved.clone());
 
         // Resolve headers
@@ -80,10 +83,8 @@ impl ResolveVariables {
             all_unresolved.extend(name_result.unresolved);
             all_unresolved.extend(value_result.unresolved);
 
-            let mut resolved_header = vortex_domain::request::Header::new(
-                name_result.resolved,
-                value_result.resolved,
-            );
+            let mut resolved_header =
+                vortex_domain::request::Header::new(name_result.resolved, value_result.resolved);
             resolved_header.enabled = header.enabled;
             resolved_headers.add(resolved_header);
         }
@@ -98,10 +99,8 @@ impl ResolveVariables {
             all_unresolved.extend(key_result.unresolved);
             all_unresolved.extend(value_result.unresolved);
 
-            let mut resolved_param = vortex_domain::request::QueryParam::new(
-                key_result.resolved,
-                value_result.resolved,
-            );
+            let mut resolved_param =
+                vortex_domain::request::QueryParam::new(key_result.resolved, value_result.resolved);
             resolved_param.enabled = param.enabled;
             resolved_params.add(resolved_param);
         }
@@ -238,11 +237,13 @@ impl ResolveVariables {
     }
 
     /// Preview resolution for the URL only (for UI display).
+    #[must_use]
     pub fn preview_url(&self, url: &str) -> ResolutionResult {
         self.resolver.preview(url)
     }
 
     /// Find unresolved variables in a string.
+    #[must_use]
     pub fn find_unresolved(&self, input: &str) -> Vec<String> {
         self.resolver.find_unresolved(input)
     }
@@ -255,6 +256,7 @@ impl Default for ResolveVariables {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use vortex_domain::auth::AuthConfig;
@@ -273,12 +275,7 @@ mod tests {
         let mut secrets = SecretsStore::new();
         secrets.set_secret("development", "api_key", "sk-secret-123");
 
-        ResolutionContext::from_sources(
-            &globals,
-            &std::collections::HashMap::new(),
-            &env,
-            &secrets,
-        )
+        ResolutionContext::from_sources(&globals, &std::collections::HashMap::new(), &env, &secrets)
     }
 
     #[test]
@@ -290,7 +287,10 @@ mod tests {
         let output = use_case.execute(&request);
 
         assert!(output.is_complete);
-        assert_eq!(output.resolved_request.url, "http://localhost:3000/api/v1/users");
+        assert_eq!(
+            output.resolved_request.url,
+            "http://localhost:3000/api/v1/users"
+        );
     }
 
     #[test]
@@ -303,7 +303,10 @@ mod tests {
 
         assert!(!output.is_complete);
         assert!(output.all_unresolved.contains(&"unknown".to_string()));
-        assert_eq!(output.resolved_request.url, "http://localhost:3000/api/{{unknown}}");
+        assert_eq!(
+            output.resolved_request.url,
+            "http://localhost:3000/api/{{unknown}}"
+        );
     }
 
     #[test]
@@ -353,7 +356,11 @@ mod tests {
         assert!(output.is_complete);
 
         let params: Vec<_> = output.resolved_request.query_params.all().iter().collect();
-        assert!(params.iter().any(|p| p.key == "app" && p.value == "TestApp"));
+        assert!(
+            params
+                .iter()
+                .any(|p| p.key == "app" && p.value == "TestApp")
+        );
         assert!(params.iter().any(|p| p.key == "version" && p.value == "v1"));
     }
 

@@ -17,6 +17,11 @@ pub struct TestRunner {
     stop_on_failure: bool,
 }
 
+#[allow(
+    clippy::unused_self,
+    clippy::option_if_let_else,
+    clippy::cast_possible_truncation
+)]
 impl TestRunner {
     /// Create a new test runner.
     #[must_use]
@@ -57,8 +62,12 @@ impl TestRunner {
     #[must_use]
     pub fn run_assertion(&self, assertion: &Assertion, response: &ResponseSpec) -> AssertionResult {
         match assertion {
-            Assertion::StatusCode { expected } => self.check_status_code(assertion, response, expected),
-            Assertion::ResponseTime { max_ms } => self.check_response_time(assertion, response, *max_ms),
+            Assertion::StatusCode { expected } => {
+                self.check_status_code(assertion, response, expected)
+            }
+            Assertion::ResponseTime { max_ms } => {
+                self.check_response_time(assertion, response, *max_ms)
+            }
             Assertion::HeaderExists { name, value } => {
                 self.check_header_exists(assertion, response, name, value.as_deref())
             }
@@ -68,7 +77,9 @@ impl TestRunner {
             Assertion::BodyContains { text, ignore_case } => {
                 self.check_body_contains(assertion, response, text, *ignore_case)
             }
-            Assertion::BodyMatches { pattern } => self.check_body_matches(assertion, response, pattern),
+            Assertion::BodyMatches { pattern } => {
+                self.check_body_matches(assertion, response, pattern)
+            }
             Assertion::JsonPath { path, expected } => {
                 self.check_json_path(assertion, response, path, expected.as_ref())
             }
@@ -77,7 +88,9 @@ impl TestRunner {
                 operator,
                 value,
             } => self.check_json_path_matches(assertion, response, path, *operator, value),
-            Assertion::BodyEquals { expected } => self.check_body_equals(assertion, response, expected),
+            Assertion::BodyEquals { expected } => {
+                self.check_body_equals(assertion, response, expected)
+            }
             Assertion::IsJson => self.check_is_json(assertion, response),
             Assertion::IsXml => self.check_is_xml(assertion, response),
             Assertion::ContentType { expected } => {
@@ -115,12 +128,12 @@ impl TestRunner {
     ) -> AssertionResult {
         let actual_ms = response.duration.as_millis() as u64;
         if actual_ms <= max_ms {
-            AssertionResult::pass_with_value(assertion.clone(), format!("{}ms", actual_ms))
+            AssertionResult::pass_with_value(assertion.clone(), format!("{actual_ms}ms"))
         } else {
             AssertionResult::fail_with_value(
                 assertion.clone(),
-                format!("{}ms", actual_ms),
-                format!("Response took {}ms, expected <= {}ms", actual_ms, max_ms),
+                format!("{actual_ms}ms"),
+                format!("Response took {actual_ms}ms, expected <= {max_ms}ms"),
             )
         }
     }
@@ -141,17 +154,16 @@ impl TestRunner {
                         AssertionResult::fail_with_value(
                             assertion.clone(),
                             actual_value.clone(),
-                            format!("Header '{}' value mismatch: expected '{}', got '{}'", name, expected, actual_value),
+                            format!(
+                                "Header '{name}' value mismatch: expected '{expected}', got '{actual_value}'"
+                            ),
                         )
                     }
                 } else {
                     AssertionResult::pass_with_value(assertion.clone(), actual_value.clone())
                 }
             }
-            None => AssertionResult::fail(
-                assertion.clone(),
-                format!("Header '{}' not found", name),
-            ),
+            None => AssertionResult::fail(assertion.clone(), format!("Header '{name}' not found")),
         }
     }
 
@@ -171,19 +183,18 @@ impl TestRunner {
                         AssertionResult::fail_with_value(
                             assertion.clone(),
                             actual_value.clone(),
-                            format!("Header '{}' value '{}' does not match pattern '{}'", name, actual_value, pattern),
+                            format!(
+                                "Header '{name}' value '{actual_value}' does not match pattern '{pattern}'"
+                            ),
                         )
                     }
                 }
                 Err(e) => AssertionResult::fail(
                     assertion.clone(),
-                    format!("Invalid regex pattern '{}': {}", pattern, e),
+                    format!("Invalid regex pattern '{pattern}': {e}"),
                 ),
             },
-            None => AssertionResult::fail(
-                assertion.clone(),
-                format!("Header '{}' not found", name),
-            ),
+            None => AssertionResult::fail(assertion.clone(), format!("Header '{name}' not found")),
         }
     }
 
@@ -212,7 +223,7 @@ impl TestRunner {
             AssertionResult::fail_with_value(
                 assertion.clone(),
                 preview,
-                format!("Body does not contain '{}'", text),
+                format!("Body does not contain '{text}'"),
             )
         }
     }
@@ -236,13 +247,13 @@ impl TestRunner {
                     AssertionResult::fail_with_value(
                         assertion.clone(),
                         preview,
-                        format!("Body does not match pattern '{}'", pattern),
+                        format!("Body does not match pattern '{pattern}'"),
                     )
                 }
             }
             Err(e) => AssertionResult::fail(
                 assertion.clone(),
-                format!("Invalid regex pattern '{}': {}", pattern, e),
+                format!("Invalid regex pattern '{pattern}': {e}"),
             ),
         }
     }
@@ -260,8 +271,8 @@ impl TestRunner {
             Err(e) => {
                 return AssertionResult::fail(
                     assertion.clone(),
-                    format!("Failed to parse body as JSON: {}", e),
-                )
+                    format!("Failed to parse body as JSON: {e}"),
+                );
             }
         };
 
@@ -275,20 +286,21 @@ impl TestRunner {
                         AssertionResult::fail_with_value(
                             assertion.clone(),
                             value.to_string(),
-                            format!("JSON path '{}' value mismatch: expected {}, got {}", path, expected_value, value),
+                            format!(
+                                "JSON path '{path}' value mismatch: expected {expected_value}, got {value}"
+                            ),
                         )
                     }
                 } else {
                     AssertionResult::pass_with_value(assertion.clone(), value.to_string())
                 }
             }
-            Ok(None) => AssertionResult::fail(
-                assertion.clone(),
-                format!("JSON path '{}' not found", path),
-            ),
+            Ok(None) => {
+                AssertionResult::fail(assertion.clone(), format!("JSON path '{path}' not found"))
+            }
             Err(e) => AssertionResult::fail(
                 assertion.clone(),
-                format!("Invalid JSON path '{}': {}", path, e),
+                format!("Invalid JSON path '{path}': {e}"),
             ),
         }
     }
@@ -307,8 +319,8 @@ impl TestRunner {
             Err(e) => {
                 return AssertionResult::fail(
                     assertion.clone(),
-                    format!("Failed to parse body as JSON: {}", e),
-                )
+                    format!("Failed to parse body as JSON: {e}"),
+                );
             }
         };
 
@@ -331,13 +343,12 @@ impl TestRunner {
                     )
                 }
             }
-            Ok(None) => AssertionResult::fail(
-                assertion.clone(),
-                format!("JSON path '{}' not found", path),
-            ),
+            Ok(None) => {
+                AssertionResult::fail(assertion.clone(), format!("JSON path '{path}' not found"))
+            }
             Err(e) => AssertionResult::fail(
                 assertion.clone(),
-                format!("Invalid JSON path '{}': {}", path, e),
+                format!("Invalid JSON path '{path}': {e}"),
             ),
         }
     }
@@ -367,10 +378,9 @@ impl TestRunner {
     fn check_is_json(&self, assertion: &Assertion, response: &ResponseSpec) -> AssertionResult {
         match serde_json::from_str::<serde_json::Value>(&response.body) {
             Ok(_) => AssertionResult::pass(assertion.clone()),
-            Err(e) => AssertionResult::fail(
-                assertion.clone(),
-                format!("Body is not valid JSON: {}", e),
-            ),
+            Err(e) => {
+                AssertionResult::fail(assertion.clone(), format!("Body is not valid JSON: {e}"))
+            }
         }
     }
 
@@ -403,7 +413,7 @@ impl TestRunner {
                     AssertionResult::fail_with_value(
                         assertion.clone(),
                         actual.clone(),
-                        format!("Content-Type '{}' does not contain '{}'", actual, expected),
+                        format!("Content-Type '{actual}' does not contain '{expected}'"),
                     )
                 }
             }
@@ -451,7 +461,10 @@ impl TestRunner {
 
 /// Query a JSON value using a simple JSONPath-like syntax.
 /// Supports: $.field, $.field.nested, $.array[0], $.array[*]
-fn query_json_path(json: &serde_json::Value, path: &str) -> Result<Option<serde_json::Value>, String> {
+fn query_json_path(
+    json: &serde_json::Value,
+    path: &str,
+) -> Result<Option<serde_json::Value>, String> {
     let path = path.trim();
     if !path.starts_with('$') {
         return Err("JSON path must start with '$'".to_string());
@@ -478,7 +491,9 @@ fn query_json_path(json: &serde_json::Value, path: &str) -> Result<Option<serde_
                 // Return all array elements
                 return Ok(Some(current));
             }
-            let idx: usize = index.parse().map_err(|_| format!("Invalid array index: {}", index))?;
+            let idx: usize = index
+                .parse()
+                .map_err(|_| format!("Invalid array index: {index}"))?;
             current = match current.get(idx) {
                 Some(v) => v.clone(),
                 None => return Ok(None),
@@ -528,12 +543,12 @@ fn split_path_segments(path: &str) -> Vec<String> {
 
 /// Parse array access like "field[0]" into ("field", "0").
 fn parse_array_access(segment: &str) -> Option<(String, String)> {
-    if let Some(bracket_start) = segment.find('[') {
-        if segment.ends_with(']') {
-            let name = segment[..bracket_start].to_string();
-            let index = segment[bracket_start + 1..segment.len() - 1].to_string();
-            return Some((name, index));
-        }
+    if let Some(bracket_start) = segment.find('[')
+        && segment.ends_with(']')
+    {
+        let name = segment[..bracket_start].to_string();
+        let index = segment[bracket_start + 1..segment.len() - 1].to_string();
+        return Some((name, index));
     }
     None
 }
@@ -553,16 +568,16 @@ fn compare_json_values(
         ComparisonOperator::GreaterThanOrEqual => compare_numeric(actual, expected, |a, b| a >= b),
         ComparisonOperator::LessThan => compare_numeric(actual, expected, |a, b| a < b),
         ComparisonOperator::LessThanOrEqual => compare_numeric(actual, expected, |a, b| a <= b),
-        ComparisonOperator::Contains => {
-            match (actual, expected) {
-                (Value::String(s), Value::String(needle)) => s.contains(needle.as_str()),
-                (Value::Array(arr), _) => arr.contains(expected),
-                _ => false,
-            }
-        }
+        ComparisonOperator::Contains => match (actual, expected) {
+            (Value::String(s), Value::String(needle)) => s.contains(needle.as_str()),
+            (Value::Array(arr), _) => arr.contains(expected),
+            _ => false,
+        },
         ComparisonOperator::Matches => {
             if let (Value::String(s), Value::String(pattern)) = (actual, expected) {
-                Regex::new(pattern).map(|re| re.is_match(s)).unwrap_or(false)
+                Regex::new(pattern)
+                    .map(|re| re.is_match(s))
+                    .unwrap_or(false)
             } else {
                 false
             }
@@ -588,7 +603,12 @@ mod tests {
     use std::time::Duration;
 
     fn create_response(status: u16, body: &str, headers: HashMap<String, String>) -> ResponseSpec {
-        ResponseSpec::new(status, headers, body.as_bytes().to_vec(), Duration::from_millis(50))
+        ResponseSpec::new(
+            status,
+            headers,
+            body.as_bytes().to_vec(),
+            Duration::from_millis(50),
+        )
     }
 
     fn json_response(status: u16, body: &str) -> ResponseSpec {
@@ -804,7 +824,11 @@ mod tests {
     fn test_is_xml() {
         let runner = TestRunner::new();
 
-        let response = create_response(200, "<?xml version=\"1.0\"?><root><item/></root>", HashMap::new());
+        let response = create_response(
+            200,
+            "<?xml version=\"1.0\"?><root><item/></root>",
+            HashMap::new(),
+        );
         let assertion = Assertion::IsXml;
         let result = runner.run_assertion(&assertion, &response);
         assert!(result.passed);
@@ -814,7 +838,10 @@ mod tests {
     fn test_content_type() {
         let runner = TestRunner::new();
         let mut headers = HashMap::new();
-        headers.insert("Content-Type".to_string(), "application/json; charset=utf-8".to_string());
+        headers.insert(
+            "Content-Type".to_string(),
+            "application/json; charset=utf-8".to_string(),
+        );
         let response = create_response(200, "{}", headers);
 
         let assertion = Assertion::ContentType {
