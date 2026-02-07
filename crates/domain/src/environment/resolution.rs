@@ -302,8 +302,12 @@ mod tests {
         var.enabled = false;
         env.set_variable("disabled", var);
 
-        let ctx =
-            ResolutionContext::from_sources(&Globals::new(), &VariableMap::new(), &env, &SecretsStore::new());
+        let ctx = ResolutionContext::from_sources(
+            &Globals::new(),
+            &VariableMap::new(),
+            &env,
+            &SecretsStore::new(),
+        );
 
         assert!(ctx.resolve("disabled").is_none());
     }
@@ -328,8 +332,12 @@ mod tests {
         let mut env = Environment::new("test");
         env.set_variable("host", Variable::new("localhost"));
 
-        let ctx =
-            ResolutionContext::from_sources(&Globals::new(), &VariableMap::new(), &env, &SecretsStore::new());
+        let ctx = ResolutionContext::from_sources(
+            &Globals::new(),
+            &VariableMap::new(),
+            &env,
+            &SecretsStore::new(),
+        );
 
         assert_eq!(ctx.resolve_value("host"), Some("localhost".to_string()));
         assert_eq!(ctx.resolve_value("nonexistent"), None);
@@ -351,6 +359,9 @@ mod tests {
             ctx.resolve_value("base_url"),
             Some("http://localhost:3000".to_string())
         );
-        assert_eq!(ctx.resolve_value("api_key"), Some("sk-secret-123".to_string()));
+        assert_eq!(
+            ctx.resolve_value("api_key"),
+            Some("sk-secret-123".to_string())
+        );
     }
 }

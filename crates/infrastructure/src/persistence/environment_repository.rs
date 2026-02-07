@@ -5,7 +5,9 @@
 use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
-use vortex_application::ports::{EnvironmentError, EnvironmentRepository, FileSystem, FileSystemError};
+use vortex_application::ports::{
+    EnvironmentError, EnvironmentRepository, FileSystem, FileSystemError,
+};
 use vortex_domain::environment::Environment;
 
 use crate::serialization::{from_json_bytes, to_json_stable_bytes};
@@ -17,12 +19,14 @@ fn to_io_error(e: FileSystemError) -> std::io::Error {
         FileSystemError::NotFound(path) => {
             std::io::Error::new(std::io::ErrorKind::NotFound, path.display().to_string())
         }
-        FileSystemError::PermissionDenied(path) => {
-            std::io::Error::new(std::io::ErrorKind::PermissionDenied, path.display().to_string())
-        }
-        FileSystemError::AlreadyExists(path) => {
-            std::io::Error::new(std::io::ErrorKind::AlreadyExists, path.display().to_string())
-        }
+        FileSystemError::PermissionDenied(path) => std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            path.display().to_string(),
+        ),
+        FileSystemError::AlreadyExists(path) => std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            path.display().to_string(),
+        ),
         _ => std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
     }
 }
@@ -176,8 +180,14 @@ mod tests {
     #[test]
     fn test_environment_path() {
         let workspace = PathBuf::from("/test/workspace");
-        let path = FileEnvironmentRepository::<TokioFileSystem>::environment_path(&workspace, "Development");
-        assert_eq!(path, PathBuf::from("/test/workspace/environments/development.json"));
+        let path = FileEnvironmentRepository::<TokioFileSystem>::environment_path(
+            &workspace,
+            "Development",
+        );
+        assert_eq!(
+            path,
+            PathBuf::from("/test/workspace/environments/development.json")
+        );
     }
 
     #[test]

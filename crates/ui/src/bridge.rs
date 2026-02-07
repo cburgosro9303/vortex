@@ -348,7 +348,7 @@ pub struct TabState {
     pub has_unsaved_changes: bool,
     pub file_path: Option<String>,
     // Response state
-    pub response_state: i32,  // 0=Idle, 1=Loading, 2=Success, 3=Error
+    pub response_state: i32, // 0=Idle, 1=Loading, 2=Success, 3=Error
     pub response_body: String,
     pub status_code: i32,
     pub status_text: String,
@@ -613,7 +613,7 @@ pub enum UiUpdate {
 
     /// Restore response state when switching tabs.
     RestoreResponseState {
-        state: i32,  // 0=Idle, 1=Loading, 2=Success, 3=Error
+        state: i32, // 0=Idle, 1=Loading, 2=Success, 3=Error
         body: String,
         status_code: i32,
         status_text: String,

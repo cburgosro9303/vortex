@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-use vortex_application::ports::{slugify, CollectionTree, FolderTree};
+use vortex_application::ports::{CollectionTree, FolderTree, slugify};
 use vortex_domain::persistence::{PersistenceCollection, PersistenceFolder, SavedRequest};
 
 /// Represents a node in the UI tree view.
@@ -267,9 +267,7 @@ impl CollectionState {
         for folder in folders {
             for request in &folder.requests {
                 if request.id == id {
-                    let request_path = folder
-                        .path
-                        .join(format!("{}.json", slugify(&request.name)));
+                    let request_path = folder.path.join(format!("{}.json", slugify(&request.name)));
                     return Some((request, request_path));
                 }
             }

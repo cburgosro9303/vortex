@@ -5,8 +5,8 @@
 
 use super::environment_types::PostmanEnvironment;
 use super::mapper::{
-    auth_to_vortex_json, body_to_vortex_json, map_postman_collection, map_postman_environment,
-    MappedItem,
+    MappedItem, auth_to_vortex_json, body_to_vortex_json, map_postman_collection,
+    map_postman_environment,
 };
 use super::types::PostmanCollection;
 use super::warning::{ImportWarning, WarningStats};
@@ -312,8 +312,8 @@ impl PostmanImporter {
             ));
         }
 
-        let collection: PostmanCollection = serde_json::from_value(json)
-            .map_err(|e| ImportError::InvalidFormat(e.to_string()))?;
+        let collection: PostmanCollection =
+            serde_json::from_value(json).map_err(|e| ImportError::InvalidFormat(e.to_string()))?;
 
         let mapped = map_postman_collection(&collection, self.config.max_depth);
 
@@ -422,7 +422,10 @@ impl PostmanImporter {
 
         let safe_name = Self::sanitize_name(&mapped.name);
         let env_path = environments_dir.join(format!("{}.json", safe_name));
-        std::fs::write(&env_path, serde_json::to_string_pretty(&env_json).unwrap_or_default())?;
+        std::fs::write(
+            &env_path,
+            serde_json::to_string_pretty(&env_json).unwrap_or_default(),
+        )?;
 
         Ok(ImportResult {
             name: mapped.name,
@@ -450,9 +453,7 @@ impl PostmanImporter {
         }
 
         // Check for Postman Environment (has "name" and "values" but no "info")
-        if json.get("info").is_none()
-            && json.get("name").is_some()
-            && json.get("values").is_some()
+        if json.get("info").is_none() && json.get("name").is_some() && json.get("values").is_some()
         {
             return ImportFormat::PostmanEnvironment;
         }
@@ -674,7 +675,9 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let importer = PostmanImporter::new();
-        let result = importer.import_collection(content, temp_dir.path()).unwrap();
+        let result = importer
+            .import_collection(content, temp_dir.path())
+            .unwrap();
 
         assert_eq!(result.name, "Test API");
         assert_eq!(result.requests_imported, 1);
@@ -683,7 +686,12 @@ mod tests {
         let collection_dir = temp_dir.path().join("collections").join("test-api");
         assert!(collection_dir.exists());
         assert!(collection_dir.join("collection.json").exists());
-        assert!(collection_dir.join("request").join("get-users.json").exists());
+        assert!(
+            collection_dir
+                .join("request")
+                .join("get-users.json")
+                .exists()
+        );
     }
 
     #[test]
@@ -698,13 +706,18 @@ mod tests {
 
         let temp_dir = TempDir::new().unwrap();
         let importer = PostmanImporter::new();
-        let result = importer.import_environment(content, temp_dir.path()).unwrap();
+        let result = importer
+            .import_environment(content, temp_dir.path())
+            .unwrap();
 
         assert_eq!(result.name, "Development");
         assert_eq!(result.variables_imported, 2);
 
         // Verify file was created
-        let env_path = temp_dir.path().join("environments").join("development.json");
+        let env_path = temp_dir
+            .path()
+            .join("environments")
+            .join("development.json");
         assert!(env_path.exists());
     }
 }

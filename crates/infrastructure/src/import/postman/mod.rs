@@ -10,6 +10,9 @@ pub mod types;
 pub mod warning;
 
 pub use environment_types::PostmanEnvironment;
-pub use importer::{ImportConfig, ImportError, ImportFormat, ImportPreview, ImportResult, PostmanImporter, ValidationResult};
+pub use importer::{
+    ImportConfig, ImportError, ImportFormat, ImportPreview, ImportResult, PostmanImporter,
+    ValidationResult,
+};
 pub use types::PostmanCollection;
 pub use warning::{ImportWarning, WarningSeverity, WarningStats};

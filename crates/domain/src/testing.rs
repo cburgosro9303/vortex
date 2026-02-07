@@ -92,7 +92,10 @@ impl Assertion {
         match self {
             Self::StatusCode { expected } => format!("Status code {}", expected.description()),
             Self::ResponseTime { max_ms } => format!("Response time < {}ms", max_ms),
-            Self::HeaderExists { name, value: Some(v) } => {
+            Self::HeaderExists {
+                name,
+                value: Some(v),
+            } => {
                 format!("Header '{}' equals '{}'", name, v)
             }
             Self::HeaderExists { name, value: None } => format!("Header '{}' exists", name),
@@ -101,11 +104,21 @@ impl Assertion {
             }
             Self::BodyContains { text, .. } => format!("Body contains '{}'", text),
             Self::BodyMatches { pattern } => format!("Body matches /{}/", pattern),
-            Self::JsonPath { path, expected: Some(v) } => {
+            Self::JsonPath {
+                path,
+                expected: Some(v),
+            } => {
                 format!("JSON {} equals {}", path, v)
             }
-            Self::JsonPath { path, expected: None } => format!("JSON {} exists", path),
-            Self::JsonPathMatches { path, operator, value } => {
+            Self::JsonPath {
+                path,
+                expected: None,
+            } => format!("JSON {} exists", path),
+            Self::JsonPathMatches {
+                path,
+                operator,
+                value,
+            } => {
                 format!("JSON {} {} {}", path, operator.symbol(), value)
             }
             Self::BodyEquals { .. } => "Body equals expected".to_string(),
@@ -357,7 +370,11 @@ pub struct TestResults {
 impl TestResults {
     /// Create new test results.
     #[must_use]
-    pub fn new(suite_name: impl Into<String>, results: Vec<AssertionResult>, duration_ms: u64) -> Self {
+    pub fn new(
+        suite_name: impl Into<String>,
+        results: Vec<AssertionResult>,
+        duration_ms: u64,
+    ) -> Self {
         let total = results.len();
         let passed = results.iter().filter(|r| r.passed).count();
         let failed = total - passed;

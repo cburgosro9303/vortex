@@ -208,8 +208,8 @@ async fn test_deterministic_serialization() {
         .expect("Failed to create collection");
 
     // Read the file content
-    let content =
-        std::fs::read_to_string(collection_path.join("collection.json")).expect("Failed to read file");
+    let content = std::fs::read_to_string(collection_path.join("collection.json"))
+        .expect("Failed to read file");
 
     // Verify formatting
     assert!(content.ends_with('\n'), "Should have trailing newline");

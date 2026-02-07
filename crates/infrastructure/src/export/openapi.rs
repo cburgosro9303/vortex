@@ -47,8 +47,7 @@ impl OpenApiExporter {
                 }
             } else {
                 result.add_warning(
-                    ExportWarning::new("Could not parse URL")
-                        .with_source(&request.url),
+                    ExportWarning::new("Could not parse URL").with_source(&request.url),
                 );
             }
         }
@@ -57,8 +56,14 @@ impl OpenApiExporter {
         let spec = OpenApiSpec {
             openapi: "3.0.0".to_string(),
             info: Info {
-                title: options.api_title.clone().unwrap_or_else(|| "API".to_string()),
-                version: options.api_version.clone().unwrap_or_else(|| "1.0.0".to_string()),
+                title: options
+                    .api_title
+                    .clone()
+                    .unwrap_or_else(|| "API".to_string()),
+                version: options
+                    .api_version
+                    .clone()
+                    .unwrap_or_else(|| "1.0.0".to_string()),
                 description: options.api_description.clone(),
             },
             servers: Self::extract_servers(requests),
@@ -66,8 +71,8 @@ impl OpenApiExporter {
         };
 
         // Serialize to YAML
-        let content = serde_yaml::to_string(&spec)
-            .map_err(|e| ExportError::Serialization(e.to_string()))?;
+        let content =
+            serde_yaml::to_string(&spec).map_err(|e| ExportError::Serialization(e.to_string()))?;
 
         result.content = content;
         Ok(result)
@@ -75,7 +80,9 @@ impl OpenApiExporter {
 
     fn extract_path(url: &str) -> Option<(String, String)> {
         // Remove protocol
-        let url = url.trim_start_matches("http://").trim_start_matches("https://");
+        let url = url
+            .trim_start_matches("http://")
+            .trim_start_matches("https://");
 
         // Find the path start
         let path_start = url.find('/')?;
@@ -157,7 +164,11 @@ impl OpenApiExporter {
             operation_id: Some(operation_id),
             summary: None,
             description: request.description.clone(),
-            parameters: if parameters.is_empty() { None } else { Some(parameters) },
+            parameters: if parameters.is_empty() {
+                None
+            } else {
+                Some(parameters)
+            },
             request_body,
             responses: Self::default_responses(),
         }
@@ -191,7 +202,10 @@ impl OpenApiExporter {
     }
 
     fn method_has_body(method: &HttpMethod) -> bool {
-        matches!(method, HttpMethod::Post | HttpMethod::Put | HttpMethod::Patch)
+        matches!(
+            method,
+            HttpMethod::Post | HttpMethod::Put | HttpMethod::Patch
+        )
     }
 
     fn create_request_body(request: &RequestSpec) -> Option<RequestBody> {
@@ -200,21 +214,23 @@ impl OpenApiExporter {
             RequestBodyKind::Raw { content_type } => {
                 (content_type.clone(), Some(request.body.content.clone()))
             }
-            RequestBodyKind::FormUrlEncoded => {
-                ("application/x-www-form-urlencoded".to_string(), Some(request.body.content.clone()))
-            }
-            RequestBodyKind::FormData => {
-                ("multipart/form-data".to_string(), None)
-            }
+            RequestBodyKind::FormUrlEncoded => (
+                "application/x-www-form-urlencoded".to_string(),
+                Some(request.body.content.clone()),
+            ),
+            RequestBodyKind::FormData => ("multipart/form-data".to_string(), None),
         };
 
         let mut content = BTreeMap::new();
-        content.insert(media_type, MediaType {
-            schema: Schema {
-                schema_type: "object".to_string(),
-                example,
+        content.insert(
+            media_type,
+            MediaType {
+                schema: Schema {
+                    schema_type: "object".to_string(),
+                    example,
+                },
             },
-        });
+        );
 
         Some(RequestBody {
             required: true,
@@ -239,15 +255,24 @@ impl OpenApiExporter {
 
     fn default_responses() -> BTreeMap<String, Response> {
         let mut responses = BTreeMap::new();
-        responses.insert("200".to_string(), Response {
-            description: "Successful response".to_string(),
-        });
-        responses.insert("400".to_string(), Response {
-            description: "Bad request".to_string(),
-        });
-        responses.insert("500".to_string(), Response {
-            description: "Internal server error".to_string(),
-        });
+        responses.insert(
+            "200".to_string(),
+            Response {
+                description: "Successful response".to_string(),
+            },
+        );
+        responses.insert(
+            "400".to_string(),
+            Response {
+                description: "Bad request".to_string(),
+            },
+        );
+        responses.insert(
+            "500".to_string(),
+            Response {
+                description: "Internal server error".to_string(),
+            },
+        );
         responses
     }
 }
@@ -383,8 +408,11 @@ mod tests {
     #[test]
     fn test_export_with_api_info() {
         let request = RequestSpec::get("https://api.example.com/users");
-        let options = ExportOptions::new(ExportFormat::OpenApi3)
-            .with_api_info("My API", "2.0.0", Some("API Description".to_string()));
+        let options = ExportOptions::new(ExportFormat::OpenApi3).with_api_info(
+            "My API",
+            "2.0.0",
+            Some("API Description".to_string()),
+        );
 
         let result = OpenApiExporter::export(&[request], &options).unwrap();
 

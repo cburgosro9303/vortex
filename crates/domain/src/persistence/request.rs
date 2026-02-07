@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use super::auth::PersistenceAuth;
 use super::body::PersistenceRequestBody;
-use super::common::{Id, PersistenceHttpMethod, RequestSettings, CURRENT_SCHEMA_VERSION};
+use super::common::{CURRENT_SCHEMA_VERSION, Id, PersistenceHttpMethod, RequestSettings};
 use super::test_assertion::TestAssertion;
 
 /// A saved HTTP request stored as a JSON file.

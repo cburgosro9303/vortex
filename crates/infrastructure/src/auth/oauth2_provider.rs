@@ -129,9 +129,12 @@ impl OAuth2Provider {
         }
 
         let token_response: TokenResponse =
-            response.json().await.map_err(|e: reqwest::Error| AuthError::NetworkError {
-                message: format!("Failed to parse token response: {}", e),
-            })?;
+            response
+                .json()
+                .await
+                .map_err(|e: reqwest::Error| AuthError::NetworkError {
+                    message: format!("Failed to parse token response: {}", e),
+                })?;
 
         let scopes: Vec<String> = token_response
             .scope
@@ -185,9 +188,12 @@ impl OAuth2Provider {
         }
 
         let token_response: TokenResponse =
-            response.json().await.map_err(|e: reqwest::Error| AuthError::NetworkError {
-                message: format!("Failed to parse token response: {}", e),
-            })?;
+            response
+                .json()
+                .await
+                .map_err(|e: reqwest::Error| AuthError::NetworkError {
+                    message: format!("Failed to parse token response: {}", e),
+                })?;
 
         let scopes: Vec<String> = token_response
             .scope
@@ -325,8 +331,9 @@ impl AuthProvider for OAuth2Provider {
         &'a self,
         config: &'a AuthConfig,
         refresh_token: &'a str,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<OAuth2Token, AuthError>> + Send + 'a>>
-    {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<OAuth2Token, AuthError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let token_url = match config {
                 AuthConfig::OAuth2ClientCredentials { token_url, .. }
@@ -334,7 +341,7 @@ impl AuthProvider for OAuth2Provider {
                 _ => {
                     return Err(AuthError::InvalidConfiguration {
                         message: "Config is not an OAuth2 type".to_string(),
-                    })
+                    });
                 }
             };
 
@@ -352,7 +359,7 @@ impl AuthProvider for OAuth2Provider {
                 _ => {
                     return Err(AuthError::InvalidConfiguration {
                         message: "Config is not an OAuth2 type".to_string(),
-                    })
+                    });
                 }
             };
 

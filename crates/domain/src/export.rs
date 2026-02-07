@@ -295,8 +295,11 @@ mod tests {
 
     #[test]
     fn test_export_options_with_api_info() {
-        let options = ExportOptions::new(ExportFormat::OpenApi3)
-            .with_api_info("My API", "1.0.0", Some("Description".to_string()));
+        let options = ExportOptions::new(ExportFormat::OpenApi3).with_api_info(
+            "My API",
+            "1.0.0",
+            Some("Description".to_string()),
+        );
 
         assert_eq!(options.api_title, Some("My API".to_string()));
         assert_eq!(options.api_version, Some("1.0.0".to_string()));

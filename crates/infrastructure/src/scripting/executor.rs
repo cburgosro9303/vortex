@@ -37,7 +37,12 @@ impl ScriptContext {
 
     /// Set response data for post-response scripts.
     #[must_use]
-    pub fn with_response(mut self, status: u16, body: String, headers: HashMap<String, String>) -> Self {
+    pub fn with_response(
+        mut self,
+        status: u16,
+        body: String,
+        headers: HashMap<String, String>,
+    ) -> Self {
         self.status = Some(status);
         self.body = Some(body);
         self.response_headers = headers;
@@ -77,7 +82,11 @@ impl ScriptExecutor {
     }
 
     /// Execute a list of commands.
-    pub fn execute_commands(&self, commands: &[ScriptCommand], context: &ScriptContext) -> ScriptResult {
+    pub fn execute_commands(
+        &self,
+        commands: &[ScriptCommand],
+        context: &ScriptContext,
+    ) -> ScriptResult {
         let mut result = ScriptResult::success();
 
         for command in commands {
@@ -92,7 +101,8 @@ impl ScriptExecutor {
                         result.skip_request = true;
                     }
                     if cmd_result.delay_millis > 0 {
-                        result.delay_millis = result.delay_millis.saturating_add(cmd_result.delay_millis);
+                        result.delay_millis =
+                            result.delay_millis.saturating_add(cmd_result.delay_millis);
                     }
                 }
                 Err(e) => {
@@ -138,9 +148,9 @@ impl ScriptExecutor {
             ScriptCommand::Assert { condition, message } => {
                 // Simple assertion evaluation
                 if !self.evaluate_condition(condition, context) {
-                    let error_msg = message.clone().unwrap_or_else(|| {
-                        format!("Assertion failed: {}", condition)
-                    });
+                    let error_msg = message
+                        .clone()
+                        .unwrap_or_else(|| format!("Assertion failed: {}", condition));
                     return Err(error_msg);
                 }
             }
@@ -162,7 +172,10 @@ impl ScriptExecutor {
         }
 
         // Replace special values
-        result = result.replace("{{$status}}", &context.status.map_or(String::new(), |s| s.to_string()));
+        result = result.replace(
+            "{{$status}}",
+            &context.status.map_or(String::new(), |s| s.to_string()),
+        );
         if let Some(body) = &context.body {
             result = result.replace("{{$body}}", body);
         }
@@ -234,7 +247,10 @@ mod tests {
 
         let result = executor.execute(&script, &context);
         assert!(result.success);
-        assert_eq!(result.variables, vec![("token".to_string(), "abc123".to_string())]);
+        assert_eq!(
+            result.variables,
+            vec![("token".to_string(), "abc123".to_string())]
+        );
     }
 
     #[test]
@@ -245,7 +261,10 @@ mod tests {
 
         let result = executor.execute(&script, &context);
         assert!(result.success);
-        assert_eq!(result.headers, vec![("X-Custom".to_string(), "value".to_string())]);
+        assert_eq!(
+            result.headers,
+            vec![("X-Custom".to_string(), "value".to_string())]
+        );
     }
 
     #[test]
@@ -291,7 +310,10 @@ mod tests {
 
         let result = executor.execute(&script, &context);
         assert!(result.success);
-        assert_eq!(result.headers, vec![("Authorization".to_string(), "Bearer secret123".to_string())]);
+        assert_eq!(
+            result.headers,
+            vec![("Authorization".to_string(), "Bearer secret123".to_string())]
+        );
     }
 
     #[test]
@@ -329,11 +351,13 @@ mod tests {
     #[test]
     fn test_multiple_commands() {
         let executor = ScriptExecutor::new();
-        let script = Script::with_content(r#"
+        let script = Script::with_content(
+            r#"
             set("userId", "123")
             setHeader("X-User-Id", "{{userId}}")
             log("Setup complete")
-        "#);
+        "#,
+        );
         let context = ScriptContext::new();
 
         let result = executor.execute(&script, &context);

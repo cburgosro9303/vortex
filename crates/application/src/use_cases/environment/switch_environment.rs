@@ -84,19 +84,11 @@ impl<E: EnvironmentRepository, S: SecretsRepository> SwitchEnvironment<E, S> {
             .await?;
 
         // Load secrets (don't fail if secrets file doesn't exist)
-        let secrets = self
-            .secrets_repo
-            .load(workspace)
-            .await
-            .unwrap_or_default();
+        let secrets = self.secrets_repo.load(workspace).await.unwrap_or_default();
 
         // Create the resolution context
-        let resolution_context = ResolutionContext::from_sources(
-            globals,
-            collection_variables,
-            &environment,
-            &secrets,
-        );
+        let resolution_context =
+            ResolutionContext::from_sources(globals, collection_variables, &environment, &secrets);
 
         Ok(SwitchEnvironmentOutput {
             environment,
@@ -272,12 +264,7 @@ mod tests {
 
         let use_case = SwitchEnvironment::new(env_repo, secrets_repo);
         let result = use_case
-            .execute(
-                &PathBuf::from("/test"),
-                "production",
-                &globals,
-                &collection,
-            )
+            .execute(&PathBuf::from("/test"), "production", &globals, &collection)
             .await;
 
         assert!(result.is_ok());

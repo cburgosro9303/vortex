@@ -168,9 +168,31 @@ impl BuiltinVariables {
     /// Generates a random first name.
     fn generate_random_first_name() -> String {
         const FIRST_NAMES: &[&str] = &[
-            "James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda",
-            "William", "Elizabeth", "David", "Barbara", "Richard", "Susan", "Joseph", "Jessica",
-            "Thomas", "Sarah", "Charles", "Karen", "Emma", "Olivia", "Liam", "Noah", "Ava",
+            "James",
+            "Mary",
+            "John",
+            "Patricia",
+            "Robert",
+            "Jennifer",
+            "Michael",
+            "Linda",
+            "William",
+            "Elizabeth",
+            "David",
+            "Barbara",
+            "Richard",
+            "Susan",
+            "Joseph",
+            "Jessica",
+            "Thomas",
+            "Sarah",
+            "Charles",
+            "Karen",
+            "Emma",
+            "Olivia",
+            "Liam",
+            "Noah",
+            "Ava",
         ];
         let mut rng = rand::rng();
         let idx = rng.random_range(0..FIRST_NAMES.len());
@@ -180,9 +202,29 @@ impl BuiltinVariables {
     /// Generates a random last name.
     fn generate_random_last_name() -> String {
         const LAST_NAMES: &[&str] = &[
-            "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-            "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
-            "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson",
+            "Smith",
+            "Johnson",
+            "Williams",
+            "Brown",
+            "Jones",
+            "Garcia",
+            "Miller",
+            "Davis",
+            "Rodriguez",
+            "Martinez",
+            "Hernandez",
+            "Lopez",
+            "Gonzalez",
+            "Wilson",
+            "Anderson",
+            "Thomas",
+            "Taylor",
+            "Moore",
+            "Jackson",
+            "Martin",
+            "Lee",
+            "Perez",
+            "Thompson",
         ];
         let mut rng = rand::rng();
         let idx = rng.random_range(0..LAST_NAMES.len());
@@ -243,32 +285,29 @@ mod tests {
 
     #[test]
     fn test_random_int_generation() {
-        let int_str =
-            BuiltinVariables::resolve("$randomInt").expect("Should resolve $randomInt");
+        let int_str = BuiltinVariables::resolve("$randomInt").expect("Should resolve $randomInt");
         let int_val: i32 = int_str.parse().expect("Should be valid integer");
         assert!((0..=1000).contains(&int_val));
     }
 
     #[test]
     fn test_random_string_generation() {
-        let s =
-            BuiltinVariables::resolve("$randomString").expect("Should resolve $randomString");
+        let s = BuiltinVariables::resolve("$randomString").expect("Should resolve $randomString");
         assert_eq!(s.len(), 16);
         assert!(s.chars().all(|c| c.is_alphanumeric()));
     }
 
     #[test]
     fn test_random_email_generation() {
-        let email =
-            BuiltinVariables::resolve("$randomEmail").expect("Should resolve $randomEmail");
+        let email = BuiltinVariables::resolve("$randomEmail").expect("Should resolve $randomEmail");
         assert!(email.contains('@'));
         assert!(email.ends_with("@example.com"));
     }
 
     #[test]
     fn test_random_first_name() {
-        let name = BuiltinVariables::resolve("$randomFirstName")
-            .expect("Should resolve $randomFirstName");
+        let name =
+            BuiltinVariables::resolve("$randomFirstName").expect("Should resolve $randomFirstName");
         assert!(!name.is_empty());
         assert!(name.chars().all(|c| c.is_alphabetic()));
     }

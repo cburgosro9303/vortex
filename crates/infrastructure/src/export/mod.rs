@@ -40,7 +40,11 @@ pub fn export_request(
     response: Option<&ResponseSpec>,
     options: &ExportOptions,
 ) -> Result<ExportResult, ExportError> {
-    export_requests(&[request.clone()], &response.into_iter().cloned().collect::<Vec<_>>(), options)
+    export_requests(
+        &[request.clone()],
+        &response.into_iter().cloned().collect::<Vec<_>>(),
+        options,
+    )
 }
 
 /// Export multiple requests.
@@ -70,7 +74,11 @@ pub fn export_requests(
                 .collect::<Vec<_>>()
                 .join("\n\n");
 
-            Ok(ExportResult::new(content, ExportFormat::Curl, requests.len()))
+            Ok(ExportResult::new(
+                content,
+                ExportFormat::Curl,
+                requests.len(),
+            ))
         }
         format => Err(ExportError::UnsupportedFormat { format }),
     }

@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use tokio::fs;
 use vortex_domain::RequestHistory;
 
-use crate::serialization::{from_json_bytes, to_json_stable_bytes, SerializationError};
+use crate::serialization::{SerializationError, from_json_bytes, to_json_stable_bytes};
 
 /// Error type for history operations.
 #[derive(Debug, thiserror::Error)]

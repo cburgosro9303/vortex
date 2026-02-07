@@ -313,17 +313,21 @@ mod tests {
             "Not authenticated"
         );
 
-        assert!(TokenStatus::Valid {
-            seconds_remaining: Some(7200)
-        }
-        .display_message()
-        .contains("hours"));
+        assert!(
+            TokenStatus::Valid {
+                seconds_remaining: Some(7200)
+            }
+            .display_message()
+            .contains("hours")
+        );
 
-        assert!(TokenStatus::Expiring {
-            seconds_remaining: 30,
-            can_refresh: true
-        }
-        .display_message()
-        .contains("auto-refresh"));
+        assert!(
+            TokenStatus::Expiring {
+                seconds_remaining: 30,
+                can_refresh: true
+            }
+            .display_message()
+            .contains("auto-refresh")
+        );
     }
 }
