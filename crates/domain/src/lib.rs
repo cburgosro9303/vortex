@@ -30,10 +30,10 @@ pub use error::{DomainError, DomainResult};
 pub use export::{ExportFormat, ExportOptions, ExportResult, ExportWarning};
 pub use history::{HistoryAuth, HistoryEntry, HistoryHeader, HistoryParam, RequestHistory};
 pub use id::{generate_id, generate_id_v7};
-pub use settings::{FontScale, ThemeMode, UserSettings};
-pub use state::{RequestErrorKind, RequestState};
 pub use proxy::{GlobalProxySettings, ProxyConfig, ProxyError, ProxyType};
 pub use scripting::{RequestScripts, Script, ScriptCommand, ScriptLanguage, ScriptResult};
+pub use settings::{FontScale, ThemeMode, UserSettings};
+pub use state::{RequestErrorKind, RequestState};
 pub use testing::{
     Assertion, AssertionResult, ComparisonOperator, StatusExpectation, TestResults, TestSuite,
 };

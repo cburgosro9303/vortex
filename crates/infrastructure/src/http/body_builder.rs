@@ -54,11 +54,10 @@ pub async fn build_body(
 ) -> Result<BuiltBody, BodyBuildError> {
     match body {
         PersistenceRequestBody::Json { content } => {
-            let json_str = serde_json::to_string(content).map_err(|e| {
-                BodyBuildError::SerializationError {
+            let json_str =
+                serde_json::to_string(content).map_err(|e| BodyBuildError::SerializationError {
                     message: e.to_string(),
-                }
-            })?;
+                })?;
             Ok(BuiltBody::Text {
                 content: json_str,
                 content_type: "application/json".to_string(),
@@ -89,11 +88,12 @@ pub async fn build_body(
 
         PersistenceRequestBody::Binary { path } => {
             let file_path = resolve_path(path, workspace_path);
-            let content = tokio::fs::read(&file_path)
-                .await
-                .map_err(|e| BodyBuildError::FileReadError {
-                    message: format!("{}: {}", file_path.display(), e),
-                })?;
+            let content =
+                tokio::fs::read(&file_path)
+                    .await
+                    .map_err(|e| BodyBuildError::FileReadError {
+                        message: format!("{}: {}", file_path.display(), e),
+                    })?;
 
             let content_type = mime_guess::from_path(&file_path)
                 .first_or_octet_stream()
@@ -139,11 +139,11 @@ async fn build_multipart_form(
                 let file_path = resolve_path(path, workspace_path);
 
                 // Read file content
-                let content = tokio::fs::read(&file_path)
-                    .await
-                    .map_err(|e| BodyBuildError::FileReadError {
+                let content = tokio::fs::read(&file_path).await.map_err(|e| {
+                    BodyBuildError::FileReadError {
                         message: format!("{}: {}", file_path.display(), e),
-                    })?;
+                    }
+                })?;
 
                 // Get filename
                 let filename = file_path
@@ -301,6 +301,9 @@ mod tests {
     #[test]
     fn test_resolve_path_relative() {
         let path = resolve_path("relative/file.txt", Some(Path::new("/workspace")));
-        assert_eq!(path, std::path::PathBuf::from("/workspace/relative/file.txt"));
+        assert_eq!(
+            path,
+            std::path::PathBuf::from("/workspace/relative/file.txt")
+        );
     }
 }

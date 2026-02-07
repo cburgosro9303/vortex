@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::common::{RequestSettings, CURRENT_SCHEMA_VERSION};
+use super::common::{CURRENT_SCHEMA_VERSION, RequestSettings};
 
 /// Workspace manifest stored in `vortex.json` at project root.
 ///

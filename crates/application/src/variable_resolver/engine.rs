@@ -145,7 +145,8 @@ impl VariableResolver {
             let value = if let Some(cached) = self.builtin_cache.get(name) {
                 cached.clone()
             } else if let Some(generated) = BuiltinVariables::resolve(name) {
-                self.builtin_cache.insert(name.to_string(), generated.clone());
+                self.builtin_cache
+                    .insert(name.to_string(), generated.clone());
                 generated
             } else {
                 return None;

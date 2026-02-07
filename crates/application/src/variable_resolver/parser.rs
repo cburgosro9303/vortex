@@ -72,7 +72,8 @@ pub fn parse_variables(input: &str) -> Vec<VariableReference> {
 
                                 let trimmed_name = name.trim().to_string();
                                 if !trimmed_name.is_empty() {
-                                    references.push(VariableReference::new(trimmed_name, start..end));
+                                    references
+                                        .push(VariableReference::new(trimmed_name, start..end));
                                 }
                                 found_end = true;
                                 break;
@@ -132,10 +133,7 @@ pub fn has_variables(input: &str) -> bool {
 /// Extracts just the variable names from the input without full parsing info.
 #[must_use]
 pub fn extract_variable_names(input: &str) -> Vec<String> {
-    parse_variables(input)
-        .into_iter()
-        .map(|r| r.name)
-        .collect()
+    parse_variables(input).into_iter().map(|r| r.name).collect()
 }
 
 #[cfg(test)]

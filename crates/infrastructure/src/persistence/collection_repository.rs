@@ -3,10 +3,10 @@
 use std::path::{Path, PathBuf};
 
 use vortex_application::ports::{
-    slugify, CollectionError, CollectionRepository, CollectionTree, FileSystem, FolderTree,
+    CollectionError, CollectionRepository, CollectionTree, FileSystem, FolderTree, slugify,
 };
 use vortex_domain::persistence::{
-    PersistenceCollection, PersistenceFolder, SavedRequest, CURRENT_SCHEMA_VERSION,
+    CURRENT_SCHEMA_VERSION, PersistenceCollection, PersistenceFolder, SavedRequest,
 };
 
 use crate::serialization::{from_json, to_json_stable};

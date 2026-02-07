@@ -26,4 +26,7 @@ pub mod parser;
 
 pub use builtins::{BuiltinInfo, BuiltinVariables};
 pub use engine::{ResolutionResult, VariableResolver};
-pub use parser::{extract_variable_names, has_variables, is_valid_variable_name, parse_variables, VariableReference};
+pub use parser::{
+    VariableReference, extract_variable_names, has_variables, is_valid_variable_name,
+    parse_variables,
+};

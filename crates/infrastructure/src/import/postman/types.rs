@@ -391,7 +391,10 @@ mod tests {
         }"#;
 
         let url: PostmanUrlStructured = serde_json::from_str(json).unwrap();
-        assert_eq!(url.raw, Some("https://api.example.com/users?page=1".to_string()));
+        assert_eq!(
+            url.raw,
+            Some("https://api.example.com/users?page=1".to_string())
+        );
         assert_eq!(url.query.len(), 1);
     }
 
@@ -404,6 +407,9 @@ mod tests {
 
         let auth: PostmanAuth = serde_json::from_str(json).unwrap();
         assert_eq!(auth.auth_type, "bearer");
-        assert_eq!(auth.get_param(&auth.bearer, "token"), Some("abc123".to_string()));
+        assert_eq!(
+            auth.get_param(&auth.bearer, "token"),
+            Some("abc123".to_string())
+        );
     }
 }

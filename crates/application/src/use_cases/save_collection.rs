@@ -27,7 +27,10 @@ impl<R: CollectionRepository, F: FileSystem> SaveCollection<R, F> {
     /// Creates a new `SaveCollection` use case.
     #[must_use]
     pub const fn new(collection_repo: R, fs: F) -> Self {
-        Self { collection_repo, fs }
+        Self {
+            collection_repo,
+            fs,
+        }
     }
 
     /// Saves the collection metadata to disk.

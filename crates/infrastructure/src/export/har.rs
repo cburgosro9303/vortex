@@ -258,7 +258,11 @@ impl HarExporter {
                 name: "Authorization".to_string(),
                 value: format!("{} {}", prefix, token),
             }),
-            AuthConfig::ApiKey { key, name, location } => {
+            AuthConfig::ApiKey {
+                key,
+                name,
+                location,
+            } => {
                 use vortex_domain::auth::ApiKeyLocation;
                 match location {
                     ApiKeyLocation::Header => Some(HarHeader {

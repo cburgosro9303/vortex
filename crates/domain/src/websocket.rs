@@ -104,7 +104,9 @@ impl WebSocketConfig {
     /// Validate the configuration.
     pub fn validate(&self) -> Result<(), WebSocketError> {
         if self.url.is_empty() {
-            return Err(WebSocketError::InvalidUrl("URL cannot be empty".to_string()));
+            return Err(WebSocketError::InvalidUrl(
+                "URL cannot be empty".to_string(),
+            ));
         }
 
         if !self.url.starts_with("ws://") && !self.url.starts_with("wss://") {

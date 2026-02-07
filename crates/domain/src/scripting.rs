@@ -273,7 +273,10 @@ mod tests {
     fn test_script_result_add_variable() {
         let mut result = ScriptResult::success();
         result.add_variable("token", "abc123");
-        assert_eq!(result.variables, vec![("token".to_string(), "abc123".to_string())]);
+        assert_eq!(
+            result.variables,
+            vec![("token".to_string(), "abc123".to_string())]
+        );
     }
 
     #[test]
@@ -284,8 +287,7 @@ mod tests {
 
     #[test]
     fn test_request_scripts_with_pre_request() {
-        let scripts = RequestScripts::new()
-            .with_pre_request(Script::with_content("log(\"pre\")"));
+        let scripts = RequestScripts::new().with_pre_request(Script::with_content("log(\"pre\")"));
         assert!(!scripts.is_empty());
     }
 }

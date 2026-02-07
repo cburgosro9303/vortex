@@ -292,8 +292,8 @@ mod tests {
 
     #[test]
     fn test_proxy_config_with_auth() {
-        let config = ProxyConfig::with_url("http://proxy.example.com:8080")
-            .with_auth("user", "pass");
+        let config =
+            ProxyConfig::with_url("http://proxy.example.com:8080").with_auth("user", "pass");
         assert!(config.has_auth());
         assert_eq!(config.username, Some("user".to_string()));
         assert_eq!(config.password, Some("pass".to_string()));
@@ -301,8 +301,8 @@ mod tests {
 
     #[test]
     fn test_proxy_url_with_auth() {
-        let config = ProxyConfig::with_url("http://proxy.example.com:8080")
-            .with_auth("user", "pass");
+        let config =
+            ProxyConfig::with_url("http://proxy.example.com:8080").with_auth("user", "pass");
         let url = config.url_with_auth().unwrap();
         assert_eq!(url, "http://user:pass@proxy.example.com:8080");
     }

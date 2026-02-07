@@ -1,7 +1,7 @@
 //! JSON serialization helpers for deterministic output.
 
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_json::ser::{PrettyFormatter, Serializer};
 use std::io;
 

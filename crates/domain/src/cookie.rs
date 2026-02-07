@@ -43,7 +43,11 @@ fn default_path() -> String {
 impl Cookie {
     /// Create a new cookie.
     #[must_use]
-    pub fn new(name: impl Into<String>, value: impl Into<String>, domain: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        value: impl Into<String>,
+        domain: impl Into<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             value: value.into(),
@@ -144,11 +148,7 @@ impl Cookie {
 
         // First part is name=value
         let (name, value) = parts[0].split_once('=')?;
-        let mut cookie = Cookie::new(
-            name.trim(),
-            value.trim(),
-            request_domain,
-        );
+        let mut cookie = Cookie::new(name.trim(), value.trim(), request_domain);
 
         // Parse attributes
         for part in parts.iter().skip(1) {
@@ -359,7 +359,9 @@ impl CookieJar {
 
 /// Extract host from URL.
 fn extract_host(url: &str) -> Option<String> {
-    let url = url.trim_start_matches("http://").trim_start_matches("https://");
+    let url = url
+        .trim_start_matches("http://")
+        .trim_start_matches("https://");
     let host = url.split('/').next()?;
     let host = host.split(':').next()?; // Remove port
     Some(host.to_lowercase())
@@ -367,7 +369,9 @@ fn extract_host(url: &str) -> Option<String> {
 
 /// Extract path from URL.
 fn extract_path(url: &str) -> Option<String> {
-    let url = url.trim_start_matches("http://").trim_start_matches("https://");
+    let url = url
+        .trim_start_matches("http://")
+        .trim_start_matches("https://");
     let path = url.find('/').map(|i| &url[i..]).unwrap_or("/");
     let path = path.split('?').next()?; // Remove query
     Some(path.to_string())
@@ -425,8 +429,7 @@ mod tests {
 
     #[test]
     fn test_cookie_applies_to() {
-        let cookie = Cookie::new("test", "value", "example.com")
-            .with_path("/api");
+        let cookie = Cookie::new("test", "value", "example.com").with_path("/api");
 
         assert!(cookie.applies_to("https://example.com/api/users", true));
         assert!(cookie.applies_to("http://example.com/api/users", false));
@@ -435,8 +438,7 @@ mod tests {
 
     #[test]
     fn test_cookie_secure() {
-        let cookie = Cookie::new("test", "value", "example.com")
-            .with_secure(true);
+        let cookie = Cookie::new("test", "value", "example.com").with_secure(true);
 
         assert!(cookie.applies_to("https://example.com/", true));
         assert!(!cookie.applies_to("http://example.com/", false));

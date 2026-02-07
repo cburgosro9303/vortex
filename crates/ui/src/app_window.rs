@@ -10,39 +10,44 @@ use std::sync::Arc;
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use tokio::sync::mpsc;
 use vortex_application::{
-    CancellationToken, CreateWorkspace, CreateWorkspaceInput, EnvironmentRepository, ExecuteRequest,
-    ExecuteResultExt, VariableResolver,
-    ports::WorkspaceRepository,
+    CancellationToken, CreateWorkspace, CreateWorkspaceInput, EnvironmentRepository,
+    ExecuteRequest, ExecuteResultExt, VariableResolver, ports::WorkspaceRepository,
+};
+use vortex_domain::{
+    FontScale, HistoryAuth, HistoryEntry, HistoryHeader, HistoryParam, RequestHistory, ThemeMode,
+    UserSettings,
 };
 use vortex_domain::{
     RequestState,
     environment::{Environment, ResolutionContext, Variable, VariableMap},
-    persistence::{ApiKeyLocation, PersistenceAuth, PersistenceHttpMethod, PersistenceRequestBody, SavedRequest},
+    persistence::{
+        ApiKeyLocation, PersistenceAuth, PersistenceHttpMethod, PersistenceRequestBody,
+        SavedRequest,
+    },
     request::{HttpMethod, RequestBody, RequestSpec},
 };
-use vortex_domain::{FontScale, HistoryEntry, HistoryHeader, HistoryParam, HistoryAuth, RequestHistory, ThemeMode, UserSettings};
 use vortex_infrastructure::{
-    FileEnvironmentRepository, FileSystemWorkspaceRepository, HistoryRepository,
-    PostmanImporter, ReqwestHttpClient, SettingsRepository, TokioFileSystem, from_json, to_json_stable,
+    FileEnvironmentRepository, FileSystemWorkspaceRepository, HistoryRepository, PostmanImporter,
+    ReqwestHttpClient, SettingsRepository, TokioFileSystem, from_json, to_json_stable,
 };
 
-use crate::MainWindow;
-use crate::TreeItem;
 use crate::EnvironmentInfo;
+use crate::HeaderRow;
 use crate::HistoryItem;
+use crate::MainWindow;
+use crate::QueryParam;
+use crate::ResponseHeader;
+use crate::TreeItem;
 use crate::VariableRow;
 use crate::VortexPalette;
 use crate::VortexTypography;
-use crate::ResponseHeader;
-use crate::QueryParam;
-use crate::HeaderRow;
 // Sprint 06: Tab and Search types
 use crate::RequestTab;
 use crate::SearchResult;
 // Sprint 04: Import Dialog types
 use crate::ImportPreviewData;
-use crate::ImportWarningItem;
 use crate::ImportState;
+use crate::ImportWarningItem;
 use crate::bridge::{
     AuthData, EnvironmentData, HeaderData, HistoryItemData, ImportWarningData, QueryParamData,
     SearchResultData, TabData, TabState, TreeItemData, UiCommand, UiUpdate, VariableData,
@@ -404,15 +409,11 @@ impl AppWindow {
 
         // Sprint 06: Tab callbacks
         window.on_tab_clicked(move |id| {
-            let _ = cmd_tx_tab_clicked.send(UiCommand::TabClicked {
-                id: id.to_string(),
-            });
+            let _ = cmd_tx_tab_clicked.send(UiCommand::TabClicked { id: id.to_string() });
         });
 
         window.on_tab_close_clicked(move |id| {
-            let _ = cmd_tx_tab_close.send(UiCommand::TabCloseClicked {
-                id: id.to_string(),
-            });
+            let _ = cmd_tx_tab_close.send(UiCommand::TabCloseClicked { id: id.to_string() });
         });
 
         window.on_new_tab_clicked(move || {
@@ -627,12 +628,7 @@ impl AppState {
     }
 
     /// Saves current UI state to the active tab.
-    fn save_current_tab_state(
-        &mut self,
-        url: &str,
-        method: i32,
-        body: &str,
-    ) {
+    fn save_current_tab_state(&mut self, url: &str, method: i32, body: &str) {
         if let Some(ref active_id) = self.active_tab_id {
             if let Some(tab) = self.tabs.iter_mut().find(|t| &t.id == active_id) {
                 tab.url = url.to_string();
@@ -1153,23 +1149,23 @@ fn run_async_runtime(
 
                 UiCommand::SaveCollection => {
                     let _ = update_tx.send(UiUpdate::SavingState(true));
-                    
+
                     let mut saved_count = 0;
                     let mut error_count = 0;
-                    
+
                     // Save all tabs with unsaved changes
                     for tab in &mut state.tabs {
                         if tab.has_unsaved_changes {
                             if let Some(ref file_path) = tab.file_path {
                                 let mut saved_request = build_saved_request_from_tab(tab);
-                                
+
                                 // Try to preserve the original ID
                                 if let Ok(existing_content) = std::fs::read_to_string(file_path) {
                                     if let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
                                         saved_request.id = existing_request.id;
                                     }
                                 }
-                                
+
                                 if let Ok(json) = to_json_stable(&saved_request) {
                                     if tokio::fs::write(file_path, json).await.is_ok() {
                                         tab.has_unsaved_changes = false;
@@ -1183,10 +1179,10 @@ fn run_async_runtime(
                             }
                         }
                     }
-                    
+
                     let _ = update_tx.send(UiUpdate::SavingState(false));
                     let _ = update_tx.send(UiUpdate::TabsUpdated(state.tabs_to_ui()));
-                    
+
                     if error_count > 0 {
                         let _ = update_tx.send(UiUpdate::Error {
                             title: "Some requests failed to save".to_string(),
@@ -1761,14 +1757,14 @@ fn run_async_runtime(
                             if let Some(ref file_path) = tab.file_path.clone() {
                                 // Build and save the request
                                 let mut saved_request = build_saved_request_from_tab(tab);
-                                
+
                                 // Try to preserve the original ID if we can read the existing file
                                 if let Ok(existing_content) = std::fs::read_to_string(&file_path) {
                                     if let Ok(existing_request) = serde_json::from_str::<SavedRequest>(&existing_content) {
                                         saved_request.id = existing_request.id;
                                     }
                                 }
-                                
+
                                 match to_json_stable(&saved_request) {
                                     Ok(json) => {
                                         if let Err(e) = tokio::fs::write(&file_path, json).await {
@@ -2393,7 +2389,7 @@ fn run_async_runtime(
                                 };
 
                                 let importer = PostmanImporter::new();
-                                
+
                                 // Send initial progress
                                 let _ = tx.send(UiUpdate::ImportProgress(0.1));
 
@@ -2470,7 +2466,12 @@ fn update_url_from_params(state: &mut AppState, update_tx: &mpsc::UnboundedSende
     // Update current_url with new query string
     let base = if state.base_url.is_empty() {
         // Extract base URL from current_url if not set
-        state.current_url.split('?').next().unwrap_or("").to_string()
+        state
+            .current_url
+            .split('?')
+            .next()
+            .unwrap_or("")
+            .to_string()
     } else {
         state.base_url.clone()
     };
@@ -2538,7 +2539,7 @@ struct RequestResult {
     status_code: Option<u16>,
     duration_ms: Option<u64>,
     // Response data for tab state
-    response_state: i32,  // 2=Success, 3=Error
+    response_state: i32, // 2=Success, 3=Error
     response_body: String,
     status_text: String,
     duration_display: String,
@@ -2568,11 +2569,10 @@ async fn handle_send_request(
     });
 
     // Wait a bit for the UI to respond
-    let request_data =
-        tokio::time::timeout(std::time::Duration::from_millis(100), &mut data_rx)
-            .await
-            .ok()
-            .and_then(|r| r.ok());
+    let request_data = tokio::time::timeout(std::time::Duration::from_millis(100), &mut data_rx)
+        .await
+        .ok()
+        .and_then(|r| r.ok());
 
     if let Some((url, method_index, body)) = request_data {
         // Resolve variables in URL and body
@@ -2633,8 +2633,10 @@ async fn handle_send_request(
             2 => {
                 // Basic auth
                 if !state.auth_data.basic_username.is_empty() {
-                    let resolved_username = resolver.resolve(&state.auth_data.basic_username).resolved;
-                    let resolved_password = resolver.resolve(&state.auth_data.basic_password).resolved;
+                    let resolved_username =
+                        resolver.resolve(&state.auth_data.basic_username).resolved;
+                    let resolved_password =
+                        resolver.resolve(&state.auth_data.basic_password).resolved;
                     let credentials = format!("{}:{}", resolved_username, resolved_password);
                     use base64::Engine;
                     let encoded = base64::engine::general_purpose::STANDARD.encode(credentials);
@@ -2646,7 +2648,9 @@ async fn handle_send_request(
             }
             3 => {
                 // API Key
-                if !state.auth_data.api_key_name.is_empty() && !state.auth_data.api_key_value.is_empty() {
+                if !state.auth_data.api_key_name.is_empty()
+                    && !state.auth_data.api_key_value.is_empty()
+                {
                     let resolved_value = resolver.resolve(&state.auth_data.api_key_value).resolved;
                     if state.auth_data.api_key_location == 0 {
                         // Header
@@ -2680,7 +2684,18 @@ async fn handle_send_request(
             .await;
 
         // Extract response data for history and tab state
-        let (status_code, duration_ms, response_state, response_body, status_text, duration_display, size_display, response_headers, error_title, error_message) = match &result {
+        let (
+            status_code,
+            duration_ms,
+            response_state,
+            response_body,
+            status_text,
+            duration_display,
+            size_display,
+            response_headers,
+            error_title,
+            error_message,
+        ) = match &result {
             Ok(response) => {
                 let headers: Vec<crate::bridge::ResponseHeaderData> = response
                     .headers_map
@@ -2829,18 +2844,29 @@ fn load_folder_items<'a>(
 
                     // Try to read display name from folder.json, fallback to filesystem name
                     let folder_meta_path = path.join("folder.json");
-                    let folder_name = if let Ok(content) = tokio::fs::read_to_string(&folder_meta_path).await {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                            json.get("name")
-                                .and_then(|n| n.as_str())
-                                .unwrap_or_else(|| path.file_name().and_then(|n| n.to_str()).unwrap_or("Unknown"))
-                                .to_string()
+                    let folder_name =
+                        if let Ok(content) = tokio::fs::read_to_string(&folder_meta_path).await {
+                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                                json.get("name")
+                                    .and_then(|n| n.as_str())
+                                    .unwrap_or_else(|| {
+                                        path.file_name()
+                                            .and_then(|n| n.to_str())
+                                            .unwrap_or("Unknown")
+                                    })
+                                    .to_string()
+                            } else {
+                                path.file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("Unknown")
+                                    .to_string()
+                            }
                         } else {
-                            path.file_name().and_then(|n| n.to_str()).unwrap_or("Unknown").to_string()
-                        }
-                    } else {
-                        path.file_name().and_then(|n| n.to_str()).unwrap_or("Unknown").to_string()
-                    };
+                            path.file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("Unknown")
+                                .to_string()
+                        };
 
                     let is_expanded = expanded_folders.contains(&folder_id);
 
@@ -2860,7 +2886,10 @@ fn load_folder_items<'a>(
                     }
                 } else if path.extension().map_or(false, |e| e == "json") {
                     // Skip collection.json and folder.json metadata files
-                    if path.file_name().map_or(false, |n| n == "collection.json" || n == "folder.json") {
+                    if path
+                        .file_name()
+                        .map_or(false, |n| n == "collection.json" || n == "folder.json")
+                    {
                         continue;
                     }
 
@@ -2872,13 +2901,16 @@ fn load_folder_items<'a>(
                         .to_string();
 
                     // Try to read the name and method from the file
-                    let (name, method) = if let Ok(content) = tokio::fs::read_to_string(&path).await {
+                    let (name, method) = if let Ok(content) = tokio::fs::read_to_string(&path).await
+                    {
                         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                            let name = json.get("name")
+                            let name = json
+                                .get("name")
                                 .and_then(|n| n.as_str())
                                 .unwrap_or(&fallback_name)
                                 .to_string();
-                            let method = json.get("method")
+                            let method = json
+                                .get("method")
                                 .and_then(|m| m.as_str())
                                 .unwrap_or("GET")
                                 .to_string();
@@ -2938,8 +2970,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
                     // Convert suggestions to Slint model
                     let suggestions: Vec<SharedString> =
                         kind.suggestions().iter().map(|s| (*s).into()).collect();
-                    let model: ModelRc<SharedString> =
-                        Rc::new(VecModel::from(suggestions)).into();
+                    let model: ModelRc<SharedString> = Rc::new(VecModel::from(suggestions)).into();
                     ui.set_error_suggestions(model);
                 }
             }
@@ -2988,8 +3019,13 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
 
         // Environment updates (Sprint 03)
         UiUpdate::EnvironmentNames(names) => {
-            let model: ModelRc<SharedString> =
-                Rc::new(VecModel::from(names.into_iter().map(SharedString::from).collect::<Vec<_>>())).into();
+            let model: ModelRc<SharedString> = Rc::new(VecModel::from(
+                names
+                    .into_iter()
+                    .map(SharedString::from)
+                    .collect::<Vec<_>>(),
+            ))
+            .into();
             ui.set_environment_names(model);
         }
 
@@ -3004,8 +3040,13 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         } => {
             ui.set_resolved_url(resolved.into());
             ui.set_has_unresolved_variables(has_unresolved);
-            let unresolved_model: ModelRc<SharedString> =
-                Rc::new(VecModel::from(unresolved_names.into_iter().map(SharedString::from).collect::<Vec<_>>())).into();
+            let unresolved_model: ModelRc<SharedString> = Rc::new(VecModel::from(
+                unresolved_names
+                    .into_iter()
+                    .map(SharedString::from)
+                    .collect::<Vec<_>>(),
+            ))
+            .into();
             ui.set_unresolved_variables(unresolved_model);
         }
 
@@ -3071,7 +3112,8 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
             ui.set_theme_mode_index(theme_index);
             ui.set_font_scale_index(font_scale_index);
             ui.global::<VortexPalette>().set_dark_mode(dark_mode);
-            ui.global::<VortexTypography>().set_scale_factor(font_scale_factor);
+            ui.global::<VortexTypography>()
+                .set_scale_factor(font_scale_factor);
         }
 
         // History updates (Sprint 04)
@@ -3159,7 +3201,12 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         }
 
         // Sprint 05: Confirm dialog updates
-        UiUpdate::ShowConfirmDialog { title, message, item_id, item_type } => {
+        UiUpdate::ShowConfirmDialog {
+            title,
+            message,
+            item_id,
+            item_type,
+        } => {
             ui.set_confirm_dialog_title(title.into());
             ui.set_confirm_dialog_message(message.into());
             ui.set_pending_delete_id(item_id.into());
@@ -3172,7 +3219,14 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
         }
 
         // Sprint 05: Load full request (with headers, params, auth)
-        UiUpdate::LoadFullRequest { url, method, body, headers, query_params, auth } => {
+        UiUpdate::LoadFullRequest {
+            url,
+            method,
+            body,
+            headers,
+            query_params,
+            auth,
+        } => {
             ui.set_url(url.into());
             ui.set_method_index(method);
             ui.set_request_body(body.into());
@@ -3303,8 +3357,7 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
                     severity: w.severity.into(),
                 })
                 .collect();
-            let model: ModelRc<ImportWarningItem> =
-                Rc::new(VecModel::from(slint_warnings)).into();
+            let model: ModelRc<ImportWarningItem> = Rc::new(VecModel::from(slint_warnings)).into();
             ui.set_import_warnings(model);
 
             ui.set_import_state(ImportState::Previewing);
@@ -3405,8 +3458,8 @@ fn apply_update(ui: &MainWindow, update: UiUpdate) {
 /// Also auto-detects and imports Postman environments.
 fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<String, String> {
     // Parse Postman collection JSON
-    let collection: serde_json::Value = serde_json::from_str(content)
-        .map_err(|e| format!("Invalid JSON: {}", e))?;
+    let collection: serde_json::Value =
+        serde_json::from_str(content).map_err(|e| format!("Invalid JSON: {}", e))?;
 
     // Auto-detect: If this is an environment file (has "name" and "values" but no "info"),
     // redirect to environment import
@@ -3418,10 +3471,12 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
     }
 
     // Get collection info
-    let info = collection.get("info")
+    let info = collection
+        .get("info")
         .ok_or("Missing 'info' field in Postman collection")?;
 
-    let collection_name = info.get("name")
+    let collection_name = info
+        .get("name")
         .and_then(|n| n.as_str())
         .unwrap_or("Imported Collection")
         .to_string();
@@ -3446,7 +3501,8 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
     std::fs::write(
         collection_dir.join("collection.json"),
         serde_json::to_string_pretty(&coll_meta).unwrap_or_default(),
-    ).map_err(|e| format!("Failed to write collection.json: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to write collection.json: {}", e))?;
 
     // Import items
     if let Some(items) = collection.get("item").and_then(|i| i.as_array()) {
@@ -3458,10 +3514,15 @@ fn import_postman_collection(content: &str, workspace_path: &PathBuf) -> Result<
 
 /// Recursively import Postman items.
 fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Result<(), String> {
-    eprintln!("[IMPORT] Processing {} items in {:?}", items.len(), target_dir);
+    eprintln!(
+        "[IMPORT] Processing {} items in {:?}",
+        items.len(),
+        target_dir
+    );
 
     for item in items {
-        let name = item.get("name")
+        let name = item
+            .get("name")
             .and_then(|n| n.as_str())
             .unwrap_or("Unnamed");
 
@@ -3482,21 +3543,24 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
             std::fs::write(
                 subfolder.join("folder.json"),
                 serde_json::to_string_pretty(&folder_meta).unwrap_or_default(),
-            ).map_err(|e| format!("Failed to write folder.json for '{}': {}", name, e))?;
+            )
+            .map_err(|e| format!("Failed to write folder.json for '{}': {}", name, e))?;
 
             if let Some(sub_items) = item.get("item").and_then(|i| i.as_array()) {
                 import_postman_items(sub_items, &subfolder)?;
             }
         } else if let Some(request) = item.get("request") {
             // This is a request
-            let method = request.get("method")
+            let method = request
+                .get("method")
                 .and_then(|m| m.as_str())
                 .unwrap_or("GET");
 
             let url = extract_postman_url(request.get("url"));
 
             // Extract headers
-            let headers: std::collections::BTreeMap<String, String> = request.get("header")
+            let headers: std::collections::BTreeMap<String, String> = request
+                .get("header")
                 .and_then(|h| h.as_array())
                 .map(|arr| {
                     arr.iter()
@@ -3510,48 +3574,70 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                 .unwrap_or_default();
 
             // Extract body from Postman format
-            let body = request.get("body").and_then(|body_obj| {
-                let mode = body_obj.get("mode")?.as_str()?;
-                match mode {
-                    "raw" => body_obj.get("raw").and_then(|r| r.as_str()).map(|s| s.to_string()),
-                    "urlencoded" => {
-                        // Convert form-urlencoded to string representation
-                        body_obj.get("urlencoded").and_then(|arr| arr.as_array()).map(|items| {
-                            items.iter()
-                                .filter_map(|item| {
-                                    let key = item.get("key")?.as_str()?;
-                                    let value = item.get("value")?.as_str().unwrap_or("");
-                                    Some(format!("{}={}", key, value))
+            let body = request
+                .get("body")
+                .and_then(|body_obj| {
+                    let mode = body_obj.get("mode")?.as_str()?;
+                    match mode {
+                        "raw" => body_obj
+                            .get("raw")
+                            .and_then(|r| r.as_str())
+                            .map(|s| s.to_string()),
+                        "urlencoded" => {
+                            // Convert form-urlencoded to string representation
+                            body_obj
+                                .get("urlencoded")
+                                .and_then(|arr| arr.as_array())
+                                .map(|items| {
+                                    items
+                                        .iter()
+                                        .filter_map(|item| {
+                                            let key = item.get("key")?.as_str()?;
+                                            let value = item.get("value")?.as_str().unwrap_or("");
+                                            Some(format!("{}={}", key, value))
+                                        })
+                                        .collect::<Vec<_>>()
+                                        .join("&")
                                 })
-                                .collect::<Vec<_>>()
-                                .join("&")
-                        })
-                    }
-                    "formdata" => {
-                        // Convert form-data to JSON representation for display
-                        body_obj.get("formdata").and_then(|arr| arr.as_array()).map(|items| {
-                            let obj: serde_json::Map<String, serde_json::Value> = items.iter()
-                                .filter_map(|item| {
-                                    let key = item.get("key")?.as_str()?.to_string();
-                                    let value = item.get("value")?.as_str().unwrap_or("").to_string();
-                                    Some((key, serde_json::Value::String(value)))
+                        }
+                        "formdata" => {
+                            // Convert form-data to JSON representation for display
+                            body_obj
+                                .get("formdata")
+                                .and_then(|arr| arr.as_array())
+                                .map(|items| {
+                                    let obj: serde_json::Map<String, serde_json::Value> = items
+                                        .iter()
+                                        .filter_map(|item| {
+                                            let key = item.get("key")?.as_str()?.to_string();
+                                            let value = item
+                                                .get("value")?
+                                                .as_str()
+                                                .unwrap_or("")
+                                                .to_string();
+                                            Some((key, serde_json::Value::String(value)))
+                                        })
+                                        .collect();
+                                    serde_json::to_string_pretty(&obj).unwrap_or_default()
                                 })
-                                .collect();
-                            serde_json::to_string_pretty(&obj).unwrap_or_default()
-                        })
+                        }
+                        _ => None,
                     }
-                    _ => None,
-                }
-            }).unwrap_or_default();
+                })
+                .unwrap_or_default();
 
             // Extract query params from Postman URL as BTreeMap
-            let query_params: std::collections::BTreeMap<String, String> = request.get("url")
+            let query_params: std::collections::BTreeMap<String, String> = request
+                .get("url")
                 .and_then(|url_obj| url_obj.get("query"))
                 .and_then(|q| q.as_array())
                 .map(|arr| {
                     arr.iter()
                         .filter_map(|param| {
-                            let disabled = param.get("disabled").and_then(|d| d.as_bool()).unwrap_or(false);
+                            let disabled = param
+                                .get("disabled")
+                                .and_then(|d| d.as_bool())
+                                .unwrap_or(false);
                             if disabled {
                                 return None;
                             }
@@ -3563,7 +3649,12 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
                 })
                 .unwrap_or_default();
 
-            eprintln!("[IMPORT] Request: {} {} (body: {} chars)", method, name, body.len());
+            eprintln!(
+                "[IMPORT] Request: {} {} (body: {} chars)",
+                method,
+                name,
+                body.len()
+            );
 
             // Create Vortex request
             let mut vortex_request = serde_json::json!({
@@ -3602,7 +3693,8 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
             std::fs::write(
                 &file_path,
                 serde_json::to_string_pretty(&vortex_request).unwrap_or_default(),
-            ).map_err(|e| format!("Failed to write request '{}': {}", name, e))?;
+            )
+            .map_err(|e| format!("Failed to write request '{}': {}", name, e))?;
         }
     }
 
@@ -3613,12 +3705,11 @@ fn import_postman_items(items: &[serde_json::Value], target_dir: &PathBuf) -> Re
 fn extract_postman_url(url_value: Option<&serde_json::Value>) -> String {
     match url_value {
         Some(serde_json::Value::String(s)) => s.clone(),
-        Some(serde_json::Value::Object(obj)) => {
-            obj.get("raw")
-                .and_then(|r| r.as_str())
-                .unwrap_or("")
-                .to_string()
-        }
+        Some(serde_json::Value::Object(obj)) => obj
+            .get("raw")
+            .and_then(|r| r.as_str())
+            .unwrap_or("")
+            .to_string(),
         _ => String::new(),
     }
 }
@@ -3639,7 +3730,9 @@ fn export_vortex_collection(workspace_path: &PathBuf, output_path: &PathBuf) -> 
             let path = entry.path();
             if path.is_dir() {
                 if let Ok(collection) = export_collection_dir(&path) {
-                    if let Some(collections) = export.get_mut("collections").and_then(|c| c.as_array_mut()) {
+                    if let Some(collections) =
+                        export.get_mut("collections").and_then(|c| c.as_array_mut())
+                    {
                         collections.push(collection);
                     }
                 }
@@ -3647,8 +3740,11 @@ fn export_vortex_collection(workspace_path: &PathBuf, output_path: &PathBuf) -> 
         }
     }
 
-    std::fs::write(output_path, serde_json::to_string_pretty(&export).unwrap_or_default())
-        .map_err(|e| format!("Failed to write export file: {}", e))?;
+    std::fs::write(
+        output_path,
+        serde_json::to_string_pretty(&export).unwrap_or_default(),
+    )
+    .map_err(|e| format!("Failed to write export file: {}", e))?;
 
     Ok(())
 }
@@ -3703,7 +3799,9 @@ fn generate_curl_command(state: &AppState) -> String {
     let mut parts = vec!["curl".to_string()];
 
     // Method
-    let method = match state.tabs.iter()
+    let method = match state
+        .tabs
+        .iter()
         .find(|t| state.active_tab_id.as_ref() == Some(&t.id))
         .map(|t| t.method)
         .unwrap_or(0)
@@ -3736,24 +3834,37 @@ fn generate_curl_command(state: &AppState) -> String {
     match state.auth_data.auth_type {
         1 => {
             if !state.auth_data.bearer_token.is_empty() {
-                parts.push(format!("-H 'Authorization: Bearer {}'", state.auth_data.bearer_token));
+                parts.push(format!(
+                    "-H 'Authorization: Bearer {}'",
+                    state.auth_data.bearer_token
+                ));
             }
         }
         2 => {
             if !state.auth_data.basic_username.is_empty() {
-                parts.push(format!("-u '{}:{}'", state.auth_data.basic_username, state.auth_data.basic_password));
+                parts.push(format!(
+                    "-u '{}:{}'",
+                    state.auth_data.basic_username, state.auth_data.basic_password
+                ));
             }
         }
         3 => {
             if !state.auth_data.api_key_name.is_empty() && state.auth_data.api_key_location == 0 {
-                parts.push(format!("-H '{}: {}'", state.auth_data.api_key_name, state.auth_data.api_key_value));
+                parts.push(format!(
+                    "-H '{}: {}'",
+                    state.auth_data.api_key_name, state.auth_data.api_key_value
+                ));
             }
         }
         _ => {}
     }
 
     // Body
-    if let Some(tab) = state.tabs.iter().find(|t| state.active_tab_id.as_ref() == Some(&t.id)) {
+    if let Some(tab) = state
+        .tabs
+        .iter()
+        .find(|t| state.active_tab_id.as_ref() == Some(&t.id))
+    {
         if !tab.body.is_empty() && (method == "POST" || method == "PUT" || method == "PATCH") {
             parts.push(format!("-d '{}'", tab.body.replace('\'', "'\\''")));
         }
@@ -3812,7 +3923,8 @@ fn collect_requests_for_search<'a>(
                     // This is a request file
                     if let Ok(content) = tokio::fs::read_to_string(&path).await {
                         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                            let name = json.get("name")
+                            let name = json
+                                .get("name")
                                 .and_then(|n| n.as_str())
                                 .unwrap_or_else(|| {
                                     path.file_stem()
@@ -3821,12 +3933,14 @@ fn collect_requests_for_search<'a>(
                                 })
                                 .to_string();
 
-                            let method = json.get("method")
+                            let method = json
+                                .get("method")
                                 .and_then(|m| m.as_str())
                                 .unwrap_or("GET")
                                 .to_string();
 
-                            let url = json.get("url")
+                            let url = json
+                                .get("url")
                                 .and_then(|u| u.as_str())
                                 .unwrap_or("")
                                 .to_string();
@@ -3849,17 +3963,19 @@ fn collect_requests_for_search<'a>(
 
 /// Import a Postman environment file.
 fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result<String, String> {
-    let env: serde_json::Value = serde_json::from_str(content)
-        .map_err(|e| format!("Invalid JSON: {}", e))?;
+    let env: serde_json::Value =
+        serde_json::from_str(content).map_err(|e| format!("Invalid JSON: {}", e))?;
 
     // Postman environment format has "name" and "values" at the root level
     // (unlike collections which have "info")
-    let name = env.get("name")
+    let name = env
+        .get("name")
         .and_then(|n| n.as_str())
         .ok_or("Missing 'name' field - this may not be a Postman environment file")?
         .to_string();
 
-    let values = env.get("values")
+    let values = env
+        .get("values")
         .and_then(|v| v.as_array())
         .ok_or("Missing 'values' field - this may not be a Postman environment file")?;
 
@@ -3869,7 +3985,8 @@ fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result
         .map_err(|e| format!("Failed to create environments directory: {}", e))?;
 
     // Convert Postman variables to Vortex format
-    let variables: Vec<serde_json::Value> = values.iter()
+    let variables: Vec<serde_json::Value> = values
+        .iter()
         .filter_map(|v| {
             let key = v.get("key")?.as_str()?;
             let value = v.get("value")?.as_str().unwrap_or("");
@@ -3899,7 +4016,8 @@ fn import_postman_environment(content: &str, workspace_path: &PathBuf) -> Result
     std::fs::write(
         &file_path,
         serde_json::to_string_pretty(&vortex_env).unwrap_or_default(),
-    ).map_err(|e| format!("Failed to write environment file: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to write environment file: {}", e))?;
 
     Ok(name)
 }
@@ -3919,7 +4037,11 @@ fn persistence_auth_to_ui(auth: Option<&PersistenceAuth>) -> AuthData {
             basic_password: password.clone(),
             ..AuthData::default()
         },
-        Some(PersistenceAuth::ApiKey { key, value, location }) => AuthData {
+        Some(PersistenceAuth::ApiKey {
+            key,
+            value,
+            location,
+        }) => AuthData {
             auth_type: 3,
             api_key_name: key.clone(),
             api_key_value: value.clone(),
@@ -3930,8 +4052,8 @@ fn persistence_auth_to_ui(auth: Option<&PersistenceAuth>) -> AuthData {
             ..AuthData::default()
         },
         // OAuth2 types default to None for now (not supported in UI yet)
-        Some(PersistenceAuth::Oauth2ClientCredentials { .. }) |
-        Some(PersistenceAuth::Oauth2AuthCode { .. }) => AuthData::default(),
+        Some(PersistenceAuth::Oauth2ClientCredentials { .. })
+        | Some(PersistenceAuth::Oauth2AuthCode { .. }) => AuthData::default(),
     }
 }
 
@@ -3940,12 +4062,21 @@ fn ui_auth_to_persistence(auth: &AuthData) -> Option<PersistenceAuth> {
     match auth.auth_type {
         0 => None, // No auth
         1 => Some(PersistenceAuth::bearer(&auth.bearer_token)),
-        2 => Some(PersistenceAuth::basic(&auth.basic_username, &auth.basic_password)),
+        2 => Some(PersistenceAuth::basic(
+            &auth.basic_username,
+            &auth.basic_password,
+        )),
         3 => {
             if auth.api_key_location == 0 {
-                Some(PersistenceAuth::api_key_header(&auth.api_key_name, &auth.api_key_value))
+                Some(PersistenceAuth::api_key_header(
+                    &auth.api_key_name,
+                    &auth.api_key_value,
+                ))
             } else {
-                Some(PersistenceAuth::api_key_query(&auth.api_key_name, &auth.api_key_value))
+                Some(PersistenceAuth::api_key_query(
+                    &auth.api_key_name,
+                    &auth.api_key_value,
+                ))
             }
         }
         _ => None,
@@ -3975,14 +4106,18 @@ fn build_saved_request_from_tab(tab: &TabState) -> SavedRequest {
     // Add headers
     for header in &tab.headers {
         if header.enabled {
-            request.headers.insert(header.key.clone(), header.value.clone());
+            request
+                .headers
+                .insert(header.key.clone(), header.value.clone());
         }
     }
 
     // Add query params
     for param in &tab.query_params {
         if param.enabled {
-            request.query_params.insert(param.key.clone(), param.value.clone());
+            request
+                .query_params
+                .insert(param.key.clone(), param.value.clone());
         }
     }
 
@@ -4001,4 +4136,3 @@ fn build_saved_request_from_tab(tab: &TabState) -> SavedRequest {
 
     request
 }
-

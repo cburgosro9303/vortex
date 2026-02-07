@@ -39,7 +39,11 @@ pub struct ImportWarning {
 
 impl ImportWarning {
     /// Create a new warning
-    pub fn new(path: impl Into<String>, message: impl Into<String>, severity: WarningSeverity) -> Self {
+    pub fn new(
+        path: impl Into<String>,
+        message: impl Into<String>,
+        severity: WarningSeverity,
+    ) -> Self {
         Self {
             path: path.into(),
             message: message.into(),
