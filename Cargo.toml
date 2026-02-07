@@ -38,7 +38,7 @@ thiserror = "2.0.18"
 slint = "1.14.1"
 
 # HTTP Client
-reqwest = { version = "0.13.1", features = ["json", "rustls", "http2", "multipart", "stream"], default-features = false }
+reqwest = { version = "0.13.2", features = ["json", "rustls", "http2", "multipart", "stream"], default-features = false }
 
 # URL encoding
 serde_urlencoded = "0.7.1"
@@ -54,7 +54,7 @@ url = { version = "2.5.8", features = ["serde"] }
 rand = "0.9"
 async-trait = "0.1.89"
 base64 = "0.22"
-regex = "1.12.1"
+regex = "1.12.3"
 
 # Testing
 pretty_assertions = "1.4.1"
