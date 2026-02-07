@@ -363,7 +363,7 @@ impl TabState {
     /// Creates a new empty tab state.
     pub fn new_empty() -> Self {
         Self {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: uuid::Uuid::now_v7().to_string(),
             name: "New Request".to_string(),
             method: 0,
             url: String::new(),
@@ -572,6 +572,9 @@ pub enum UiUpdate {
     // --- Sprint 04: Import Dialog Updates ---
     /// Import file selected (from browse).
     ImportFileSelected { file_path: String },
+
+    /// Import validation started.
+    ImportValidating,
 
     /// Import preview ready.
     ImportPreview {

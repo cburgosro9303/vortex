@@ -411,7 +411,7 @@ pub fn map_postman_item(
 
         return (
             Some(MappedItem::Request(MappedRequest {
-                id: uuid::Uuid::new_v4().to_string(),
+                id: uuid::Uuid::now_v7().to_string(),
                 name: item.name.clone(),
                 description: item.description.clone().or(request.description.clone()),
                 method: map_http_method(&request.method),
